@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>СЛОГИ — Все объекты</title><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/><meta http-equiv="Pragma" content="no-cache"/><meta http-equiv="Expires" content="0"/><link href="favicon.svg?v=4" rel="icon" type="image/svg+xml"/><link href="favicon-32.png?v=4" rel="icon" sizes="32x32" type="image/png"/><link href="apple-touch-icon.png?v=4" rel="apple-touch-icon"/>
+<style>
+:root{
+  --teal:#4B6E73; --teal-deep:#37545A; --teal-pale:#E7EFEF;
+  --tan:#D7B987; --tan-deep:#B8925C; --tan-pale:#F3E9D7;
+  --orange:#E19B2D; --orange-deep:#C97F16; --cream:#FDF6F4;
+  --ink:#33474B; --ink-soft:#6B7E82; --line:#EAD9CE; --white:#FFFFFF;
+  --danger:#A5483D; --danger-pale:#F8E9E6;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{background:var(--cream);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;}
+.site-header{position:sticky;top:0;z-index:20;background:rgba(253,246,244,.96);backdrop-filter:blur(10px);border-bottom:1px solid var(--tan);}
+.site-header .top{max-width:1260px;min-height:78px;margin:0 auto;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:nowrap;}
+.site-header .brand{display:flex;align-items:center;gap:16px;min-width:0;flex:1 1 auto;}
+.logo-link{display:inline-flex;align-items:center;flex:none;text-decoration:none;transform:translateY(-4px);}
+.logo-word{display:flex;gap:4px;align-items:center;padding:0;}
+.logo-word span{width:34px;height:34px;border-radius:4px;display:grid;place-items:center;color:white;font-size:22px;font-weight:900;line-height:1;}
+.logo-word span:nth-child(1),.logo-word span:nth-child(2){background:var(--teal);}
+.logo-word span:nth-child(3),.logo-word span:nth-child(4){background:var(--tan);}
+.logo-word span:nth-child(5){background:var(--orange);transform:translateY(-7px);}
+.site-header .title-wrap{border-left:2px solid var(--tan);padding-left:16px;min-width:0;}
+.site-header h1{margin:0;font-size:17px;text-transform:uppercase;color:var(--teal-deep);letter-spacing:.035em;}
+.site-header .subtitle{font-size:12px;color:var(--ink-soft);margin-top:4px;}
+.site-header .header-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex:none;flex-wrap:wrap;}
+.top-menu-link{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:9px 14px;border-radius:10px;border:1.5px solid var(--teal);color:var(--teal-deep);background:var(--white);text-decoration:none;font-size:12.5px;font-weight:800;white-space:nowrap;transition:.15s ease;}
+.top-menu-link:hover{background:var(--teal-pale);}
+.btn{border:none;border-radius:10px;padding:10px 15px;background:var(--teal);color:white;font-size:13px;font-weight:800;text-decoration:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:.15s ease;}
+.btn:hover{background:var(--teal-deep);}
+.btn:disabled{opacity:.55;cursor:progress;}
+main{max-width:1180px;margin:0 auto;padding:26px 22px 70px;}
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:20px;}
+.search{flex:1 1 280px;max-width:520px;border:1.5px solid var(--line);background:white;border-radius:11px;padding:11px 13px;font:inherit;font-size:14px;outline:none;}
+.search:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(75,110,115,.12);}
+.summary{font-size:12.5px;color:var(--ink-soft);font-weight:700;}
+.locations{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;}
+.location-card{display:flex;flex-direction:column;background:white;border:1px solid var(--line);border-radius:16px;overflow:hidden;transition:transform .15s,box-shadow .15s,border-color .15s;}
+.location-card:hover{transform:translateY(-2px);border-color:var(--tan);box-shadow:0 10px 26px rgba(51,71,75,.08);}
+.card-main{display:block;text-decoration:none;color:inherit;padding:18px 18px 15px;flex:1;}
+.address{margin:0 0 14px;font-size:17px;color:var(--teal-deep);line-height:1.35;overflow-wrap:anywhere;}
+.meta{display:grid;grid-template-columns:1fr auto;gap:8px 14px;font-size:12px;color:var(--ink-soft);align-items:center;}
+.meta strong{color:var(--ink);font-size:13px;}
+.total{font-size:20px;color:var(--orange-deep);font-weight:900;text-align:right;}
+.file-tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px;}
+.tag{font-size:10.5px;font-weight:750;background:var(--teal-pale);color:var(--teal-deep);border-radius:999px;padding:5px 8px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.card-actions{display:grid;grid-template-columns:1fr 1.25fr auto;gap:8px;padding:12px 14px 14px;border-top:1px solid var(--line);background:#fffcfa;}
+.action-btn{min-height:40px;padding:9px 12px;border-radius:9px;border:1.5px solid var(--teal);background:white;color:var(--teal-deep);font:inherit;font-size:12px;font-weight:850;cursor:pointer;transition:.15s ease;}
+.action-btn:hover{background:var(--teal-pale);}
+.action-btn.download{background:var(--teal);color:white;}
+.action-btn.download:hover{background:var(--teal-deep);}
+.action-btn.delete{border-color:#D6AAA3;color:var(--danger);background:white;min-width:44px;font-size:16px;}
+.action-btn.delete:hover{background:var(--danger-pale);}
+.action-btn:disabled{opacity:.55;cursor:progress;}
+.empty{background:white;border:1px dashed var(--tan);border-radius:18px;padding:50px 24px;text-align:center;}
+.empty h2{margin:0 0 9px;color:var(--teal-deep);font-size:20px;}
+.empty p{margin:0 auto 20px;max-width:520px;color:var(--ink-soft);line-height:1.55;font-size:13.5px;}
+.notice{display:none;background:var(--tan-pale);border:1px solid var(--tan);color:var(--tan-deep);border-radius:12px;padding:12px 14px;margin-bottom:18px;font-size:12.5px;line-height:1.5;}
+.notice.show{display:block;}
+.notice.error{background:var(--danger-pale);border-color:#D6AAA3;color:var(--danger);}
+@media(max-width:1020px){.site-header .top{flex-wrap:wrap}.site-header .header-actions{width:100%;justify-content:stretch}.site-header .top-menu-link{flex:1 1 160px}}
+@media(max-width:720px){
+  .locations{grid-template-columns:1fr}.site-header .top{padding:15px 18px}.logo-word span{width:29px;height:29px;font-size:19px}.site-header .title-wrap{padding-left:12px}.site-header h1{font-size:14px}.site-header .header-actions{gap:9px}.site-header .top-menu-link{width:100%;flex-basis:100%}main{padding:22px 16px 60px}.toolbar{align-items:stretch}.search{max-width:none}.meta{grid-template-columns:1fr}.total{text-align:left}.card-actions{grid-template-columns:1fr 1fr auto;}
+}
+@media(max-width:430px){.card-actions{grid-template-columns:1fr auto}.action-btn.open{display:none}.action-btn.download{grid-column:1}.action-btn.delete{grid-column:2}}
+
+/* --- единая шапка сайта: одинаковая на всех страницах --- */
+.site-header{position:sticky;top:0;z-index:20;background:rgba(253,246,244,.96);backdrop-filter:blur(10px);border-bottom:1px solid var(--tan)}
+.site-header .top{width:100%;max-width:1260px;min-height:78px;margin:0 auto;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:nowrap}
+.site-header .brand{display:flex;align-items:center;gap:16px;min-width:0;flex:1 1 auto}
+.site-header .logo-link{display:inline-flex;align-items:center;flex:none;text-decoration:none;transform:translateY(-4px)}
+.site-header .logo-word{display:flex;gap:4px;align-items:center;padding:0}
+.site-header .logo-word span{width:34px;height:34px;border-radius:4px;display:grid;place-items:center;color:#fff;font-size:22px;font-weight:900;line-height:1}
+.site-header .logo-word span:nth-child(1),.site-header .logo-word span:nth-child(2){background:var(--teal)}
+.site-header .logo-word span:nth-child(3),.site-header .logo-word span:nth-child(4){background:var(--tan)}
+.site-header .logo-word span:nth-child(5){background:var(--orange);transform:translateY(-7px)}
+.site-header .title-wrap{border-left:2px solid var(--tan);padding-left:16px;min-width:0}
+.site-header h1{margin:0;font-size:17px;text-transform:uppercase;color:var(--teal-deep);letter-spacing:.035em;line-height:1.25}
+.site-header .subtitle{font-size:12px;color:var(--ink-soft);margin-top:4px;line-height:1.35}
+.site-header .header-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex:none;flex-wrap:wrap}
+.site-header .top-menu-link{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:9px 14px;border-radius:10px;border:1.5px solid var(--teal);color:var(--teal-deep);background:var(--white);text-decoration:none;font-size:12.5px;font-weight:800;white-space:nowrap;transition:.15s ease;cursor:pointer}
+.site-header .top-menu-link:hover{background:var(--teal-pale)}
+@media(max-width:1020px){
+  .site-header .top{flex-wrap:wrap}
+  .site-header .header-actions{width:100%;justify-content:stretch}
+  .site-header .top-menu-link{flex:1 1 160px}
+}
+@media(max-width:680px){
+  .site-header .top{padding:15px 18px}
+  .site-header .logo-word span{width:29px;height:29px;font-size:19px}
+  .site-header .title-wrap{padding-left:12px}
+  .site-header h1{font-size:14px}
+  .site-header .header-actions{gap:9px}
+  .site-header .top-menu-link{width:100%;flex-basis:100%}
+}
+
+</style>
+<style id="unified-header-style">
+/* === Единая шапка и бургер === */
+.site-header{position:sticky!important;top:0;z-index:1000;background:rgba(253,246,244,.97)!important;backdrop-filter:blur(10px);border-bottom:1px solid var(--tan)}
+.site-header .top{width:100%;max-width:1260px;min-height:78px;margin:0 auto;padding:14px 22px!important;display:flex!important;align-items:center!important;justify-content:space-between;gap:14px;flex-wrap:nowrap!important}
+.site-header .brand{display:flex!important;align-items:center!important;gap:16px;min-width:0;flex:1 1 auto}
+.site-header .logo-link{display:inline-flex!important;align-items:center;flex:none;text-decoration:none;transform:translateY(-2px)!important}
+.site-header .logo-word{display:flex;gap:4px;align-items:center;padding:0}
+.site-header .logo-word span{width:34px;height:34px;border-radius:4px;display:grid;place-items:center;color:#fff;font-size:22px;font-weight:900;line-height:1}
+.site-header .logo-word span:nth-child(1),.site-header .logo-word span:nth-child(2){background:var(--teal)}
+.site-header .logo-word span:nth-child(3),.site-header .logo-word span:nth-child(4){background:var(--tan)}
+.site-header .logo-word span:nth-child(5){background:var(--orange);transform:translateY(-8px)}
+.site-header .title-wrap{border-left:2px solid var(--tan);padding-left:16px;min-width:0}
+.site-header h1{margin:0;font-size:17px;text-transform:uppercase;color:var(--teal-deep);letter-spacing:.035em;line-height:1.22}
+.site-header .subtitle{font-size:12px;color:var(--ink-soft);margin-top:4px;line-height:1.35}
+.site-header .header-actions{display:flex!important;align-items:center;justify-content:flex-end;gap:9px;flex:none;flex-wrap:nowrap}
+.site-header .top-menu-link{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:9px 12px;border-radius:10px;border:1.5px solid var(--teal);color:var(--teal-deep);background:#fff;text-decoration:none;font-size:12px;font-weight:800;white-space:nowrap;transition:.15s ease}
+.site-header .top-menu-link:hover,.site-header .top-menu-link.active{background:var(--teal-pale)}
+.menu-toggle{display:none;width:42px;height:40px;border:1.5px solid var(--teal);border-radius:10px;background:#fff;cursor:pointer;padding:9px;flex-direction:column;justify-content:space-between;align-items:stretch}
+.menu-toggle span{display:block;height:2px;border-radius:3px;background:var(--teal-deep)}
+@media(max-width:960px){
+  .site-header .top{flex-wrap:wrap!important;padding:12px 16px!important}
+  .site-header .brand{gap:12px}
+  .menu-toggle{display:flex;margin-left:auto}
+  .site-header .header-actions{display:none!important;order:10;width:100%;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding-top:2px}
+  .site-header .header-actions.open{display:grid!important}
+  .site-header .top-menu-link{width:100%;white-space:normal;text-align:center}
+}
+@media(max-width:600px){
+  .site-header .logo-word span{width:28px;height:28px;font-size:18px}
+  .site-header .logo-word span:nth-child(5){transform:translateY(-7px)}
+  .site-header .title-wrap{padding-left:10px}
+  .site-header h1{font-size:13px}
+  .site-header .subtitle{display:none}
+  .site-header .header-actions{grid-template-columns:1fr}
+}
+</style><style id="locations-map-style">
+/* === Карта объектов === */
+.view-switch{display:flex;gap:7px;align-items:center;margin-left:auto}
+.view-btn{border:1.5px solid var(--teal);background:#fff;color:var(--teal-deep);border-radius:9px;padding:9px 13px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+.view-btn.active{background:var(--teal);color:#fff}
+.map-panel{display:none;background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:20px;overflow:hidden}
+.map-panel.show{display:block}
+#locations-map{height:520px;border-radius:11px;overflow:hidden;background:var(--teal-pale)}
+.map-status{font-size:12px;color:var(--ink-soft);padding:10px 4px 2px;line-height:1.45}
+.map-key-panel{display:none;gap:10px;align-items:center;flex-wrap:wrap;padding:12px;margin-bottom:10px;border:1px solid var(--tan);border-radius:11px;background:var(--tan-pale)}
+.map-key-panel.show{display:flex}.map-key-panel label{width:100%;font-size:12px;font-weight:800;color:var(--teal-deep)}
+.map-key-panel input{flex:1 1 320px;border:1.5px solid var(--line);border-radius:9px;padding:10px 12px;font:inherit;background:#fff;min-width:0}
+.map-key-panel button{border:0;border-radius:9px;padding:10px 14px;background:var(--teal);color:#fff;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+.locations.map-hidden{display:none}
+.map-popup-address{font-weight:800;color:#37545A;margin-bottom:6px}.map-popup-total{color:#C97F16;font-weight:800}.map-popup-link{display:inline-block;margin-top:8px;color:#37545A;font-weight:800}
+@media(max-width:720px){#locations-map{height:440px}.view-switch{width:100%}.view-btn{flex:1}}
+</style><script src="yandex-map-config.js?v=5"></script><script src="clusters-data.js?v=1"></script><script src="cloud-sync.js?v=5"></script><link rel="stylesheet" href="objects-dashboard.css?v=1"/><link href="visual-harmony.css?v=7" rel="stylesheet"/></head>
+<body>
+<header class="site-header"><div class="top">
+<div class="brand"><a aria-label="СЛОГИ — все объекты" class="logo-link" href="index.html" id="logo-link"><div aria-hidden="true" class="logo-word"><span>С</span><span>Л</span><span>О</span><span>Г</span><span>И</span></div></a><div class="title-wrap"><h1>Все объекты</h1><div class="subtitle">Сохранённые объекты, документы и сметы</div></div></div>
+
+
+</div></header>
+<main class="objects-main">
+<div class="notice" id="notice"></div>
+<section class="objects-toolbar">
+  <div class="toolbar-fields">
+    <input class="search" id="location-search" placeholder="Найти объект по адресу…" type="search"/>
+    <select class="cluster-filter" id="cluster-filter" aria-label="Фильтр по кластерам"><option value="">Все кластеры</option></select>
+  </div>
+  <div class="toolbar-actions">
+    <div class="summary" id="summary"></div>
+    <a class="btn add-object-btn" href="passport.html">+ Добавить новый объект</a>
+  </div>
+</section>
+<section class="objects-dashboard">
+  <div class="map-column">
+    <div aria-label="Карта объектов Москвы и Московской области" id="locations-map"></div>
+    <div class="map-status" id="map-status"></div>
+  </div>
+  <aside class="objects-list-column">
+    <div class="list-column-head"><h2>Объекты</h2><span id="cluster-context">Все сохранённые адреса</span></div>
+    <div class="locations" id="locations"></div>
+  </aside>
+</section>
+</main>
+<script>
+const STORAGE_KEY = 'slogi_locations_v1';
+const FILES_DB_NAME = 'slogi_files_v1';
+const FILES_STORE_NAME = 'attachments';
+const fmtMoney = value => Math.round(Number(value) || 0).toLocaleString('ru-RU') + ' ₽';
+const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+
+function showNotice(text, isError=false){
+  const el = document.getElementById('notice');
+  el.textContent = text || '';
+  el.className = 'notice' + (text ? ' show' : '') + (isError ? ' error' : '');
+}
+function readLocations(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const data = raw ? JSON.parse(raw) : [];
+    return Array.isArray(data) ? data : [];
+  }catch(err){
+    showNotice('Браузер не дал доступ к сохранённым данным сайта.', true);
+    return [];
+  }
+}
+function writeLocations(items){ localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); }
+function formatDate(iso){
+  if(!iso) return 'дата не указана';
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? 'дата не указана' : date.toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+function safeFileName(value, fallback='файл'){
+  const clean = String(value || '').trim().replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, ' ').slice(0,120);
+  return clean || fallback;
+}
+function openFilesDb(){
+  return new Promise((resolve, reject) => {
+    if(!('indexedDB' in window)) return reject(new Error('Браузер не поддерживает хранилище файлов.'));
+    const request = indexedDB.open(FILES_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if(!db.objectStoreNames.contains(FILES_STORE_NAME)) db.createObjectStore(FILES_STORE_NAME, {keyPath:'key'});
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('Не удалось открыть хранилище файлов.'));
+  });
+}
+async function getAttachment(locationId, type){
+  const cloud=window.SlogiCloud&&await window.SlogiCloud.getAttachment(locationId,type); if(cloud)return cloud;
+  try{
+    const db = await openFilesDb();
+    const result = await new Promise((resolve, reject) => {
+      const request = db.transaction(FILES_STORE_NAME, 'readonly').objectStore(FILES_STORE_NAME).get(locationId + ':' + type);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+    return result;
+  }catch(err){ return null; }
+}
+async function deleteAttachments(locationId){
+  if(window.SlogiCloud)await window.SlogiCloud.deleteAttachments(locationId);
+  try{
+    const db = await openFilesDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(FILES_STORE_NAME, 'readwrite');
+      const store = tx.objectStore(FILES_STORE_NAME);
+      store.delete(locationId + ':plan');
+      store.delete(locationId + ':spec');
+      store.delete(locationId + ':proposal');
+      store.delete(locationId + ':estimate');
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  }catch(err){}
+}
+function evalQty(expr, paramValues){
+  if(typeof expr === 'number') return expr;
+  let e = String(expr).replace(/\$/g, '');
+  const addrs = Object.keys(paramValues || {}).sort((x,y)=>y.length-x.length);
+  for(const addr of addrs) e = e.replace(new RegExp('\\b' + addr + '\\b','g'), paramValues[addr]);
+  if(!/^[0-9+\-*/(). ,A-Za-z]+$/.test(e)) return 0;
+  try{return Function('"use strict";function ROUND(x,n){n=n||0;const f=Math.pow(10,n);return Math.round(x*f)/f;}return (' + e + ')')();}catch(err){return 0;}
+}
+function computeEstimateFor(model, state){
+  let grand = 0;
+  const cats = ((model && model.categories) || []).map(cat => {
+    let catSum = 0;
+    const subs = (cat.subs || []).map(sb => {
+      let subSum = 0;
+      const items = (sb.items || []).map(it => {
+        const qty = evalQty(it.qty_expr, state || {});
+        const cost = Number.isFinite(Number(it.manual_cost)) ? Number(it.manual_cost) : (Number(it.price)||0) * qty;
+        subSum += cost;
+        return Object.assign({}, it, {qty,cost});
+      });
+      catSum += subSum;
+      return Object.assign({}, sb, {items,subSum});
+    });
+    grand += catSum;
+    return Object.assign({}, cat, {subs,catSum});
+  });
+  return {cats,grand};
+}
+function escapeSpreadsheet(value){return String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+async function createEstimateExcelBlob(record){
+  const model = record.model || {categories:[]};
+  const state = record.state || {};
+  const address = record.address || '';
+  const result = computeEstimateFor(model, state);
+  const rows = [];
+  const merges = ['A1:F1','A2:F2','A3:F3'];
+  let rowNo = 1;
+  const textCell = (ref, value, style=7) => `<c r="${ref}" t="inlineStr" s="${style}"><is><t xml:space="preserve">${escapeSpreadsheet(value)}</t></is></c>`;
+  const numCell = (ref, value, style=4) => `<c r="${ref}" s="${style}"><v>${Number(value)||0}</v></c>`;
+  rows.push(`<row r="${rowNo}" ht="28" customHeight="1">${textCell('A'+rowNo,'СМЕТА',1)}</row>`); rowNo++;
+  rows.push(`<row r="${rowNo}">${textCell('A'+rowNo,'Объект: '+(address||'Адрес не указан'),7)}</row>`); rowNo++;
+  rows.push(`<row r="${rowNo}">${textCell('A'+rowNo,'Сформировано: '+new Date().toLocaleString('ru-RU'),7)}</row>`); rowNo++;
+  rows.push(`<row r="${rowNo}"></row>`); rowNo++;
+  merges.push(`A${rowNo}:F${rowNo}`);
+  rows.push(`<row r="${rowNo}" ht="22" customHeight="1">${textCell('A'+rowNo,'ВХОДНЫЕ ПАРАМЕТРЫ',2)}</row>`); rowNo++;
+  const inputParams = Array.isArray(model.params) ? model.params : [];
+  if(inputParams.length){
+    inputParams.forEach(param => {
+      merges.push(`A${rowNo}:E${rowNo}`);
+      const paramValue = Object.prototype.hasOwnProperty.call(state || {}, param.address) ? state[param.address] : param.value;
+      const valueCell = paramValue !== '' && Number.isFinite(Number(paramValue))
+        ? numCell('F'+rowNo, Number(paramValue), 4)
+        : textCell('F'+rowNo, paramValue ?? '', 7);
+      rows.push(`<row r="${rowNo}">${textCell('A'+rowNo,param.label || param.address || 'Параметр',7)}${valueCell}</row>`); rowNo++;
+    });
+  }else{
+    merges.push(`A${rowNo}:F${rowNo}`);
+    rows.push(`<row r="${rowNo}">${textCell('A'+rowNo,'Входные параметры не заданы',7)}</row>`); rowNo++;
+  }
+  rows.push(`<row r="${rowNo}"></row>`); rowNo++;
+  rows.push(`<row r="${rowNo}" ht="24" customHeight="1">${['№','Тип','Наименование','Цена, ₽','Количество','Стоимость, ₽'].map((v,i)=>textCell(String.fromCharCode(65+i)+rowNo,v,6)).join('')}</row>`);
+  const headerRow = rowNo;
+  rowNo++;
+  result.cats.forEach(cat => {
+    merges.push(`A${rowNo}:E${rowNo}`);
+    rows.push(`<row r="${rowNo}">${textCell('A'+rowNo,cat.top||'Без раздела',2)}${numCell('F'+rowNo,Math.round(cat.catSum),2)}</row>`); rowNo++;
+    cat.subs.forEach(sb => {
+      merges.push(`A${rowNo}:E${rowNo}`);
+      rows.push(`<row r="${rowNo}">${textCell('A'+rowNo,sb.sub||'',3)}${numCell('F'+rowNo,Math.round(sb.subSum),3)}</row>`); rowNo++;
+      sb.items.forEach(it => {
+        rows.push(`<row r="${rowNo}">${textCell('A'+rowNo,it.num||'',7)}${textCell('B'+rowNo,it.group||'',7)}${textCell('C'+rowNo,it.name||'',7)}${numCell('D'+rowNo,Number(it.price)||0,4)}${numCell('E'+rowNo,Math.round(it.qty*100)/100,4)}${numCell('F'+rowNo,Math.round(it.cost),4)}</row>`); rowNo++;
+      });
+    });
+  });
+  merges.push(`A${rowNo}:E${rowNo}`);
+  rows.push(`<row r="${rowNo}" ht="25" customHeight="1">${textCell('A'+rowNo,'ИТОГО',5)}${numCell('F'+rowNo,Math.round(result.grand),5)}</row>`);
+  const lastRow = rowNo;
+  const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:F${lastRow}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="${headerRow}" topLeftCell="A${headerRow+1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols><col min="1" max="1" width="12" customWidth="1"/><col min="2" max="2" width="25" customWidth="1"/><col min="3" max="3" width="70" customWidth="1"/><col min="4" max="6" width="16" customWidth="1"/></cols><sheetData>${rows.join('')}</sheetData><autoFilter ref="A${headerRow}:F${lastRow}"/><mergeCells count="${merges.length}">${merges.map(ref=>`<mergeCell ref="${ref}"/>`).join('')}</mergeCells><pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.2" footer="0.2"/></worksheet>`;
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="14"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF37545A"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE7EFEF"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF3E9D7"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE19B2D"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFEAD9CE"/></left><right style="thin"><color rgb="FFEAD9CE"/></right><top style="thin"><color rgb="FFEAD9CE"/></top><bottom style="thin"><color rgb="FFEAD9CE"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="8"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="4" fontId="2" fillId="3" borderId="1" xfId="0" applyNumberFormat="1"/><xf numFmtId="4" fontId="2" fillId="4" borderId="1" xfId="0" applyNumberFormat="1"/><xf numFmtId="4" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="right" vertical="top"/></xf><xf numFmtId="4" fontId="1" fillId="5" borderId="1" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Обычный" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const files = [
+    {name:'[Content_Types].xml',blob:new Blob([`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`],{type:'application/xml'})},
+    {name:'_rels/.rels',blob:new Blob([`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],{type:'application/xml'})},
+    {name:'xl/workbook.xml',blob:new Blob([`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Смета" sheetId="1" r:id="rId1"/></sheets></workbook>`],{type:'application/xml'})},
+    {name:'xl/_rels/workbook.xml.rels',blob:new Blob([`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],{type:'application/xml'})},
+    {name:'xl/worksheets/sheet1.xml',blob:new Blob([sheet],{type:'application/xml'})},
+    {name:'xl/styles.xml',blob:new Blob([styles],{type:'application/xml'})}
+  ];
+  const zip = await createZip(files);
+  return new Blob([zip], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+
+function openDownloadTab(){
+  const tab=window.open('', '_blank');
+  if(tab&&!tab.closed){tab.document.title='Подготовка файла — СЛОГИ';tab.document.body.innerHTML='<p style="font:16px Arial,sans-serif;padding:24px;color:#33474B">Подготавливаем файл…</p>';}
+  return tab;
+}
+function triggerBlobDownload(blob,filename,downloadTab=null){
+  const url=URL.createObjectURL(blob);const tab=downloadTab&&!downloadTab.closed?downloadTab:openDownloadTab();
+  if(tab&&!tab.closed){
+    tab.document.title='Скачивание — СЛОГИ';tab.document.body.innerHTML='';
+    const wrap=tab.document.createElement('div');wrap.style.cssText='font:16px Arial,sans-serif;padding:24px;color:#33474B;line-height:1.5';
+    const text=tab.document.createElement('p');text.textContent='Скачивание началось. Если файл не загрузился автоматически, нажмите кнопку ниже.';
+    const link=tab.document.createElement('a');link.href=url;link.download=filename;link.textContent='Скачать '+filename;link.style.cssText='display:inline-block;padding:11px 16px;border-radius:9px;background:#4B6E73;color:white;text-decoration:none;font-weight:700';
+    wrap.append(text,link);tab.document.body.appendChild(wrap);link.click();
+  }else{const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();}
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+}
+
+const crcTable=(()=>{const table=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?0xEDB88320^(c>>>1):c>>>1;table[n]=c>>>0;}return table;})();
+function crc32(bytes){let c=0xFFFFFFFF;for(const b of bytes)c=crcTable[(c^b)&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function u16(value){const a=new Uint8Array(2);new DataView(a.buffer).setUint16(0,value,true);return a;}
+function u32(value){const a=new Uint8Array(4);new DataView(a.buffer).setUint32(0,value>>>0,true);return a;}
+function concatArrays(parts){const length=parts.reduce((s,p)=>s+p.length,0);const out=new Uint8Array(length);let offset=0;for(const p of parts){out.set(p,offset);offset+=p.length;}return out;}
+function dosDateTime(date=new Date()){const year=Math.max(1980,date.getFullYear());return {time:(date.getHours()<<11)|(date.getMinutes()<<5)|(date.getSeconds()>>1),date:((year-1980)<<9)|((date.getMonth()+1)<<5)|date.getDate()};}
+async function createZip(files){
+  const encoder=new TextEncoder();const locals=[];const centrals=[];let offset=0;const dt=dosDateTime();
+  for(const file of files){
+    const name=encoder.encode(file.name);const data=new Uint8Array(await file.blob.arrayBuffer());const crc=crc32(data);const flag=0x0800;
+    const local=concatArrays([u32(0x04034b50),u16(20),u16(flag),u16(0),u16(dt.time),u16(dt.date),u32(crc),u32(data.length),u32(data.length),u16(name.length),u16(0),name,data]);
+    const central=concatArrays([u32(0x02014b50),u16(20),u16(20),u16(flag),u16(0),u16(dt.time),u16(dt.date),u32(crc),u32(data.length),u32(data.length),u16(name.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset),name]);
+    locals.push(local);centrals.push(central);offset+=local.length;
+  }
+  const centralData=concatArrays(centrals);const end=concatArrays([u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(centralData.length),u32(offset),u16(0)]);
+  return new Blob([...locals,centralData,end],{type:'application/zip'});
+}
+
+let allLocations=readLocations().filter(item=>item&&item.id&&item.address).sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+function render(){
+  const query=document.getElementById('location-search').value.trim().toLowerCase();
+  const items=allLocations.filter(item=>item.address.toLowerCase().includes(query));
+  document.getElementById('summary').textContent=items.length===allLocations.length?'Локаций: '+allLocations.length:'Найдено: '+items.length+' из '+allLocations.length;
+  const root=document.getElementById('locations');
+  if(!items.length){
+    root.innerHTML=`<div class="empty" style="grid-column:1/-1"><h2>${allLocations.length?'Ничего не найдено':'Сохранённых объектов пока нет'}</h2><p>${allLocations.length?'Измените запрос поиска.':'Создайте паспорт объекта, укажите адрес и сохраните его.'}</p><a class="btn" href="passport.html">Создать объект</a></div>`;
+    return;
+  }
+  root.innerHTML=items.map(item=>{
+    const specName=item.specName||(item.excelLabel&&!/демо/i.test(item.excelLabel)?String(item.excelLabel).replace(/^Файл:\s*/,'').split(' · ')[0]:'');
+    const spec=specName?`<span class="tag">Спецификация: ${escapeHtml(specName)}</span>`:'';
+    const plan=item.planName?`<span class="tag">План: ${escapeHtml(item.planName)}</span>`:'';
+    const proposal=item.proposalName?`<span class="tag">КП: ${escapeHtml(item.proposalName)}</span>`:'';
+    const estimate=item.estimateName?`<span class="tag">Смета: ${escapeHtml(item.estimateName)}</span>`:'';
+    return `<article class="location-card" data-id="${escapeHtml(item.id)}">
+      <a class="card-main" href="passport.html?location=${encodeURIComponent(item.id)}">
+        <h2 class="address">${escapeHtml(item.address)}</h2>
+        <div class="meta"><span>Последнее сохранение</span><strong>${escapeHtml(formatDate(item.updatedAt))}</strong><span>Итого по смете</span><span class="total">${fmtMoney(item.total)}</span></div>
+        ${(spec||plan||estimate||proposal)?`<div class="file-tags">${plan}${spec}${estimate}${proposal}</div>`:''}
+      </a>
+      <div class="card-actions">
+        <button class="action-btn open" data-action="open" type="button">Открыть</button>
+        <button class="action-btn download" data-action="download" type="button">⇩ Скачать всё</button>
+        <button class="action-btn delete" data-action="delete" type="button" aria-label="Удалить объект" title="Удалить объект">×</button>
+      </div>
+    </article>`;
+  }).join('');
+}
+async function downloadLocation(id, button, downloadTab){
+  const item=allLocations.find(x=>x.id===id);if(!item)return;
+  const old=button.textContent;button.disabled=true;button.textContent='Подготовка…';showNotice('');
+  try{
+    const [plan,spec,estimate,proposal]=await Promise.all([getAttachment(id,'plan'),getAttachment(id,'spec'),getAttachment(id,'estimate'),getAttachment(id,'proposal')]);
+    const files=[];
+    if(plan&&plan.blob)files.push({name:safeFileName(plan.name,'План помещения'),blob:plan.blob});
+    if(spec&&spec.blob)files.push({name:safeFileName(spec.name,'Спецификация.xlsx'),blob:spec.blob});
+    if(proposal&&proposal.blob)files.push({name:safeFileName(proposal.name,'Коммерческое предложение.doc'),blob:proposal.blob});
+    if(estimate&&estimate.blob)files.push({name:safeFileName(estimate.name,'Смета.xlsx'),blob:estimate.blob});
+    else files.push({name:'Смета.xlsx',blob:await createEstimateExcelBlob(item)});
+    const zip=await createZip(files);
+    triggerBlobDownload(zip,safeFileName('СЛОГИ '+item.address,'Локация')+'.zip',downloadTab);
+    const missing=[];if(item.planName&&!plan)missing.push('план');if((item.specName||item.excelLabel)&&!spec&&!/демо/i.test(item.excelLabel||''))missing.push('спецификация');if(item.estimateName&&!estimate)missing.push('смета');if(item.proposalName&&!proposal)missing.push('коммерческое предложение');
+    showNotice(missing.length?'Архив скачан. В старой записи не найдено вложение: '+missing.join(', ')+'. Смета включена в архив.':'Архив со всеми файлами и сметой скачан.');
+  }catch(err){if(downloadTab&&!downloadTab.closed)downloadTab.close();showNotice('Не удалось подготовить архив для скачивания.',true);}
+  finally{button.disabled=false;button.textContent=old;}
+}
+async function deleteLocation(id){
+  const item=allLocations.find(x=>x.id===id);if(!item)return;
+  if(!confirm('Удалить объект «'+item.address+'» вместе с сохранёнными файлами?'))return;
+  allLocations=allLocations.filter(x=>x.id!==id);writeLocations(allLocations);await deleteAttachments(id);showNotice('Локация удалена.');render();
+}
+document.getElementById('locations').addEventListener('click',event=>{
+  const button=event.target.closest('[data-action]');if(!button)return;
+  const card=button.closest('.location-card');if(!card)return;
+  const id=card.dataset.id;const action=button.dataset.action;
+  if(action==='open')window.location.href='passport.html?location='+encodeURIComponent(id);
+  if(action==='download'){const downloadTab=openDownloadTab();downloadLocation(id,button,downloadTab);}
+  if(action==='delete')deleteLocation(id);
+});
+document.getElementById('location-search').addEventListener('input',render);
+render();
+</script>
+<script src="objects-dashboard.js?v=3"></script></body>
+</html>

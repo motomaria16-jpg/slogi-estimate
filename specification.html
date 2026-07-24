@@ -1,0 +1,2162 @@
+<!DOCTYPE html>
+
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>СЛОГИ — Формирование сметы</title><meta content="no-cache, no-store, must-revalidate" http-equiv="Cache-Control"/><meta content="no-cache" http-equiv="Pragma"/><meta content="0" http-equiv="Expires"/><link href="favicon.svg?v=4" rel="icon" type="image/svg+xml"/><link href="favicon-32.png?v=4" rel="icon" sizes="32x32" type="image/png"/><link href="apple-touch-icon.png?v=4" rel="apple-touch-icon"/>
+<style>
+  :root{
+    --teal:#4B6E73;
+    --teal-deep:#37545A;
+    --teal-pale:#E7EFEF;
+    --tan:#D7B987;
+    --tan-deep:#B8925C;
+    --tan-pale:#F3E9D7;
+    --orange:#E19B2D;
+    --orange-deep:#C97F16;
+    --cream:#FDF6F4;
+    --ink:#33474B;
+    --ink-soft:#6B7E82;
+    --line:#EAD9CE;
+    --white:#FFFFFF;
+    --good:#4B8B63;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--cream);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  header.top{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 28px; background:var(--cream);
+    border-bottom:1px solid var(--tan);
+    position:sticky; top:0; z-index:20;
+    flex-wrap:wrap; gap:16px;
+  }
+  header.top .brand{display:flex; align-items:center; gap:18px; min-width:0; flex:1 1 320px;}
+  header.top img.logo{height:92px; display:block; flex:none;}
+  @media (max-width:600px){ header.top img.logo{height:64px;} }
+  @media (max-width:420px){ header.top img.logo{height:48px;} }
+  header.top .titles{border-left:2px solid var(--tan); padding-left:18px; min-width:0;}
+  header.top .titles h1{
+    margin:0; font-size:16px; font-weight:800; letter-spacing:.02em; color:var(--teal-deep);
+    text-transform:uppercase; overflow-wrap:break-word;
+  }
+  header.top .titles p{margin:4px 0 0; font-size:12px; color:var(--ink-soft); overflow-wrap:break-word;}
+  .search-wrap{position:relative;}
+  .search-wrap input{
+    border:1.5px solid var(--line); background:var(--cream); color:var(--ink);
+    border-radius:10px; padding:9px 14px 9px 34px; font-size:13.5px; width:220px;
+    outline:none; transition:border-color .15s;
+  }
+  .search-wrap input:focus{border-color:var(--teal);}
+  .search-wrap svg{position:absolute; left:11px; top:50%; transform:translateY(-50%); opacity:.5;}
+
+  .layout{
+    display:grid; grid-template-columns:340px 1fr; gap:24px;
+    max-width:1260px; margin:0 auto; padding:24px 20px 80px;
+  }
+  @media (max-width:860px){ .layout{grid-template-columns:1fr;} }
+
+  .sidebar{align-self:start; display:flex; flex-direction:column; gap:16px;}
+  @media (max-width:860px){ .sidebar{position:static;} }
+
+  .card{background:var(--white); border:1px solid var(--line); border-radius:16px; overflow:hidden;}
+  .card-head{
+    padding:12px 16px; font-weight:800; font-size:12px; text-transform:uppercase; letter-spacing:.04em;
+    color:var(--white); background:var(--teal); display:flex; align-items:center; justify-content:space-between; gap:8px;
+  }
+  .card-body{padding:16px 16px 20px;}
+
+  /* --- источник данных / синхронизация --- */
+  .sync-dot{width:8px; height:8px; border-radius:50%; background:#ccc; display:inline-block; margin-right:6px; flex:none;}
+  .sync-dot.live{background:var(--good); box-shadow:0 0 0 3px rgba(75,139,99,.25);}
+  .sync-dot.stale{background:var(--orange);}
+  .sync-status{display:flex; align-items:center; font-size:11.5px; color:rgba(255,255,255,.85); font-weight:600; text-transform:none;}
+  .btn{
+    border:none; border-radius:9px; padding:9px 12px; font-size:12.5px; font-weight:700; cursor:pointer;
+    background:var(--teal); color:var(--white); width:100%; transition:background .15s;
+  }
+  .btn:hover{background:var(--teal-deep);}
+  .btn.secondary{background:var(--tan-pale); color:var(--tan-deep);}
+  .btn.secondary:hover{background:var(--tan);}
+  .file-line{font-size:12.5px; color:var(--ink); font-weight:600; margin-top:10px; line-height:1.4; word-break:break-word;}
+  .sync-note{font-size:11.5px; color:var(--ink-soft); line-height:1.55; margin-top:10px;}
+  .file-status{font-size:12px; line-height:1.45; margin-top:8px; min-height:18px; color:var(--ink-soft);}
+  .file-status.loading{color:var(--orange-deep); font-weight:700;}
+  .file-status.ok{color:var(--good); font-weight:700;}
+  .file-status.error{color:#A5483D; font-weight:700;}
+  .file-picker-wrap{position:relative;}
+  #file-input{display:none;}
+  /* На телефонах поле выбора файла лежит прямо поверх кнопки.
+     Это открывает системный проводник без программного .click(),
+     который iOS/Android и встроенные браузеры могут блокировать. */
+  @media (pointer:coarse), (max-width:860px){
+    .file-picker-wrap #file-input{
+      display:block; position:absolute; inset:0; width:100%; height:100%;
+      opacity:0; cursor:pointer; z-index:2; font-size:16px;
+    }
+    .file-picker-wrap .btn{position:relative; z-index:1;}
+  }
+
+  .param-row{display:flex; align-items:center; gap:12px; margin-bottom:14px;}
+  .param-row:last-child{margin-bottom:0;}
+  .param-tile{
+    width:38px; height:38px; min-width:38px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+    font-weight:900; font-size:14.5px; color:var(--white);
+  }
+  .tile-0{background:var(--teal);}
+  .tile-1{background:var(--tan-deep);}
+  .tile-2{background:var(--orange);}
+  .param-info{min-width:0;}
+  .param-info label{display:block; font-size:11.5px; color:var(--ink-soft); margin-bottom:5px; line-height:1.3;}
+  .stepper{display:flex; align-items:center; border:1.5px solid var(--line); border-radius:9px; overflow:hidden; width:fit-content;}
+  .stepper button{
+    border:none; background:var(--teal-pale); color:var(--teal-deep); width:24px; height:27px; font-size:14px; cursor:pointer; font-weight:700;
+  }
+  .stepper button:hover{background:var(--tan);}
+  .stepper input{
+    border:none; width:56px; text-align:center; font-size:13.5px; font-weight:700; color:var(--ink); padding:4px 2px;
+  }
+  .stepper input::-webkit-outer-spin-button,.stepper input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+
+  /* --- сова: полная иллюстрация во весь блок --- */
+  .owl-panel{border-top:1px solid var(--line);}
+  .owl-card .owl-panel{border-top:none;}
+  .owl-panel img.owl-full{width:100%; height:auto; display:block;}
+  .owl-panel p{margin:0; padding:14px 16px 16px; font-size:11.5px; color:var(--ink-soft); line-height:1.5; text-align:left;}
+
+  .total-card .card-body{display:flex; flex-direction:column; gap:4px; align-items:center; padding:20px 16px;}
+  .total-card .amount{font-size:26px; font-weight:900; color:var(--orange-deep);}
+  .total-card .label{font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft);}
+  .mini-breakdown{display:flex; gap:10px; margin-top:10px; width:100%;}
+  .mini-breakdown div{flex:1; background:var(--teal-pale); border-radius:10px; padding:8px 10px; text-align:center;}
+  .mini-breakdown .v{font-weight:800; font-size:13px; color:var(--teal-deep);}
+  .mini-breakdown .k{font-size:10px; color:var(--ink-soft); text-transform:uppercase; margin-top:2px;}
+
+  .main{min-width:0;}
+  .banner{
+    background:var(--tan-pale); border:1px solid var(--tan); color:var(--tan-deep); border-radius:12px;
+    padding:12px 16px; font-size:12.5px; margin-bottom:18px; display:none; align-items:center; gap:8px;
+  }
+  .banner.show{display:flex;}
+  .banner b{color:var(--ink);}
+
+  .category{margin-bottom:22px; border:1px solid var(--line); border-radius:16px; overflow:hidden; background:var(--white);}
+  .cat-head{
+    background:var(--teal-deep); color:var(--white); padding:12px 18px; display:flex; justify-content:space-between; align-items:center;
+    cursor:pointer; user-select:none;
+  }
+  .cat-head h2{margin:0; font-size:14px; letter-spacing:.03em; text-transform:uppercase;}
+  .cat-head .sum{font-weight:800; font-size:14px;}
+  .cat-body{padding:0 0 4px;}
+
+  .sub{border-top:1px solid var(--line);}
+  .sub:first-child{border-top:none;}
+  .sub-head{
+    background:var(--orange); color:var(--white); padding:9px 18px; display:flex; justify-content:space-between; align-items:center;
+    font-size:12.5px; font-weight:700; cursor:pointer; user-select:none;
+  }
+  .sub-head .sum{font-weight:800;}
+
+  .sub-rows{overflow-x:auto;}
+  table.items{width:100%; min-width:600px; border-collapse:collapse; font-size:13px; table-layout:fixed;}
+  table.items th{
+    text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-soft);
+    padding:8px 18px; border-bottom:1px solid var(--line);
+  }
+  table.items td{padding:8px 18px; border-bottom:1px solid var(--line); vertical-align:top;}
+  table.items tr:last-child td{border-bottom:none;}
+  table.items tr:nth-child(even) td{background:var(--cream);}
+  table.items tr.hidden{display:none;}
+  th.num,td.num{width:52px; color:var(--ink-soft); font-size:12px;}
+  th.type,td.type{width:118px; color:var(--ink-soft);}
+  td.type span{word-break:break-word;}
+  td.name{word-break:break-word;}
+  th.price,td.price{width:96px;}
+  th.qty,td.qty{width:72px;}
+  th.cost,td.cost{width:106px;}
+  td.price,td.qty,td.cost{text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums;}
+  td.cost{font-weight:800; color:var(--teal-deep);}
+  @media (max-width:600px){
+    th.type,td.type{width:74px;}
+  }
+  .empty-row{padding:14px 18px; color:var(--ink-soft); font-style:italic; font-size:12.5px;}
+
+  .caret{transition:transform .15s; display:inline-block;}
+  .collapsed .caret{transform:rotate(-90deg);}
+  .collapsed .cat-body,.collapsed .sub-rows{display:none;}
+
+  footer.note{max-width:1260px; margin:0 auto; padding:0 20px 40px; font-size:11.5px; color:var(--ink-soft); line-height:1.6;}
+  footer.note b{color:var(--ink);}
+
+
+  /* --- навигация, карточка объекта и сохранение --- */
+  .header-actions{display:flex; align-items:center; justify-content:flex-end; gap:12px; flex-wrap:wrap;}
+  .top-menu-link{
+    display:inline-flex; align-items:center; justify-content:center; min-height:38px;
+    padding:9px 14px; border-radius:10px; border:1.5px solid var(--teal);
+    color:var(--teal-deep); background:var(--white); text-decoration:none;
+    font-size:12.5px; font-weight:800; white-space:nowrap; transition:.15s ease;
+  }
+  .top-menu-link:hover{background:var(--teal-pale);}
+  .form-label{display:block; font-size:11.5px; color:var(--ink-soft); margin-bottom:6px; font-weight:700; line-height:1.35;}
+  .text-field{
+    width:100%; border:1.5px solid var(--line); background:var(--cream); color:var(--ink);
+    border-radius:10px; padding:11px 12px; font:inherit; font-size:14px; outline:none;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .text-field:focus{border-color:var(--teal); box-shadow:0 0 0 3px rgba(75,110,115,.12);}
+  .plan-block{margin-top:16px; padding-top:15px; border-top:1px solid var(--line);}
+  .plan-picker{position:relative;}
+  #plan-input{display:none;}
+  .plan-file-line{font-size:12px; color:var(--ink); font-weight:650; margin-top:9px; line-height:1.45; word-break:break-word;}
+  .field-note{font-size:11px; color:var(--ink-soft); line-height:1.45; margin-top:5px;}
+  .save-card .card-body{padding:14px 16px 16px;}
+  .save-status{font-size:12px; line-height:1.45; min-height:18px; margin-top:9px; text-align:center; font-weight:700;}
+  .save-status.ok{color:var(--good);}
+  .save-status.error{color:#A5483D;}
+  .save-status.loading{color:var(--orange-deep);}
+  .location-badge{display:none; margin-top:10px; border-radius:9px; padding:8px 10px; background:var(--teal-pale); color:var(--teal-deep); font-size:11.5px; line-height:1.4; font-weight:700;}
+  .location-badge.show{display:block;}
+  @media (pointer:coarse), (max-width:860px){
+    .plan-picker #plan-input{
+      display:block; position:absolute; inset:0; width:100%; height:100%;
+      opacity:0; cursor:pointer; z-index:2; font-size:16px;
+    }
+    .plan-picker .btn{position:relative; z-index:1;}
+  }
+  @media (max-width:860px){
+    header.top{align-items:flex-start;}
+    .header-actions{width:100%; justify-content:stretch;}
+    .top-menu-link{flex:1 1 140px;}
+    .search-wrap{flex:1 1 190px;}
+    .search-wrap input{width:100%;}
+  }
+  @media (max-width:520px){
+    .header-actions{gap:9px;}
+    .top-menu-link{order:1; width:100%; flex-basis:100%;}
+    .search-wrap{order:2; width:100%; flex-basis:100%;}
+  }
+
+
+  /* --- вертикальная компоновка: настройки сверху, смета ниже --- */
+  .layout{
+    display:flex;
+    flex-direction:column;
+    gap:30px;
+    max-width:1260px;
+    margin:0 auto;
+    padding:28px 20px 80px;
+  }
+  .settings-section,.main{min-width:0; width:100%;}
+  .section-heading{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:18px;
+    margin:0 0 16px;
+    padding:0 2px;
+  }
+  .section-heading h2{
+    margin:3px 0 0;
+    color:var(--teal-deep);
+    font-size:22px;
+    line-height:1.2;
+    letter-spacing:-.015em;
+  }
+  .section-heading p{
+    margin:7px 0 0;
+    max-width:760px;
+    color:var(--ink-soft);
+    font-size:13px;
+    line-height:1.55;
+  }
+  .section-kicker{
+    display:inline-block;
+    color:var(--orange-deep);
+    font-size:10.5px;
+    font-weight:900;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+  }
+  .estimate-heading{
+    padding-top:4px;
+    border-top:1px solid var(--tan);
+    padding-top:26px;
+  }
+  .sidebar{
+    display:grid;
+    grid-template-columns:minmax(260px,1.05fr) minmax(260px,1fr) minmax(260px,1fr);
+    gap:16px;
+    align-items:stretch;
+  }
+  .sidebar > .card{height:100%;}
+  .project-card{grid-column:1; grid-row:1;}
+  .data-card{grid-column:2; grid-row:1;}
+  .params-card{grid-column:3; grid-row:1 / span 2;}
+  .total-card{grid-column:1; grid-row:2;}
+  .save-card{grid-column:2; grid-row:2;}
+  .owl-card{grid-column:1 / -1; grid-row:3;}
+
+  .total-card .card-body{
+    min-height:150px;
+    justify-content:center;
+  }
+  .total-card .amount{font-size:32px;}
+
+  .save-card{
+    border:2px solid rgba(225,155,45,.62);
+    background:linear-gradient(135deg,#fff 0%,var(--tan-pale) 100%);
+    box-shadow:0 10px 28px rgba(201,127,22,.12);
+  }
+  .save-card .card-body{
+    min-height:150px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:20px;
+  }
+  .save-primary{
+    min-height:56px;
+    border-radius:13px;
+    background:linear-gradient(135deg,var(--orange),var(--orange-deep));
+    box-shadow:0 8px 18px rgba(201,127,22,.30);
+    font-size:16px;
+    font-weight:900;
+    letter-spacing:.01em;
+    gap:10px;
+    transition:transform .15s ease,box-shadow .15s ease,filter .15s ease;
+  }
+  .save-primary:hover{
+    background:linear-gradient(135deg,var(--orange),var(--orange-deep));
+    transform:translateY(-2px);
+    box-shadow:0 12px 24px rgba(201,127,22,.36);
+    filter:saturate(1.06);
+  }
+  .save-primary:active{transform:translateY(0); box-shadow:0 5px 12px rgba(201,127,22,.26);}
+  .save-primary:focus-visible{outline:3px solid rgba(225,155,45,.35); outline-offset:3px;}
+  .save-icon{
+    width:28px;
+    height:28px;
+    display:grid;
+    place-items:center;
+    border-radius:50%;
+    background:rgba(255,255,255,.22);
+    font-size:18px;
+    line-height:1;
+  }
+  .save-status{margin-top:12px;}
+
+  @media(max-width:1020px){
+    .sidebar{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .project-card{grid-column:1; grid-row:1;}
+    .data-card{grid-column:2; grid-row:1;}
+    .params-card{grid-column:1 / -1; grid-row:2;}
+    .total-card{grid-column:1; grid-row:3;}
+    .save-card{grid-column:2; grid-row:3;}
+    .owl-card{grid-column:1 / -1; grid-row:4;}
+    .params-card .card-body{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px 18px;}
+    .params-card .param-row{margin:0;}
+  }
+  @media(max-width:680px){
+    .layout{padding:22px 14px 60px; gap:24px;}
+    .section-heading h2{font-size:19px;}
+    .sidebar{grid-template-columns:1fr;}
+    .project-card,.data-card,.params-card,.total-card,.save-card,.owl-card{grid-column:1; grid-row:auto;}
+    .params-card .card-body{display:block;}
+    .params-card .param-row{margin-bottom:14px;}
+    .save-card .card-body,.total-card .card-body{min-height:auto;}
+  }
+
+
+  /* --- единый блок файлов объекта и скачивание --- */
+  .project-card{grid-column:1 / span 2; grid-row:1;}
+  .params-card{grid-column:3; grid-row:1 / span 2;}
+  .total-card{grid-column:1; grid-row:2;}
+  .save-card{grid-column:2; grid-row:2;}
+  .owl-card{grid-column:1 / -1; grid-row:3;}
+  .attachments-block{margin-top:18px;padding-top:17px;border-top:1px solid var(--line);}
+  .attachments-title{font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.045em;color:var(--teal-deep);margin-bottom:10px;}
+  .attachment-item{display:grid;grid-template-columns:minmax(190px,1fr) minmax(300px,1.25fr);gap:10px 18px;align-items:center;padding:14px;border:1px solid var(--line);background:var(--cream);}
+  .attachment-item:first-of-type{border-radius:12px 12px 0 0;}
+  .attachment-item+ .attachment-item{border-top:none;border-radius:0 0 12px 12px;}
+  .attachment-copy .form-label{margin:0;color:var(--ink);font-size:12.5px;}
+  .attachment-copy .field-note{margin-top:4px;}
+  .attachment-actions{display:grid;grid-template-columns:minmax(180px,1fr) 104px;gap:9px;align-items:center;}
+  .attachment-picker{position:relative;min-width:0;}
+  .attachment-picker .btn{min-height:40px;}
+  .file-download-btn{min-height:40px;background:var(--white);color:var(--teal-deep);border:1.5px solid var(--teal);}
+  .file-download-btn:hover{background:var(--teal-pale);}
+  .file-download-btn:disabled{cursor:not-allowed;opacity:.42;background:#f3f3f3;color:var(--ink-soft);border-color:var(--line);}
+  .attachment-file-line{grid-column:1 / -1;margin:0;font-size:11.5px;color:var(--ink-soft);font-weight:650;line-height:1.45;overflow-wrap:anywhere;}
+  .attachment-item .file-status,.attachment-item .sync-note{grid-column:1 / -1;margin:0;min-height:0;}
+  .attachments-title + .attachment-item{border-radius:12px 12px 0 0;}
+  .attachment-item:last-child{border-radius:0 0 12px 12px;}
+  .attachment-item:not(:last-child){border-bottom-left-radius:0;border-bottom-right-radius:0;}
+  .proposal-link{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;width:100%;}
+  .file-state{display:flex;align-items:center;margin-top:5px;font-size:11px;color:var(--ink-soft);font-weight:700;}
+  .estimate-download-btn{margin-top:14px;min-height:42px;background:var(--teal);}
+  .estimate-download-btn:hover{background:var(--teal-deep);}
+  @media(max-width:1020px){
+    .project-card{grid-column:1 / -1;grid-row:1;}
+    .params-card{grid-column:1 / -1;grid-row:2;}
+    .total-card{grid-column:1;grid-row:3;}
+    .save-card{grid-column:2;grid-row:3;}
+    .owl-card{grid-column:1 / -1;grid-row:4;}
+  }
+  @media(max-width:680px){
+    .project-card,.params-card,.total-card,.save-card,.owl-card{grid-column:1;grid-row:auto;}
+    .attachment-item{grid-template-columns:1fr;padding:13px;}
+    .attachment-actions{grid-template-columns:1fr 94px;}
+    .attachment-file-line,.attachment-item .file-status,.attachment-item .sync-note{grid-column:1;}
+  }
+
+
+  /* --- итог после параметров и общая панель действий шага 1 --- */
+  .project-card{grid-column:1 / span 2;grid-row:1 / span 2;}
+  .params-card{grid-column:3;grid-row:1;}
+  .total-card{grid-column:3;grid-row:2;}
+  .owl-card{grid-column:1 / -1;grid-row:3;}
+  .total-card .card-body{min-height:150px;}
+
+  .step-actions{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:14px;
+    margin-top:18px;
+    padding:18px;
+    border:1px solid var(--line);
+    border-radius:16px;
+    background:var(--white);
+    box-shadow:0 10px 28px rgba(51,71,75,.07);
+  }
+  .step-action-btn{
+    width:100%;
+    min-height:58px;
+    margin:0;
+    border-radius:13px;
+    font-size:15px;
+    font-weight:900;
+    letter-spacing:.01em;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    transition:transform .15s ease,box-shadow .15s ease,filter .15s ease;
+  }
+  .step-action-btn:hover{transform:translateY(-2px);filter:saturate(1.05);}
+  .step-action-btn:active{transform:translateY(0);}
+  .save-primary{
+    background:linear-gradient(135deg,var(--orange),var(--orange-deep));
+    box-shadow:0 8px 18px rgba(201,127,22,.26);
+  }
+  .save-primary:hover{
+    background:linear-gradient(135deg,var(--orange),var(--orange-deep));
+    box-shadow:0 12px 24px rgba(201,127,22,.32);
+  }
+  .estimate-download-btn{
+    background:linear-gradient(135deg,var(--teal),var(--teal-deep));
+    box-shadow:0 8px 18px rgba(55,84,90,.24);
+  }
+  .estimate-download-btn:hover{
+    background:linear-gradient(135deg,var(--teal),var(--teal-deep));
+    box-shadow:0 12px 24px rgba(55,84,90,.30);
+  }
+  .download-icon{
+    width:28px;
+    height:28px;
+    display:grid;
+    place-items:center;
+    border-radius:50%;
+    background:rgba(255,255,255,.20);
+    font-size:20px;
+    line-height:1;
+  }
+  .step-actions .save-status{
+    grid-column:1 / -1;
+    min-height:0;
+    margin:0;
+    text-align:center;
+  }
+  .step-actions .save-status:not(:empty){margin-top:2px;}
+
+  @media(max-width:1020px){
+    .project-card{grid-column:1 / -1;grid-row:1;}
+    .params-card{grid-column:1 / -1;grid-row:2;}
+    .total-card{grid-column:1 / -1;grid-row:3;}
+    .owl-card{grid-column:1 / -1;grid-row:4;}
+  }
+  @media(max-width:680px){
+    .project-card,.params-card,.total-card,.owl-card{grid-column:1;grid-row:auto;}
+    .step-actions{grid-template-columns:1fr;padding:14px;gap:11px;}
+    .step-actions .save-status{grid-column:1;}
+    .step-action-btn{min-height:54px;font-size:14px;}
+  }
+
+  /* --- крупная сова в заголовке шага 1 --- */
+  .settings-owl{
+    flex:0 0 340px;
+    height:165px;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    padding:8px 18px 0;
+    border:1px solid rgba(215,185,135,.72);
+    border-radius:18px;
+    background:
+      radial-gradient(circle at 50% 115%,rgba(225,155,45,.20),transparent 46%),
+      linear-gradient(135deg,var(--tan-pale),var(--white));
+    overflow:hidden;
+  }
+  .settings-owl img.owl-full{
+    width:min(315px,100%);
+    max-height:160px;
+    object-fit:contain;
+    object-position:center bottom;
+    filter:drop-shadow(0 12px 18px rgba(55,84,90,.18));
+  }
+  @media(max-width:1020px){
+    .settings-owl{flex-basis:280px;height:150px;}
+    .settings-owl img.owl-full{width:min(260px,100%);max-height:145px;}
+  }
+  @media(max-width:680px){
+    .section-heading{align-items:flex-start;flex-direction:column;}
+    .settings-owl{width:100%;height:150px;flex-basis:auto;}
+    .settings-owl img.owl-full{width:min(250px,78vw);max-height:145px;}
+  }
+
+
+  /* --- единая шапка для обеих страниц --- */
+  .site-header{position:sticky;top:0;z-index:20;background:rgba(253,246,244,.96);backdrop-filter:blur(10px);border-bottom:1px solid var(--tan);}
+  .site-header .top{max-width:1260px;min-height:78px;margin:0 auto;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:nowrap;}
+  .site-header .brand{display:flex;align-items:center;gap:16px;min-width:0;flex:1 1 auto;}
+  .logo-link{display:inline-flex;align-items:center;flex:none;text-decoration:none;transform:translateY(-4px);}
+  .logo-word{display:flex;gap:4px;align-items:center;padding:0;}
+  .logo-word span{width:34px;height:34px;border-radius:4px;display:grid;place-items:center;color:white;font-size:22px;font-weight:900;line-height:1;}
+  .logo-word span:nth-child(1),.logo-word span:nth-child(2){background:var(--teal);}
+  .logo-word span:nth-child(3),.logo-word span:nth-child(4){background:var(--tan);}
+  .logo-word span:nth-child(5){background:var(--orange);transform:translateY(-7px);}
+  .site-header .title-wrap{border-left:2px solid var(--tan);padding-left:16px;min-width:0;}
+  .site-header h1{margin:0;font-size:17px;text-transform:uppercase;color:var(--teal-deep);letter-spacing:.035em;}
+  .site-header .subtitle{font-size:12px;color:var(--ink-soft);margin-top:4px;}
+  .site-header .header-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex:none;flex-wrap:wrap;}
+
+  /* --- одинаковая высота левого блока и правой группы --- */
+  .sidebar{grid-template-columns:minmax(0,2.05fr) minmax(330px,1fr);grid-template-rows:auto auto;gap:18px 20px;align-items:stretch;}
+  .project-card{grid-column:1;grid-row:1 / span 2;display:flex;flex-direction:column;min-height:0;}
+  .project-card .card-body{flex:1;display:flex;flex-direction:column;min-height:0;}
+  .project-card .attachments-block{flex:1;display:flex;flex-direction:column;min-height:0;}
+  .project-card .attachment-item{flex:1;align-content:center;}
+  .params-card{grid-column:2;grid-row:1;}
+  .total-card{grid-column:2;grid-row:2;}
+  .sidebar > .card{height:100%;}
+
+  /* --- редактирование строк сметы --- */
+  table.items{min-width:980px;table-layout:fixed;}
+  table.items th,table.items td{padding:7px 9px;vertical-align:middle;}
+  table.items th.num,table.items td.num{width:92px;}
+  table.items th.type,table.items td.type{width:170px;}
+  table.items th.price,table.items td.price{width:120px;}
+  table.items th.qty,table.items td.qty{width:105px;}
+  table.items th.cost,table.items td.cost{width:135px;}
+  table.items th.row-action,table.items td.row-action{width:52px;text-align:center;}
+  .estimate-edit{width:100%;min-height:36px;border:1.5px solid transparent;border-radius:8px;padding:7px 8px;background:transparent;color:var(--ink);font:inherit;font-size:12.5px;line-height:1.35;outline:none;transition:border-color .15s,background .15s,box-shadow .15s;}
+  .estimate-edit:hover{border-color:var(--line);background:rgba(255,255,255,.72);}
+  .estimate-edit:focus{border-color:var(--teal);background:var(--white);box-shadow:0 0 0 3px rgba(75,110,115,.12);}
+  textarea.estimate-edit{min-height:48px;resize:vertical;display:block;}
+  .estimate-number{text-align:right;font-variant-numeric:tabular-nums;}
+  .estimate-cost{font-weight:850;color:var(--teal-deep);}
+  .delete-row-btn{width:34px;height:34px;border-radius:9px;border:1.5px solid #D6AAA3;background:var(--white);color:#A5483D;font-size:18px;font-weight:900;cursor:pointer;}
+  .delete-row-btn:hover{background:#F8E9E6;}
+  .sub-tools{display:flex;justify-content:flex-end;padding:10px 14px 12px;border-top:1px solid var(--line);background:#fffcfa;}
+  .add-row-btn{border:1.5px solid var(--teal);border-radius:9px;background:var(--white);color:var(--teal-deep);padding:9px 14px;font:inherit;font-size:12px;font-weight:850;cursor:pointer;}
+  .add-row-btn:hover{background:var(--teal-pale);}
+  .empty-table-row td{padding:15px 18px!important;color:var(--ink-soft);font-style:italic;}
+
+  @media(max-width:1020px){
+    .site-header .top{flex-wrap:wrap;}
+    .sidebar{grid-template-columns:1fr;grid-template-rows:auto;}
+    .project-card,.params-card,.total-card{grid-column:1;grid-row:auto;}
+    .project-card .attachment-item{flex:none;}
+    .project-card .attachments-block{display:block;}
+    .site-header .header-actions{width:100%;justify-content:stretch;}
+    .site-header .top-menu-link{flex:1 1 160px;}
+    .site-header .search-wrap{flex:1 1 220px;}
+    .site-header .search-wrap input{width:100%;}
+  }
+  @media(max-width:680px){
+    .site-header .top{padding:15px 18px;}
+    .logo-word span{width:29px;height:29px;font-size:19px;}
+    .site-header .title-wrap{padding-left:12px;}
+    .site-header h1{font-size:14px;}
+    .site-header .header-actions{gap:9px;}
+    .site-header .top-menu-link,.site-header .search-wrap{width:100%;flex-basis:100%;}
+  }
+
+
+  /* --- выбор объекта на странице сметы --- */
+  .sidebar{grid-template-columns:minmax(280px,.9fr) minmax(330px,1.15fr) minmax(300px,.95fr);grid-template-rows:auto;gap:18px 20px;align-items:stretch;}
+  .project-card,.params-card,.total-card{grid-column:auto;grid-row:auto;height:100%;}
+  .project-card .card-body{display:flex;flex-direction:column;justify-content:center;gap:14px;}
+  .object-select{appearance:auto;background:var(--cream);}
+  .selected-object-note{min-height:52px;border:1px solid var(--line);border-radius:11px;background:var(--teal-pale);color:var(--teal-deep);padding:11px 12px;font-size:12px;line-height:1.45;font-weight:750;}
+  .object-actions{display:grid;grid-template-columns:1fr;gap:10px;margin-top:2px;}
+  .object-actions .btn{min-height:42px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;text-align:center;}
+  .create-object-btn{background:var(--orange);color:white;}
+  .create-object-btn:hover{background:var(--orange-deep);}
+  #open-passport-btn[aria-disabled="true"]{opacity:.45;pointer-events:none;}
+  @media(max-width:1020px){.sidebar{grid-template-columns:1fr;grid-template-rows:auto}.project-card,.params-card,.total-card{grid-column:1;grid-row:auto}}
+  @media(max-width:520px){.object-actions{grid-template-columns:1fr}}
+
+
+/* --- единая шапка сайта: одинаковая на всех страницах --- */
+.site-header{position:sticky;top:0;z-index:20;background:rgba(253,246,244,.96);backdrop-filter:blur(10px);border-bottom:1px solid var(--tan)}
+.site-header .top{width:100%;max-width:1260px;min-height:78px;margin:0 auto;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:nowrap}
+.site-header .brand{display:flex;align-items:center;gap:16px;min-width:0;flex:1 1 auto}
+.site-header .logo-link{display:inline-flex;align-items:center;flex:none;text-decoration:none;transform:translateY(-4px)}
+.site-header .logo-word{display:flex;gap:4px;align-items:center;padding:0}
+.site-header .logo-word span{width:34px;height:34px;border-radius:4px;display:grid;place-items:center;color:#fff;font-size:22px;font-weight:900;line-height:1}
+.site-header .logo-word span:nth-child(1),.site-header .logo-word span:nth-child(2){background:var(--teal)}
+.site-header .logo-word span:nth-child(3),.site-header .logo-word span:nth-child(4){background:var(--tan)}
+.site-header .logo-word span:nth-child(5){background:var(--orange);transform:translateY(-7px)}
+.site-header .title-wrap{border-left:2px solid var(--tan);padding-left:16px;min-width:0}
+.site-header h1{margin:0;font-size:17px;text-transform:uppercase;color:var(--teal-deep);letter-spacing:.035em;line-height:1.25}
+.site-header .subtitle{font-size:12px;color:var(--ink-soft);margin-top:4px;line-height:1.35}
+.site-header .header-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex:none;flex-wrap:wrap}
+.site-header .top-menu-link{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:9px 14px;border-radius:10px;border:1.5px solid var(--teal);color:var(--teal-deep);background:var(--white);text-decoration:none;font-size:12.5px;font-weight:800;white-space:nowrap;transition:.15s ease;cursor:pointer}
+.site-header .top-menu-link:hover{background:var(--teal-pale)}
+@media(max-width:1020px){
+  .site-header .top{flex-wrap:wrap}
+  .site-header .header-actions{width:100%;justify-content:stretch}
+  .site-header .top-menu-link{flex:1 1 160px}
+}
+@media(max-width:680px){
+  .site-header .top{padding:15px 18px}
+  .site-header .logo-word span{width:29px;height:29px;font-size:19px}
+  .site-header .title-wrap{padding-left:12px}
+  .site-header h1{font-size:14px}
+  .site-header .header-actions{gap:9px}
+  .site-header .top-menu-link{width:100%;flex-basis:100%}
+}
+
+</style>
+<style id="unified-header-style">
+/* === Единая шапка и бургер === */
+.site-header{position:sticky!important;top:0;z-index:1000;background:rgba(253,246,244,.97)!important;backdrop-filter:blur(10px);border-bottom:1px solid var(--tan)}
+.site-header .top{width:100%;max-width:1260px;min-height:78px;margin:0 auto;padding:14px 22px!important;display:flex!important;align-items:center!important;justify-content:space-between;gap:14px;flex-wrap:nowrap!important}
+.site-header .brand{display:flex!important;align-items:center!important;gap:16px;min-width:0;flex:1 1 auto}
+.site-header .logo-link{display:inline-flex!important;align-items:center;flex:none;text-decoration:none;transform:translateY(-2px)!important}
+.site-header .logo-word{display:flex;gap:4px;align-items:center;padding:0}
+.site-header .logo-word span{width:34px;height:34px;border-radius:4px;display:grid;place-items:center;color:#fff;font-size:22px;font-weight:900;line-height:1}
+.site-header .logo-word span:nth-child(1),.site-header .logo-word span:nth-child(2){background:var(--teal)}
+.site-header .logo-word span:nth-child(3),.site-header .logo-word span:nth-child(4){background:var(--tan)}
+.site-header .logo-word span:nth-child(5){background:var(--orange);transform:translateY(-8px)}
+.site-header .title-wrap{border-left:2px solid var(--tan);padding-left:16px;min-width:0}
+.site-header h1{margin:0;font-size:17px;text-transform:uppercase;color:var(--teal-deep);letter-spacing:.035em;line-height:1.22}
+.site-header .subtitle{font-size:12px;color:var(--ink-soft);margin-top:4px;line-height:1.35}
+.site-header .header-actions{display:flex!important;align-items:center;justify-content:flex-end;gap:9px;flex:none;flex-wrap:nowrap}
+.site-header .top-menu-link{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:9px 12px;border-radius:10px;border:1.5px solid var(--teal);color:var(--teal-deep);background:#fff;text-decoration:none;font-size:12px;font-weight:800;white-space:nowrap;transition:.15s ease}
+.site-header .top-menu-link:hover,.site-header .top-menu-link.active{background:var(--teal-pale)}
+.menu-toggle{display:none;width:42px;height:40px;border:1.5px solid var(--teal);border-radius:10px;background:#fff;cursor:pointer;padding:9px;flex-direction:column;justify-content:space-between;align-items:stretch}
+.menu-toggle span{display:block;height:2px;border-radius:3px;background:var(--teal-deep)}
+@media(max-width:960px){
+  .site-header .top{flex-wrap:wrap!important;padding:12px 16px!important}
+  .site-header .brand{gap:12px}
+  .menu-toggle{display:flex;margin-left:auto}
+  .site-header .header-actions{display:none!important;order:10;width:100%;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding-top:2px}
+  .site-header .header-actions.open{display:grid!important}
+  .site-header .top-menu-link{width:100%;white-space:normal;text-align:center}
+}
+@media(max-width:600px){
+  .site-header .logo-word span{width:28px;height:28px;font-size:18px}
+  .site-header .logo-word span:nth-child(5){transform:translateY(-7px)}
+  .site-header .title-wrap{padding-left:10px}
+  .site-header h1{font-size:13px}
+  .site-header .subtitle{display:none}
+  .site-header .header-actions{grid-template-columns:1fr}
+}
+
+
+/* --- аккуратная компоновка шага 1 с равными карточками --- */
+.settings-dashboard{
+  display:grid!important;
+  grid-template-columns:minmax(290px,320px) minmax(420px,1fr) minmax(310px,350px)!important;
+  grid-auto-rows:1fr;
+  gap:20px!important;
+  align-items:stretch!important;
+}
+.settings-left-column{
+  display:flex;
+  grid-column:1;
+  height:100%;
+  min-height:400px;
+}
+.settings-dashboard .project-card,
+.settings-dashboard .params-card,
+.settings-dashboard .total-card{
+  grid-column:auto!important;
+  grid-row:auto!important;
+  height:100%!important;
+  min-height:400px;
+  margin:0!important;
+  display:flex;
+  flex-direction:column;
+  align-self:stretch;
+}
+.settings-dashboard .project-card{grid-column:1;flex:1;}
+.settings-dashboard .params-card{grid-column:2;}
+.settings-dashboard .total-card{grid-column:3;}
+.settings-dashboard .project-card .card-body,
+.settings-dashboard .params-card .card-body,
+.settings-dashboard .total-card .card-body{height:auto;flex:1;min-height:0;}
+.object-summary{
+  display:grid;
+  grid-template-rows:repeat(2,minmax(0,1fr));
+  gap:14px;
+  height:100%;
+}
+.object-meta-card{
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  padding:18px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:linear-gradient(180deg,#fff 0%,#fcf7f4 100%);
+  box-shadow:0 8px 18px rgba(51,71,75,.05);
+}
+.object-meta-label{
+  margin-bottom:9px;
+  color:var(--ink-soft);
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+.object-meta-value{
+  color:var(--teal-deep);
+  font-size:22px;
+  line-height:1.28;
+  font-weight:900;
+  letter-spacing:-.02em;
+  overflow-wrap:anywhere;
+}
+#current-cluster-name.object-meta-value{font-size:18px;}
+.settings-dashboard .params-card .card-body{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  grid-template-rows:repeat(2,minmax(0,1fr));
+  gap:12px;
+  align-content:stretch;
+  padding:16px;
+}
+.settings-dashboard .params-card .param-row{
+  margin:0;
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:linear-gradient(180deg,#fff 0%,#fcf7f4 100%);
+  box-shadow:0 6px 16px rgba(51,71,75,.04);
+}
+.settings-dashboard .params-card .param-tile{margin-bottom:10px;flex:none;}
+.settings-dashboard .params-card .param-info{display:flex;flex-direction:column;flex:1;min-height:0;}
+.settings-dashboard .params-card .param-info label{
+  display:block;
+  min-height:42px;
+  font-size:12px;
+  line-height:1.45;
+}
+.settings-dashboard .params-card .stepper,
+.settings-dashboard .params-card select.text-field,
+.settings-dashboard .params-card .project-boolean-select,
+.settings-dashboard .params-card .project-height-select{width:100%;margin-top:auto;}
+.settings-dashboard .params-card .stepper button{width:40px;height:42px;font-size:18px;}
+.settings-dashboard .params-card .stepper input{width:100%;font-size:16px;padding:9px 8px;}
+.settings-dashboard .total-card .card-body{
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:12px;
+  padding:18px;
+  text-align:left;
+  justify-content:flex-start;
+}
+.settings-dashboard .total-card .amount{
+  font-size:42px;
+  line-height:1;
+  font-weight:900;
+}
+.settings-dashboard .total-card .label{font-size:12px;line-height:1.4;}
+.settings-dashboard .mini-breakdown{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  grid-template-rows:repeat(2,minmax(0,1fr));
+  gap:10px;
+  margin-top:4px;
+  flex:1;
+}
+.settings-dashboard .mini-breakdown div{
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  padding:12px 10px;
+  min-height:92px;
+}
+.settings-dashboard .mini-breakdown .v{font-size:14px;}
+.settings-dashboard .mini-breakdown .k{font-size:9.5px;line-height:1.35;}
+@media(max-width:1180px){
+  .settings-dashboard{
+    grid-template-columns:minmax(270px,320px) minmax(360px,1fr)!important;
+    grid-auto-rows:auto;
+  }
+  .settings-dashboard .project-card{grid-column:1;}
+  .settings-dashboard .params-card{grid-column:2;}
+  .settings-dashboard .total-card{grid-column:1 / -1;min-height:auto;}
+  .settings-left-column,.settings-dashboard .project-card,.settings-dashboard .params-card{min-height:400px;}
+  .settings-dashboard .total-card .card-body{min-height:280px;}
+}
+@media(max-width:1180px){
+  .settings-dashboard .params-card .card-body{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));}
+}
+.estimate-bottom-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  margin-top:20px;
+}
+.estimate-main-action{
+  min-height:52px;
+  border:none;
+  border-radius:12px;
+  padding:12px 18px;
+  font:inherit;
+  font-size:14px;
+  font-weight:950;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  transition:.15s ease;
+}
+.estimate-main-action:hover{transform:translateY(-1px);}
+.estimate-main-action.save{
+  background:linear-gradient(135deg,var(--orange),var(--orange-deep));
+  color:#fff;
+  box-shadow:0 8px 18px rgba(201,127,22,.23);
+}
+.estimate-main-action.download{
+  background:linear-gradient(135deg,var(--teal),var(--teal-deep));
+  color:#fff;
+  box-shadow:0 8px 18px rgba(55,84,90,.21);
+}
+.estimate-main-action:disabled{opacity:.5;cursor:progress;transform:none;}
+.estimate-bottom-actions .save-status{
+  grid-column:1 / -1;
+  margin:0;
+  min-height:18px;
+  text-align:center;
+}
+@media(max-width:760px){
+  .settings-dashboard{grid-template-columns:1fr!important;gap:16px!important;grid-auto-rows:auto;}
+  .settings-left-column,
+  .settings-dashboard .project-card,
+  .settings-dashboard .params-card,
+  .settings-dashboard .total-card{grid-column:1;position:static;min-height:auto;height:auto!important;}
+  .settings-dashboard .params-card .card-body{grid-template-columns:1fr;grid-template-rows:auto;}
+  .object-summary{grid-template-rows:auto;}
+  .object-meta-value{font-size:20px;}
+  #current-cluster-name.object-meta-value{font-size:17px;}
+  .settings-dashboard .total-card .amount{font-size:36px;}
+  .settings-dashboard .mini-breakdown{grid-template-columns:1fr 1fr;grid-template-rows:auto;}
+  .estimate-bottom-actions{grid-template-columns:1fr;}
+  .estimate-bottom-actions .save-status{grid-column:1;}
+}
+</style><script src="cloud-sync.js?v=4"></script><link href="visual-harmony.css?v=12" rel="stylesheet"/><link href="estimate-layout-v2.css?v=5" rel="stylesheet"/><link href="object-header.css?v=2" rel="stylesheet"/></head>
+<body>
+<header class="site-header"><div class="top">
+<div class="brand"><a aria-label="СЛОГИ — все локации" class="logo-link" href="index.html" id="logo-link"><div aria-hidden="true" class="logo-word"><span>С</span><span>Л</span><span>О</span><span>Г</span><span>И</span></div></a><div class="title-wrap"><h1>Сформировать смету</h1><div class="subtitle">Расчёт, редактирование и выгрузка сметы по объекту</div><a class="object-header-link" id="object-header-link" hidden></a></div></div>
+</div></header>
+<div class="layout">
+<section aria-labelledby="settings-title" class="settings-section">
+<div class="section-heading">
+<div>
+<span class="section-kicker">Шаг 1</span>
+<h2 id="settings-title">Настройка сметы</h2>
+
+</div>
+</div>
+<aside class="sidebar settings-dashboard">
+<div class="settings-left-column">
+<div class="card project-card object-select-card">
+<div class="card-head">Объект</div>
+<div class="card-body">
+<div class="object-summary">
+<div class="object-meta-card">
+<div class="object-meta-label">Название объекта</div>
+<div class="object-meta-value" id="current-object-name">—</div>
+</div>
+<div class="object-meta-card">
+<div class="object-meta-label">Кластер</div>
+<div class="object-meta-value" id="current-cluster-name">—</div>
+</div>
+
+</div>
+<div aria-hidden="true" class="legacy-file-controls" hidden="">
+<input id="location-address" type="text"/>
+<div id="location-badge"></div>
+<button id="plan-btn" type="button"></button><input id="plan-input" type="file"/><button id="plan-download-btn" type="button"></button><div id="plan-file-line"></div>
+<span id="sync-dot"></span><span id="sync-label"></span>
+<button id="connect-btn" type="button"></button><input id="file-input" type="file"/><button id="spec-download-btn" type="button"></button><div id="file-line"></div><div id="file-status"></div><div id="sync-note"></div>
+<a href="proposal.html" id="proposal-edit-link"></a><button id="proposal-download-btn" type="button"></button><div id="proposal-file-line"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="card params-card">
+<div class="card-head">Параметры объекта</div>
+<div class="card-body" id="params-body"></div>
+</div>
+<div class="card total-card">
+<div class="card-head">Итого по смете</div>
+<div class="card-body">
+<div class="amount" id="grand-total">0 ₽</div>
+<div class="label">с учётом текущих параметров</div>
+<div class="mini-breakdown" id="mini-breakdown"></div>
+
+</div>
+</div>
+</aside>
+<div class="estimate-bottom-actions" aria-label="Действия со сметой">
+<button class="estimate-main-action save" id="save-location-btn" type="button">Сохранить</button>
+<button class="estimate-main-action download" id="download-estimate-btn" type="button">Скачать смету в Excel</button>
+<div aria-live="polite" class="save-status" id="save-status" role="status"></div>
+</div>
+</section>
+<main class="main">
+<div class="section-heading estimate-heading">
+<div>
+<span class="section-kicker">Шаг 2</span>
+<h2>Сформированная смета</h2>
+<p>Все поля строк можно редактировать вручную. В каждом подразделе можно добавить новую позицию.</p>
+</div>
+</div>
+<div class="banner" id="err-banner"></div>
+<div id="cats-root"></div>
+</main>
+</div>
+<script>
+/* pako 0.2.9 nodeca/pako */
+!function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var t;t="undefined"!=typeof window?window:"undefined"!=typeof global?global:"undefined"!=typeof self?self:this,t.pako=e()}}(function(){return function e(t,i,n){function a(o,s){if(!i[o]){if(!t[o]){var f="function"==typeof require&&require;if(!s&&f)return f(o,!0);if(r)return r(o,!0);var l=new Error("Cannot find module '"+o+"'");throw l.code="MODULE_NOT_FOUND",l}var d=i[o]={exports:{}};t[o][0].call(d.exports,function(e){var i=t[o][1][e];return a(i?i:e)},d,d.exports,e,t,i,n)}return i[o].exports}for(var r="function"==typeof require&&require,o=0;o<n.length;o++)a(n[o]);return a}({1:[function(e,t,i){"use strict";var n="undefined"!=typeof Uint8Array&&"undefined"!=typeof Uint16Array&&"undefined"!=typeof Int32Array;i.assign=function(e){for(var t=Array.prototype.slice.call(arguments,1);t.length;){var i=t.shift();if(i){if("object"!=typeof i)throw new TypeError(i+"must be non-object");for(var n in i)i.hasOwnProperty(n)&&(e[n]=i[n])}}return e},i.shrinkBuf=function(e,t){return e.length===t?e:e.subarray?e.subarray(0,t):(e.length=t,e)};var a={arraySet:function(e,t,i,n,a){if(t.subarray&&e.subarray)return void e.set(t.subarray(i,i+n),a);for(var r=0;r<n;r++)e[a+r]=t[i+r]},flattenChunks:function(e){var t,i,n,a,r,o;for(n=0,t=0,i=e.length;t<i;t++)n+=e[t].length;for(o=new Uint8Array(n),a=0,t=0,i=e.length;t<i;t++)r=e[t],o.set(r,a),a+=r.length;return o}},r={arraySet:function(e,t,i,n,a){for(var r=0;r<n;r++)e[a+r]=t[i+r]},flattenChunks:function(e){return[].concat.apply([],e)}};i.setTyped=function(e){e?(i.Buf8=Uint8Array,i.Buf16=Uint16Array,i.Buf32=Int32Array,i.assign(i,a)):(i.Buf8=Array,i.Buf16=Array,i.Buf32=Array,i.assign(i,r))},i.setTyped(n)},{}],2:[function(e,t,i){"use strict";function n(e,t){if(t<65537&&(e.subarray&&o||!e.subarray&&r))return String.fromCharCode.apply(null,a.shrinkBuf(e,t));for(var i="",n=0;n<t;n++)i+=String.fromCharCode(e[n]);return i}var a=e("./common"),r=!0,o=!0;try{String.fromCharCode.apply(null,[0])}catch(e){r=!1}try{String.fromCharCode.apply(null,new Uint8Array(1))}catch(e){o=!1}for(var s=new a.Buf8(256),f=0;f<256;f++)s[f]=f>=252?6:f>=248?5:f>=240?4:f>=224?3:f>=192?2:1;s[254]=s[254]=1,i.string2buf=function(e){var t,i,n,r,o,s=e.length,f=0;for(r=0;r<s;r++)i=e.charCodeAt(r),55296===(64512&i)&&r+1<s&&(n=e.charCodeAt(r+1),56320===(64512&n)&&(i=65536+(i-55296<<10)+(n-56320),r++)),f+=i<128?1:i<2048?2:i<65536?3:4;for(t=new a.Buf8(f),o=0,r=0;o<f;r++)i=e.charCodeAt(r),55296===(64512&i)&&r+1<s&&(n=e.charCodeAt(r+1),56320===(64512&n)&&(i=65536+(i-55296<<10)+(n-56320),r++)),i<128?t[o++]=i:i<2048?(t[o++]=192|i>>>6,t[o++]=128|63&i):i<65536?(t[o++]=224|i>>>12,t[o++]=128|i>>>6&63,t[o++]=128|63&i):(t[o++]=240|i>>>18,t[o++]=128|i>>>12&63,t[o++]=128|i>>>6&63,t[o++]=128|63&i);return t},i.buf2binstring=function(e){return n(e,e.length)},i.binstring2buf=function(e){for(var t=new a.Buf8(e.length),i=0,n=t.length;i<n;i++)t[i]=e.charCodeAt(i);return t},i.buf2string=function(e,t){var i,a,r,o,f=t||e.length,l=new Array(2*f);for(a=0,i=0;i<f;)if(r=e[i++],r<128)l[a++]=r;else if(o=s[r],o>4)l[a++]=65533,i+=o-1;else{for(r&=2===o?31:3===o?15:7;o>1&&i<f;)r=r<<6|63&e[i++],o--;o>1?l[a++]=65533:r<65536?l[a++]=r:(r-=65536,l[a++]=55296|r>>10&1023,l[a++]=56320|1023&r)}return n(l,a)},i.utf8border=function(e,t){var i;for(t=t||e.length,t>e.length&&(t=e.length),i=t-1;i>=0&&128===(192&e[i]);)i--;return i<0?t:0===i?t:i+s[e[i]]>t?i:t}},{"./common":1}],3:[function(e,t,i){"use strict";function n(e,t,i,n){for(var a=65535&e|0,r=e>>>16&65535|0,o=0;0!==i;){o=i>2e3?2e3:i,i-=o;do a=a+t[n++]|0,r=r+a|0;while(--o);a%=65521,r%=65521}return a|r<<16|0}t.exports=n},{}],4:[function(e,t,i){"use strict";t.exports={Z_NO_FLUSH:0,Z_PARTIAL_FLUSH:1,Z_SYNC_FLUSH:2,Z_FULL_FLUSH:3,Z_FINISH:4,Z_BLOCK:5,Z_TREES:6,Z_OK:0,Z_STREAM_END:1,Z_NEED_DICT:2,Z_ERRNO:-1,Z_STREAM_ERROR:-2,Z_DATA_ERROR:-3,Z_BUF_ERROR:-5,Z_NO_COMPRESSION:0,Z_BEST_SPEED:1,Z_BEST_COMPRESSION:9,Z_DEFAULT_COMPRESSION:-1,Z_FILTERED:1,Z_HUFFMAN_ONLY:2,Z_RLE:3,Z_FIXED:4,Z_DEFAULT_STRATEGY:0,Z_BINARY:0,Z_TEXT:1,Z_UNKNOWN:2,Z_DEFLATED:8}},{}],5:[function(e,t,i){"use strict";function n(){for(var e,t=[],i=0;i<256;i++){e=i;for(var n=0;n<8;n++)e=1&e?3988292384^e>>>1:e>>>1;t[i]=e}return t}function a(e,t,i,n){var a=r,o=n+i;e^=-1;for(var s=n;s<o;s++)e=e>>>8^a[255&(e^t[s])];return e^-1}var r=n();t.exports=a},{}],6:[function(e,t,i){"use strict";function n(){this.text=0,this.time=0,this.xflags=0,this.os=0,this.extra=null,this.extra_len=0,this.name="",this.comment="",this.hcrc=0,this.done=!1}t.exports=n},{}],7:[function(e,t,i){"use strict";var n=30,a=12;t.exports=function(e,t){var i,r,o,s,f,l,d,u,c,h,b,w,m,k,_,g,v,p,x,y,S,E,B,Z,A;i=e.state,r=e.next_in,Z=e.input,o=r+(e.avail_in-5),s=e.next_out,A=e.output,f=s-(t-e.avail_out),l=s+(e.avail_out-257),d=i.dmax,u=i.wsize,c=i.whave,h=i.wnext,b=i.window,w=i.hold,m=i.bits,k=i.lencode,_=i.distcode,g=(1<<i.lenbits)-1,v=(1<<i.distbits)-1;e:do{m<15&&(w+=Z[r++]<<m,m+=8,w+=Z[r++]<<m,m+=8),p=k[w&g];t:for(;;){if(x=p>>>24,w>>>=x,m-=x,x=p>>>16&255,0===x)A[s++]=65535&p;else{if(!(16&x)){if(0===(64&x)){p=k[(65535&p)+(w&(1<<x)-1)];continue t}if(32&x){i.mode=a;break e}e.msg="invalid literal/length code",i.mode=n;break e}y=65535&p,x&=15,x&&(m<x&&(w+=Z[r++]<<m,m+=8),y+=w&(1<<x)-1,w>>>=x,m-=x),m<15&&(w+=Z[r++]<<m,m+=8,w+=Z[r++]<<m,m+=8),p=_[w&v];i:for(;;){if(x=p>>>24,w>>>=x,m-=x,x=p>>>16&255,!(16&x)){if(0===(64&x)){p=_[(65535&p)+(w&(1<<x)-1)];continue i}e.msg="invalid distance code",i.mode=n;break e}if(S=65535&p,x&=15,m<x&&(w+=Z[r++]<<m,m+=8,m<x&&(w+=Z[r++]<<m,m+=8)),S+=w&(1<<x)-1,S>d){e.msg="invalid distance too far back",i.mode=n;break e}if(w>>>=x,m-=x,x=s-f,S>x){if(x=S-x,x>c&&i.sane){e.msg="invalid distance too far back",i.mode=n;break e}if(E=0,B=b,0===h){if(E+=u-x,x<y){y-=x;do A[s++]=b[E++];while(--x);E=s-S,B=A}}else if(h<x){if(E+=u+h-x,x-=h,x<y){y-=x;do A[s++]=b[E++];while(--x);if(E=0,h<y){x=h,y-=x;do A[s++]=b[E++];while(--x);E=s-S,B=A}}}else if(E+=h-x,x<y){y-=x;do A[s++]=b[E++];while(--x);E=s-S,B=A}for(;y>2;)A[s++]=B[E++],A[s++]=B[E++],A[s++]=B[E++],y-=3;y&&(A[s++]=B[E++],y>1&&(A[s++]=B[E++]))}else{E=s-S;do A[s++]=A[E++],A[s++]=A[E++],A[s++]=A[E++],y-=3;while(y>2);y&&(A[s++]=A[E++],y>1&&(A[s++]=A[E++]))}break}}break}}while(r<o&&s<l);y=m>>3,r-=y,m-=y<<3,w&=(1<<m)-1,e.next_in=r,e.next_out=s,e.avail_in=r<o?5+(o-r):5-(r-o),e.avail_out=s<l?257+(l-s):257-(s-l),i.hold=w,i.bits=m}},{}],8:[function(e,t,i){"use strict";function n(e){return(e>>>24&255)+(e>>>8&65280)+((65280&e)<<8)+((255&e)<<24)}function a(){this.mode=0,this.last=!1,this.wrap=0,this.havedict=!1,this.flags=0,this.dmax=0,this.check=0,this.total=0,this.head=null,this.wbits=0,this.wsize=0,this.whave=0,this.wnext=0,this.window=null,this.hold=0,this.bits=0,this.length=0,this.offset=0,this.extra=0,this.lencode=null,this.distcode=null,this.lenbits=0,this.distbits=0,this.ncode=0,this.nlen=0,this.ndist=0,this.have=0,this.next=null,this.lens=new _.Buf16(320),this.work=new _.Buf16(288),this.lendyn=null,this.distdyn=null,this.sane=0,this.back=0,this.was=0}function r(e){var t;return e&&e.state?(t=e.state,e.total_in=e.total_out=t.total=0,e.msg="",t.wrap&&(e.adler=1&t.wrap),t.mode=D,t.last=0,t.havedict=0,t.dmax=32768,t.head=null,t.hold=0,t.bits=0,t.lencode=t.lendyn=new _.Buf32(we),t.distcode=t.distdyn=new _.Buf32(me),t.sane=1,t.back=-1,z):C}function o(e){var t;return e&&e.state?(t=e.state,t.wsize=0,t.whave=0,t.wnext=0,r(e)):C}function s(e,t){var i,n;return e&&e.state?(n=e.state,t<0?(i=0,t=-t):(i=(t>>4)+1,t<48&&(t&=15)),t&&(t<8||t>15)?C:(null!==n.window&&n.wbits!==t&&(n.window=null),n.wrap=i,n.wbits=t,o(e))):C}function f(e,t){var i,n;return e?(n=new a,e.state=n,n.window=null,i=s(e,t),i!==z&&(e.state=null),i):C}function l(e){return f(e,_e)}function d(e){if(ge){var t;for(m=new _.Buf32(512),k=new _.Buf32(32),t=0;t<144;)e.lens[t++]=8;for(;t<256;)e.lens[t++]=9;for(;t<280;)e.lens[t++]=7;for(;t<288;)e.lens[t++]=8;for(x(S,e.lens,0,288,m,0,e.work,{bits:9}),t=0;t<32;)e.lens[t++]=5;x(E,e.lens,0,32,k,0,e.work,{bits:5}),ge=!1}e.lencode=m,e.lenbits=9,e.distcode=k,e.distbits=5}function u(e,t,i,n){var a,r=e.state;return null===r.window&&(r.wsize=1<<r.wbits,r.wnext=0,r.whave=0,r.window=new _.Buf8(r.wsize)),n>=r.wsize?(_.arraySet(r.window,t,i-r.wsize,r.wsize,0),r.wnext=0,r.whave=r.wsize):(a=r.wsize-r.wnext,a>n&&(a=n),_.arraySet(r.window,t,i-n,a,r.wnext),n-=a,n?(_.arraySet(r.window,t,i-n,n,0),r.wnext=n,r.whave=r.wsize):(r.wnext+=a,r.wnext===r.wsize&&(r.wnext=0),r.whave<r.wsize&&(r.whave+=a))),0}function c(e,t){var i,a,r,o,s,f,l,c,h,b,w,m,k,we,me,ke,_e,ge,ve,pe,xe,ye,Se,Ee,Be=0,Ze=new _.Buf8(4),Ae=[16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15];if(!e||!e.state||!e.output||!e.input&&0!==e.avail_in)return C;i=e.state,i.mode===X&&(i.mode=W),s=e.next_out,r=e.output,l=e.avail_out,o=e.next_in,a=e.input,f=e.avail_in,c=i.hold,h=i.bits,b=f,w=l,ye=z;e:for(;;)switch(i.mode){case D:if(0===i.wrap){i.mode=W;break}for(;h<16;){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}if(2&i.wrap&&35615===c){i.check=0,Ze[0]=255&c,Ze[1]=c>>>8&255,i.check=v(i.check,Ze,2,0),c=0,h=0,i.mode=F;break}if(i.flags=0,i.head&&(i.head.done=!1),!(1&i.wrap)||(((255&c)<<8)+(c>>8))%31){e.msg="incorrect header check",i.mode=ce;break}if((15&c)!==U){e.msg="unknown compression method",i.mode=ce;break}if(c>>>=4,h-=4,xe=(15&c)+8,0===i.wbits)i.wbits=xe;else if(xe>i.wbits){e.msg="invalid window size",i.mode=ce;break}i.dmax=1<<xe,e.adler=i.check=1,i.mode=512&c?q:X,c=0,h=0;break;case F:for(;h<16;){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}if(i.flags=c,(255&i.flags)!==U){e.msg="unknown compression method",i.mode=ce;break}if(57344&i.flags){e.msg="unknown header flags set",i.mode=ce;break}i.head&&(i.head.text=c>>8&1),512&i.flags&&(Ze[0]=255&c,Ze[1]=c>>>8&255,i.check=v(i.check,Ze,2,0)),c=0,h=0,i.mode=L;case L:for(;h<32;){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}i.head&&(i.head.time=c),512&i.flags&&(Ze[0]=255&c,Ze[1]=c>>>8&255,Ze[2]=c>>>16&255,Ze[3]=c>>>24&255,i.check=v(i.check,Ze,4,0)),c=0,h=0,i.mode=H;case H:for(;h<16;){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}i.head&&(i.head.xflags=255&c,i.head.os=c>>8),512&i.flags&&(Ze[0]=255&c,Ze[1]=c>>>8&255,i.check=v(i.check,Ze,2,0)),c=0,h=0,i.mode=M;case M:if(1024&i.flags){for(;h<16;){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}i.length=c,i.head&&(i.head.extra_len=c),512&i.flags&&(Ze[0]=255&c,Ze[1]=c>>>8&255,i.check=v(i.check,Ze,2,0)),c=0,h=0}else i.head&&(i.head.extra=null);i.mode=j;case j:if(1024&i.flags&&(m=i.length,m>f&&(m=f),m&&(i.head&&(xe=i.head.extra_len-i.length,i.head.extra||(i.head.extra=new Array(i.head.extra_len)),_.arraySet(i.head.extra,a,o,m,xe)),512&i.flags&&(i.check=v(i.check,a,m,o)),f-=m,o+=m,i.length-=m),i.length))break e;i.length=0,i.mode=K;case K:if(2048&i.flags){if(0===f)break e;m=0;do xe=a[o+m++],i.head&&xe&&i.length<65536&&(i.head.name+=String.fromCharCode(xe));while(xe&&m<f);if(512&i.flags&&(i.check=v(i.check,a,m,o)),f-=m,o+=m,xe)break e}else i.head&&(i.head.name=null);i.length=0,i.mode=P;case P:if(4096&i.flags){if(0===f)break e;m=0;do xe=a[o+m++],i.head&&xe&&i.length<65536&&(i.head.comment+=String.fromCharCode(xe));while(xe&&m<f);if(512&i.flags&&(i.check=v(i.check,a,m,o)),f-=m,o+=m,xe)break e}else i.head&&(i.head.comment=null);i.mode=Y;case Y:if(512&i.flags){for(;h<16;){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}if(c!==(65535&i.check)){e.msg="header crc mismatch",i.mode=ce;break}c=0,h=0}i.head&&(i.head.hcrc=i.flags>>9&1,i.head.done=!0),e.adler=i.check=0,i.mode=X;break;case q:for(;h<32;){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}e.adler=i.check=n(c),c=0,h=0,i.mode=G;case G:if(0===i.havedict)return e.next_out=s,e.avail_out=l,e.next_in=o,e.avail_in=f,i.hold=c,i.bits=h,N;e.adler=i.check=1,i.mode=X;case X:if(t===Z||t===A)break e;case W:if(i.last){c>>>=7&h,h-=7&h,i.mode=le;break}for(;h<3;){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}switch(i.last=1&c,c>>>=1,h-=1,3&c){case 0:i.mode=J;break;case 1:if(d(i),i.mode=ie,t===A){c>>>=2,h-=2;break e}break;case 2:i.mode=$;break;case 3:e.msg="invalid block type",i.mode=ce}c>>>=2,h-=2;break;case J:for(c>>>=7&h,h-=7&h;h<32;){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}if((65535&c)!==(c>>>16^65535)){e.msg="invalid stored block lengths",i.mode=ce;break}if(i.length=65535&c,c=0,h=0,i.mode=Q,t===A)break e;case Q:i.mode=V;case V:if(m=i.length){if(m>f&&(m=f),m>l&&(m=l),0===m)break e;_.arraySet(r,a,o,m,s),f-=m,o+=m,l-=m,s+=m,i.length-=m;break}i.mode=X;break;case $:for(;h<14;){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}if(i.nlen=(31&c)+257,c>>>=5,h-=5,i.ndist=(31&c)+1,c>>>=5,h-=5,i.ncode=(15&c)+4,c>>>=4,h-=4,i.nlen>286||i.ndist>30){e.msg="too many length or distance symbols",i.mode=ce;break}i.have=0,i.mode=ee;case ee:for(;i.have<i.ncode;){for(;h<3;){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}i.lens[Ae[i.have++]]=7&c,c>>>=3,h-=3}for(;i.have<19;)i.lens[Ae[i.have++]]=0;if(i.lencode=i.lendyn,i.lenbits=7,Se={bits:i.lenbits},ye=x(y,i.lens,0,19,i.lencode,0,i.work,Se),i.lenbits=Se.bits,ye){e.msg="invalid code lengths set",i.mode=ce;break}i.have=0,i.mode=te;case te:for(;i.have<i.nlen+i.ndist;){for(;Be=i.lencode[c&(1<<i.lenbits)-1],me=Be>>>24,ke=Be>>>16&255,_e=65535&Be,!(me<=h);){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}if(_e<16)c>>>=me,h-=me,i.lens[i.have++]=_e;else{if(16===_e){for(Ee=me+2;h<Ee;){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}if(c>>>=me,h-=me,0===i.have){e.msg="invalid bit length repeat",i.mode=ce;break}xe=i.lens[i.have-1],m=3+(3&c),c>>>=2,h-=2}else if(17===_e){for(Ee=me+3;h<Ee;){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}c>>>=me,h-=me,xe=0,m=3+(7&c),c>>>=3,h-=3}else{for(Ee=me+7;h<Ee;){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}c>>>=me,h-=me,xe=0,m=11+(127&c),c>>>=7,h-=7}if(i.have+m>i.nlen+i.ndist){e.msg="invalid bit length repeat",i.mode=ce;break}for(;m--;)i.lens[i.have++]=xe}}if(i.mode===ce)break;if(0===i.lens[256]){e.msg="invalid code -- missing end-of-block",i.mode=ce;break}if(i.lenbits=9,Se={bits:i.lenbits},ye=x(S,i.lens,0,i.nlen,i.lencode,0,i.work,Se),i.lenbits=Se.bits,ye){e.msg="invalid literal/lengths set",i.mode=ce;break}if(i.distbits=6,i.distcode=i.distdyn,Se={bits:i.distbits},ye=x(E,i.lens,i.nlen,i.ndist,i.distcode,0,i.work,Se),i.distbits=Se.bits,ye){e.msg="invalid distances set",i.mode=ce;break}if(i.mode=ie,t===A)break e;case ie:i.mode=ne;case ne:if(f>=6&&l>=258){e.next_out=s,e.avail_out=l,e.next_in=o,e.avail_in=f,i.hold=c,i.bits=h,p(e,w),s=e.next_out,r=e.output,l=e.avail_out,o=e.next_in,a=e.input,f=e.avail_in,c=i.hold,h=i.bits,i.mode===X&&(i.back=-1);break}for(i.back=0;Be=i.lencode[c&(1<<i.lenbits)-1],me=Be>>>24,ke=Be>>>16&255,_e=65535&Be,!(me<=h);){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}if(ke&&0===(240&ke)){for(ge=me,ve=ke,pe=_e;Be=i.lencode[pe+((c&(1<<ge+ve)-1)>>ge)],me=Be>>>24,ke=Be>>>16&255,_e=65535&Be,!(ge+me<=h);){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}c>>>=ge,h-=ge,i.back+=ge}if(c>>>=me,h-=me,i.back+=me,i.length=_e,0===ke){i.mode=fe;break}if(32&ke){i.back=-1,i.mode=X;break}if(64&ke){e.msg="invalid literal/length code",i.mode=ce;break}i.extra=15&ke,i.mode=ae;case ae:if(i.extra){for(Ee=i.extra;h<Ee;){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}i.length+=c&(1<<i.extra)-1,c>>>=i.extra,h-=i.extra,i.back+=i.extra}i.was=i.length,i.mode=re;case re:for(;Be=i.distcode[c&(1<<i.distbits)-1],me=Be>>>24,ke=Be>>>16&255,_e=65535&Be,!(me<=h);){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}if(0===(240&ke)){for(ge=me,ve=ke,pe=_e;Be=i.distcode[pe+((c&(1<<ge+ve)-1)>>ge)],me=Be>>>24,ke=Be>>>16&255,_e=65535&Be,!(ge+me<=h);){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}c>>>=ge,h-=ge,i.back+=ge}if(c>>>=me,h-=me,i.back+=me,64&ke){e.msg="invalid distance code",i.mode=ce;break}i.offset=_e,i.extra=15&ke,i.mode=oe;case oe:if(i.extra){for(Ee=i.extra;h<Ee;){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}i.offset+=c&(1<<i.extra)-1,c>>>=i.extra,h-=i.extra,i.back+=i.extra}if(i.offset>i.dmax){e.msg="invalid distance too far back",i.mode=ce;break}i.mode=se;case se:if(0===l)break e;if(m=w-l,i.offset>m){if(m=i.offset-m,m>i.whave&&i.sane){e.msg="invalid distance too far back",i.mode=ce;break}m>i.wnext?(m-=i.wnext,k=i.wsize-m):k=i.wnext-m,m>i.length&&(m=i.length),we=i.window}else we=r,k=s-i.offset,m=i.length;m>l&&(m=l),l-=m,i.length-=m;do r[s++]=we[k++];while(--m);0===i.length&&(i.mode=ne);break;case fe:if(0===l)break e;r[s++]=i.length,l--,i.mode=ne;break;case le:if(i.wrap){for(;h<32;){if(0===f)break e;f--,c|=a[o++]<<h,h+=8}if(w-=l,e.total_out+=w,i.total+=w,w&&(e.adler=i.check=i.flags?v(i.check,r,w,s-w):g(i.check,r,w,s-w)),w=l,(i.flags?c:n(c))!==i.check){e.msg="incorrect data check",i.mode=ce;break}c=0,h=0}i.mode=de;case de:if(i.wrap&&i.flags){for(;h<32;){if(0===f)break e;f--,c+=a[o++]<<h,h+=8}if(c!==(4294967295&i.total)){e.msg="incorrect length check",i.mode=ce;break}c=0,h=0}i.mode=ue;case ue:ye=R;break e;case ce:ye=O;break e;case he:return I;case be:default:return C}return e.next_out=s,e.avail_out=l,e.next_in=o,e.avail_in=f,i.hold=c,i.bits=h,(i.wsize||w!==e.avail_out&&i.mode<ce&&(i.mode<le||t!==B))&&u(e,e.output,e.next_out,w-e.avail_out)?(i.mode=he,I):(b-=e.avail_in,w-=e.avail_out,e.total_in+=b,e.total_out+=w,i.total+=w,i.wrap&&w&&(e.adler=i.check=i.flags?v(i.check,r,w,e.next_out-w):g(i.check,r,w,e.next_out-w)),e.data_type=i.bits+(i.last?64:0)+(i.mode===X?128:0)+(i.mode===ie||i.mode===Q?256:0),(0===b&&0===w||t===B)&&ye===z&&(ye=T),ye)}function h(e){if(!e||!e.state)return C;var t=e.state;return t.window&&(t.window=null),e.state=null,z}function b(e,t){var i;return e&&e.state?(i=e.state,0===(2&i.wrap)?C:(i.head=t,t.done=!1,z)):C}function w(e,t){var i,n,a,r=t.length;return e&&e.state?(i=e.state,0!==i.wrap&&i.mode!==G?C:i.mode===G&&(n=1,n=g(n,t,r,0),n!==i.check)?O:(a=u(e,t,r,r))?(i.mode=he,I):(i.havedict=1,z)):C}var m,k,_=e("../utils/common"),g=e("./adler32"),v=e("./crc32"),p=e("./inffast"),x=e("./inftrees"),y=0,S=1,E=2,B=4,Z=5,A=6,z=0,R=1,N=2,C=-2,O=-3,I=-4,T=-5,U=8,D=1,F=2,L=3,H=4,M=5,j=6,K=7,P=8,Y=9,q=10,G=11,X=12,W=13,J=14,Q=15,V=16,$=17,ee=18,te=19,ie=20,ne=21,ae=22,re=23,oe=24,se=25,fe=26,le=27,de=28,ue=29,ce=30,he=31,be=32,we=852,me=592,ke=15,_e=ke,ge=!0;i.inflateReset=o,i.inflateReset2=s,i.inflateResetKeep=r,i.inflateInit=l,i.inflateInit2=f,i.inflate=c,i.inflateEnd=h,i.inflateGetHeader=b,i.inflateSetDictionary=w,i.inflateInfo="pako inflate (from Nodeca project)"},{"../utils/common":1,"./adler32":3,"./crc32":5,"./inffast":7,"./inftrees":9}],9:[function(e,t,i){"use strict";var n=e("../utils/common"),a=15,r=852,o=592,s=0,f=1,l=2,d=[3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258,0,0],u=[16,16,16,16,16,16,16,16,17,17,17,17,18,18,18,18,19,19,19,19,20,20,20,20,21,21,21,21,16,72,78],c=[1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577,0,0],h=[16,16,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23,24,24,25,25,26,26,27,27,28,28,29,29,64,64];t.exports=function(e,t,i,b,w,m,k,_){var g,v,p,x,y,S,E,B,Z,A=_.bits,z=0,R=0,N=0,C=0,O=0,I=0,T=0,U=0,D=0,F=0,L=null,H=0,M=new n.Buf16(a+1),j=new n.Buf16(a+1),K=null,P=0;for(z=0;z<=a;z++)M[z]=0;for(R=0;R<b;R++)M[t[i+R]]++;for(O=A,C=a;C>=1&&0===M[C];C--);if(O>C&&(O=C),0===C)return w[m++]=20971520,w[m++]=20971520,_.bits=1,0;for(N=1;N<C&&0===M[N];N++);for(O<N&&(O=N),U=1,z=1;z<=a;z++)if(U<<=1,U-=M[z],U<0)return-1;if(U>0&&(e===s||1!==C))return-1;for(j[1]=0,z=1;z<a;z++)j[z+1]=j[z]+M[z];for(R=0;R<b;R++)0!==t[i+R]&&(k[j[t[i+R]]++]=R);if(e===s?(L=K=k,S=19):e===f?(L=d,H-=257,K=u,P-=257,S=256):(L=c,K=h,S=-1),F=0,R=0,z=N,y=m,I=O,T=0,p=-1,D=1<<O,x=D-1,e===f&&D>r||e===l&&D>o)return 1;for(var Y=0;;){Y++,E=z-T,k[R]<S?(B=0,Z=k[R]):k[R]>S?(B=K[P+k[R]],Z=L[H+k[R]]):(B=96,Z=0),g=1<<z-T,v=1<<I,N=v;do v-=g,w[y+(F>>T)+v]=E<<24|B<<16|Z|0;while(0!==v);for(g=1<<z-1;F&g;)g>>=1;if(0!==g?(F&=g-1,F+=g):F=0,R++,0===--M[z]){if(z===C)break;z=t[i+k[R]]}if(z>O&&(F&x)!==p){for(0===T&&(T=O),y+=N,I=z-T,U=1<<I;I+T<C&&(U-=M[I+T],!(U<=0));)I++,U<<=1;if(D+=1<<I,e===f&&D>r||e===l&&D>o)return 1;p=F&x,w[p]=O<<24|I<<16|y-m|0}}return 0!==F&&(w[y+F]=z-T<<24|64<<16|0),_.bits=O,0}},{"../utils/common":1}],10:[function(e,t,i){"use strict";t.exports={2:"need dictionary",1:"stream end",0:"","-1":"file error","-2":"stream error","-3":"data error","-4":"insufficient memory","-5":"buffer error","-6":"incompatible version"}},{}],11:[function(e,t,i){"use strict";function n(){this.input=null,this.next_in=0,this.avail_in=0,this.total_in=0,this.output=null,this.next_out=0,this.avail_out=0,this.total_out=0,this.msg="",this.state=null,this.data_type=2,this.adler=0}t.exports=n},{}],"/lib/inflate.js":[function(e,t,i){"use strict";function n(e){if(!(this instanceof n))return new n(e);this.options=s.assign({chunkSize:16384,windowBits:0,to:""},e||{});var t=this.options;t.raw&&t.windowBits>=0&&t.windowBits<16&&(t.windowBits=-t.windowBits,0===t.windowBits&&(t.windowBits=-15)),!(t.windowBits>=0&&t.windowBits<16)||e&&e.windowBits||(t.windowBits+=32),t.windowBits>15&&t.windowBits<48&&0===(15&t.windowBits)&&(t.windowBits|=15),this.err=0,this.msg="",this.ended=!1,this.chunks=[],this.strm=new u,this.strm.avail_out=0;var i=o.inflateInit2(this.strm,t.windowBits);if(i!==l.Z_OK)throw new Error(d[i]);this.header=new c,o.inflateGetHeader(this.strm,this.header)}function a(e,t){var i=new n(t);if(i.push(e,!0),i.err)throw i.msg;return i.result}function r(e,t){return t=t||{},t.raw=!0,a(e,t)}var o=e("./zlib/inflate"),s=e("./utils/common"),f=e("./utils/strings"),l=e("./zlib/constants"),d=e("./zlib/messages"),u=e("./zlib/zstream"),c=e("./zlib/gzheader"),h=Object.prototype.toString;n.prototype.push=function(e,t){var i,n,a,r,d,u,c=this.strm,b=this.options.chunkSize,w=this.options.dictionary,m=!1;if(this.ended)return!1;n=t===~~t?t:t===!0?l.Z_FINISH:l.Z_NO_FLUSH,"string"==typeof e?c.input=f.binstring2buf(e):"[object ArrayBuffer]"===h.call(e)?c.input=new Uint8Array(e):c.input=e,c.next_in=0,c.avail_in=c.input.length;do{if(0===c.avail_out&&(c.output=new s.Buf8(b),c.next_out=0,c.avail_out=b),i=o.inflate(c,l.Z_NO_FLUSH),i===l.Z_NEED_DICT&&w&&(u="string"==typeof w?f.string2buf(w):"[object ArrayBuffer]"===h.call(w)?new Uint8Array(w):w,i=o.inflateSetDictionary(this.strm,u)),i===l.Z_BUF_ERROR&&m===!0&&(i=l.Z_OK,m=!1),i!==l.Z_STREAM_END&&i!==l.Z_OK)return this.onEnd(i),this.ended=!0,!1;c.next_out&&(0!==c.avail_out&&i!==l.Z_STREAM_END&&(0!==c.avail_in||n!==l.Z_FINISH&&n!==l.Z_SYNC_FLUSH)||("string"===this.options.to?(a=f.utf8border(c.output,c.next_out),r=c.next_out-a,d=f.buf2string(c.output,a),c.next_out=r,c.avail_out=b-r,r&&s.arraySet(c.output,c.output,a,r,0),this.onData(d)):this.onData(s.shrinkBuf(c.output,c.next_out)))),0===c.avail_in&&0===c.avail_out&&(m=!0)}while((c.avail_in>0||0===c.avail_out)&&i!==l.Z_STREAM_END);return i===l.Z_STREAM_END&&(n=l.Z_FINISH),n===l.Z_FINISH?(i=o.inflateEnd(this.strm),this.onEnd(i),this.ended=!0,i===l.Z_OK):n!==l.Z_SYNC_FLUSH||(this.onEnd(l.Z_OK),c.avail_out=0,!0)},n.prototype.onData=function(e){this.chunks.push(e)},n.prototype.onEnd=function(e){e===l.Z_OK&&("string"===this.options.to?this.result=this.chunks.join(""):this.result=s.flattenChunks(this.chunks)),this.chunks=[],this.err=e,this.msg=this.strm.msg},i.Inflate=n,i.inflate=a,i.inflateRaw=r,i.ungzip=a},{"./utils/common":1,"./utils/strings":2,"./zlib/constants":4,"./zlib/gzheader":6,"./zlib/inflate":8,"./zlib/messages":10,"./zlib/zstream":11}]},{},[])("/lib/inflate.js")});
+
+</script>
+<script>
+/* ---------------------------------------------------------------------
+   Минимальные утилиты Excel и автономный разбор .xlsx.
+   Нужны на телефонах, когда внешняя библиотека SheetJS не загрузилась.
+--------------------------------------------------------------------- */
+function colToNumber(col){
+  let n = 0;
+  for(const ch of col.toUpperCase()) n = n * 26 + ch.charCodeAt(0) - 64;
+  return n - 1;
+}
+function numberToCol(n){
+  let s = '';
+  for(n = n + 1; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s;
+  return s;
+}
+function decodeCellAddress(addr){
+  const m = String(addr || '').match(/^([A-Z]+)(\d+)$/i);
+  if(!m) return {r:0,c:0};
+  return {r:Number(m[2]) - 1, c:colToNumber(m[1])};
+}
+function encodeCell(pos){ return numberToCol(pos.c) + (pos.r + 1); }
+function decodeRange(ref){
+  const parts = String(ref || 'A1').split(':');
+  const s = decodeCellAddress(parts[0]);
+  const e = decodeCellAddress(parts[1] || parts[0]);
+  return {s,e};
+}
+async function readFileAsArrayBuffer(file){
+  // На iOS объект File может стать недоступным, если input очистить раньше времени.
+  // Сначала читаем современным способом, затем используем FileReader как резерв.
+  if(file && typeof file.arrayBuffer === 'function'){
+    try{
+      const data = await file.arrayBuffer();
+      if(data && data.byteLength) return data;
+    }catch(e){}
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if(reader.result && reader.result.byteLength) resolve(reader.result);
+      else reject(new Error('Выбранный файл оказался пустым или недоступным для чтения.'));
+    };
+    reader.onerror = () => reject(reader.error || new Error('Телефон не смог прочитать выбранный файл.'));
+    reader.onabort = () => reject(new Error('Чтение файла отменено.'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+function textFromXmlNode(node){
+  if(!node) return '';
+  return Array.from(node.getElementsByTagName('t')).map(x => x.textContent || '').join('');
+}
+async function unzipXlsx(arrayBuffer){
+  const bytes = new Uint8Array(arrayBuffer);
+  const view = new DataView(arrayBuffer);
+  let eocd = -1;
+  for(let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i--){
+    if(view.getUint32(i, true) === 0x06054b50){ eocd = i; break; }
+  }
+  if(eocd < 0) throw new Error('Файл не похож на корректный XLSX-архив.');
+  const total = view.getUint16(eocd + 10, true);
+  let offset = view.getUint32(eocd + 16, true);
+  const decoder = new TextDecoder('utf-8');
+  const entries = new Map();
+  for(let i=0; i<total; i++){
+    if(view.getUint32(offset, true) !== 0x02014b50) throw new Error('Повреждена структура XLSX-файла.');
+    const method = view.getUint16(offset + 10, true);
+    const compressedSize = view.getUint32(offset + 20, true);
+    const nameLen = view.getUint16(offset + 28, true);
+    const extraLen = view.getUint16(offset + 30, true);
+    const commentLen = view.getUint16(offset + 32, true);
+    const localOffset = view.getUint32(offset + 42, true);
+    const name = decoder.decode(bytes.slice(offset + 46, offset + 46 + nameLen));
+    entries.set(name, {method, compressedSize, localOffset});
+    offset += 46 + nameLen + extraLen + commentLen;
+  }
+  async function getBytes(name){
+    const entry = entries.get(name);
+    if(!entry) return null;
+    const p = entry.localOffset;
+    if(view.getUint32(p, true) !== 0x04034b50) throw new Error('Повреждён файл ' + name + '.');
+    const nameLen = view.getUint16(p + 26, true);
+    const extraLen = view.getUint16(p + 28, true);
+    const start = p + 30 + nameLen + extraLen;
+    const packed = bytes.slice(start, start + entry.compressedSize);
+    if(entry.method === 0) return packed;
+    if(entry.method !== 8) throw new Error('Неподдерживаемый способ сжатия XLSX.');
+    // Встроенный pako работает в Safari, Chrome, Samsung Internet и встроенных браузерах,
+    // в том числе при открытии страницы как локального HTML-файла без интернета.
+    if(window.pako && typeof window.pako.inflateRaw === 'function'){
+      try { return window.pako.inflateRaw(packed); }
+      catch(e){ throw new Error('Не удалось распаковать XLSX-файл. Возможно, файл повреждён.'); }
+    }
+    // Дополнительный резерв для браузеров с DecompressionStream.
+    if(typeof DecompressionStream !== 'undefined'){
+      try{
+        const stream = new DecompressionStream('deflate-raw');
+        const response = new Response(new Blob([packed]).stream().pipeThrough(stream));
+        return new Uint8Array(await response.arrayBuffer());
+      }catch(e){}
+    }
+    throw new Error('Этот браузер не смог распаковать XLSX-файл.');
+  }
+  return {
+    has: name => entries.has(name),
+    text: async name => {
+      const data = await getBytes(name);
+      return data ? decoder.decode(data) : null;
+    }
+  };
+}
+function xmlDoc(text, label){
+  const doc = new DOMParser().parseFromString(text, 'application/xml');
+  if(doc.getElementsByTagName('parsererror').length) throw new Error('Не удалось разобрать ' + label + ' в XLSX.');
+  return doc;
+}
+function normalizeZipPath(base, target){
+  if(target.startsWith('/')) return target.replace(/^\//, '');
+  const parts = (base + '/' + target).split('/');
+  const out = [];
+  for(const p of parts){ if(!p || p === '.') continue; if(p === '..') out.pop(); else out.push(p); }
+  return out.join('/');
+}
+async function parseXlsxStandalone(arrayBuffer){
+  const zip = await unzipXlsx(arrayBuffer);
+  const workbookText = await zip.text('xl/workbook.xml');
+  const relsText = await zip.text('xl/_rels/workbook.xml.rels');
+  if(!workbookText || !relsText) throw new Error('В XLSX не найдена структура книги.');
+  const wbDoc = xmlDoc(workbookText, 'книгу');
+  const relDoc = xmlDoc(relsText, 'связи книги');
+  const rels = {};
+  Array.from(relDoc.getElementsByTagName('Relationship')).forEach(r => {
+    rels[r.getAttribute('Id')] = normalizeZipPath('xl', r.getAttribute('Target') || '');
+  });
+  let shared = [];
+  const sharedText = await zip.text('xl/sharedStrings.xml');
+  if(sharedText){
+    const shDoc = xmlDoc(sharedText, 'общие строки');
+    shared = Array.from(shDoc.getElementsByTagName('si')).map(textFromXmlNode);
+  }
+  const result = {SheetNames:[], Sheets:{}};
+  const sheetNodes = Array.from(wbDoc.getElementsByTagName('sheet'));
+  for(const sheetNode of sheetNodes){
+    const name = sheetNode.getAttribute('name') || 'Лист';
+    const rid = sheetNode.getAttribute('r:id') || sheetNode.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id');
+    const path = rels[rid];
+    if(!path) continue;
+    const sheetText = await zip.text(path);
+    if(!sheetText) continue;
+    const doc = xmlDoc(sheetText, 'лист «' + name + '»');
+    const ws = {};
+    let minR=Infinity,minC=Infinity,maxR=0,maxC=0;
+    for(const c of Array.from(doc.getElementsByTagName('c'))){
+      const addr = c.getAttribute('r');
+      if(!addr) continue;
+      const pos = decodeCellAddress(addr);
+      minR=Math.min(minR,pos.r); minC=Math.min(minC,pos.c); maxR=Math.max(maxR,pos.r); maxC=Math.max(maxC,pos.c);
+      const t = c.getAttribute('t') || '';
+      const f = c.getElementsByTagName('f')[0];
+      const v = c.getElementsByTagName('v')[0];
+      const is = c.getElementsByTagName('is')[0];
+      let value;
+      if(t === 's') value = shared[Number(v ? v.textContent : 0)] ?? '';
+      else if(t === 'inlineStr') value = textFromXmlNode(is);
+      else if(t === 'str') value = v ? v.textContent : '';
+      else if(t === 'b') value = (v && v.textContent === '1');
+      else {
+        const raw = v ? v.textContent : '';
+        value = raw === '' ? undefined : (Number.isFinite(Number(raw)) ? Number(raw) : raw);
+      }
+      const cell = {v:value};
+      if(f) cell.f = f.textContent || '';
+      ws[addr] = cell;
+    }
+    const dim = doc.getElementsByTagName('dimension')[0];
+    ws['!ref'] = dim && dim.getAttribute('ref') ? dim.getAttribute('ref') : (minR === Infinity ? 'A1' : encodeCell({r:minR,c:minC}) + ':' + encodeCell({r:maxR,c:maxC}));
+    result.SheetNames.push(name);
+    result.Sheets[name] = ws;
+  }
+  if(!result.SheetNames.length) throw new Error('В XLSX не найдено ни одного листа.');
+  return result;
+}
+async function loadSheetJsFallback(){
+  if(window.XLSX && XLSX.read) return true;
+  const urls = [
+    'https://cdn.sheetjs.com/xlsx-0.18.5/package/dist/xlsx.full.min.js',
+    'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+    'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'
+  ];
+  for(const url of urls){
+    try{
+      await new Promise((resolve,reject)=>{
+        const sc=document.createElement('script'); sc.src=url; sc.async=true;
+        sc.onload=resolve; sc.onerror=reject; document.head.appendChild(sc);
+      });
+      if(window.XLSX && XLSX.read) return true;
+    }catch(e){}
+  }
+  return false;
+}
+
+/* ---------------------------------------------------------------------
+   Разбор книги Excel в структуру { params:[{address,label,value}], categories:[...] }
+--------------------------------------------------------------------- */
+function parseWorkbook(wb){
+  const sheetName = wb.SheetNames.find(n => n.includes('Специф')) || wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  if(!ws || !ws['!ref']) throw new Error('Не удалось прочитать лист «' + sheetName + '».');
+  const range = decodeRange(ws['!ref']);
+
+  function cellAt(r,c){ return ws[encodeCell({r,c})]; }
+  function val(r,c){ const cl = cellAt(r,c); return cl ? cl.v : undefined; }
+  function formulaOf(r,c){ const cl = cellAt(r,c); return (cl && cl.f) ? cl.f : undefined; }
+
+  let headerRow = -1;
+  for(let r = range.s.r; r <= range.e.r; r++){
+    const v = val(r,0);
+    if(typeof v === 'string' && v.trim() === '№'){ headerRow = r; break; }
+  }
+  if(headerRow === -1){
+    throw new Error('На листе «' + sheetName + '» не найдена строка заголовков «№ / НАЗВАНИЕ / ЦЕНА / КОЛ-ВО / СТОИМОСТЬ».');
+  }
+
+  // входные параметры: строки до заголовка, где в колонке A есть текст,
+  // а в колонке D — обычное число (не формула)
+  const params = [];
+  for(let r = range.s.r; r < headerRow; r++){
+    const a = val(r,0);
+    const dCell = cellAt(r,3);
+    if(a && typeof a === 'string' && dCell && typeof dCell.v === 'number' && !dCell.f){
+      params.push({ address: 'D' + (r+1), label: String(a).trim(), value: dCell.v });
+    }
+  }
+
+  const topRe = /^\d+\.\s/;
+  const subRe = /^\d+\.\d+\.?\s/;
+  const itogRe = /^итого/i;
+
+  const categories = [];
+  let curCat = null, curSub = null, currentGroup = null;
+
+  for(let r = headerRow + 1; r <= range.e.r; r++){
+    const a = val(r,0), b = val(r,1), c = val(r,2), d = val(r,3);
+    const aStr = (a !== undefined && a !== null) ? String(a).trim() : '';
+
+    if(aStr && itogRe.test(aStr)) continue;
+
+    if(c === undefined || c === null || c === ''){
+      if(aStr && subRe.test(aStr)){
+        currentGroup = null;
+        if(!curCat){ curCat = { top: null, subs: [] }; categories.push(curCat); }
+        curSub = { sub: aStr, items: [] };
+        curCat.subs.push(curSub);
+      } else if(aStr && topRe.test(aStr)){
+        curCat = { top: aStr, subs: [] };
+        categories.push(curCat);
+        curSub = null;
+      }
+      continue;
+    }
+
+    if(b) currentGroup = b;
+    if(!curCat){ curCat = { top: null, subs: [] }; categories.push(curCat); }
+    if(!curSub){ curSub = { sub: null, items: [] }; curCat.subs.push(curSub); }
+
+    const price = (typeof d === 'number') ? d : 0;
+    const f = formulaOf(r,4);
+    const rawE = val(r,4);
+    const qty_expr = (f !== undefined) ? f : ((typeof rawE === 'number') ? rawE : 0);
+
+    curSub.items.push({
+      num: aStr,
+      group: currentGroup || null,
+      name: String(c),
+      price: price,
+      qty_expr: qty_expr
+    });
+  }
+
+  return { params, categories };
+}
+
+/* ---------------------------------------------------------------------
+   Вычисление формул количества (D6, D6*2, ROUND(3/4*D6,0) и т.п.)
+--------------------------------------------------------------------- */
+function evalQty(expr, paramValues){
+  if (typeof expr === 'number') return expr;
+  let e = String(expr).replace(/\$/g, '');
+  const addrs = Object.keys(paramValues).sort((x,y)=>y.length-x.length);
+  for(const addr of addrs){
+    const re = new RegExp('\\b' + addr + '\\b', 'g');
+    e = e.replace(re, paramValues[addr]);
+  }
+  if(!/^[0-9+\-*/(). ,A-Za-z]+$/.test(e)) return 0;
+  try{
+    return Function('"use strict";function ROUND(x,n){n=n||0;const f=Math.pow(10,n);return Math.round(x*f)/f;}return (' + e + ')')();
+  }catch(err){ return 0; }
+}
+
+const fmtMoney = n => Math.round(n).toLocaleString('ru-RU') + ' ₽';
+const fmtQty = n => { const r = Math.round(n*100)/100; return (Number.isInteger(r) ? r : r.toFixed(2)).toString().replace('.', ','); };
+const TILE_ICON = label => { if(/м²/.test(label) || /площад/i.test(label)) return 'м²'; const m = label.match(/[А-ЯЁA-Z]/); return m ? m[0] : '#'; };
+
+/* ---------------------------------------------------------------------
+   Состояние приложения
+--------------------------------------------------------------------- */
+let MODEL = {"params": [{"address": "D6", "label": "Количество кабинетов, шт.", "value": 1}, {"address": "D7", "label": "Количество санузлов, шт.", "value": 1}, {"address": "D8", "label": "Площадь кабинетов (суммарно), м²", "value": 47.91}], "categories": [{"top": "1. МЕБЕЛЬ", "subs": [{"sub": "1.1. РЕСЕПШЕН", "items": [{"num": "1.1.1.", "group": "стоковые позиции", "name": "Пуф Куб, ткань - велюр Геста, цвет - Синий", "price": 6990, "qty_expr": 3}, {"num": "1.1.2.", "group": "стоковые позиции", "name": "Пуф Куб, ткань - велюр Ултра, цвет - Мустард", "price": 6990, "qty_expr": 1}, {"num": "1.1.3.", "group": "стоковые позиции", "name": "Консоль, 120х40х18 см", "price": 15541, "qty_expr": 1}, {"num": "1.1.4.", "group": "стоковые позиции", "name": "Подушка-игрушка Месяц 35х35 см", "price": 271, "qty_expr": 1}, {"num": "1.1.5.", "group": "стоковые позиции", "name": "Подушка Облако 33х40 см", "price": 318, "qty_expr": 1}, {"num": "1.1.6.", "group": "стоковые позиции", "name": "Подушка-игрушка Облако 30х50 см", "price": 340, "qty_expr": 1}, {"num": "1.1.7.", "group": "стоковые позиции", "name": "Подушка-игрушка Солнце 28х28 см", "price": 208, "qty_expr": 1}, {"num": "1.1.8.", "group": "стоковые позиции", "name": "Приставной стол Oxy-Y(L), Белый, 54,6х40х65 см", "price": 5645, "qty_expr": 2}, {"num": "1.1.9.", "group": "стоковые позиции", "name": "Стул мастера, Оранжевый", "price": 4946, "qty_expr": 1}, {"num": "1.1.10.", "group": "стоковые позиции", "name": "Зеркало 50х120 см", "price": 3559, "qty_expr": 1}, {"num": "1.1.11.", "group": "стоковые позиции", "name": "Стол детский Облако, белый + стул Зайка, белый", "price": 3575, "qty_expr": 1}, {"num": "1.1.12.", "group": "стоковые позиции", "name": "Стул детский Мишка, белый", "price": 1774, "qty_expr": 1}, {"num": "1.1.13.", "group": "стоковые позиции", "name": "Настенный органайзер для канцелярии, пегборд", "price": 1380, "qty_expr": 1}, {"num": "1.1.14.", "group": "стоковые позиции", "name": "Массажное кресло-качалка\nYamaguchi Liberty", "price": 59500, "qty_expr": 1}, {"num": "1.1.15.", "group": "стоковые позиции", "name": "Модульный диван Эра, с мягким сиденьем, со спинкой, 67х70х67 см, Бежевый, велюр", "price": 11024, "qty_expr": 5}, {"num": "1.1.16.", "group": "стоковые позиции", "name": "Вешалка напольная 104х126 см", "price": 2024, "qty_expr": 1}, {"num": "1.1.17.", "group": "стоковые позиции", "name": "Оливковое дерево (Олива европейская)", "price": 21158, "qty_expr": 2}, {"num": "1.1.18.", "group": "стоковые позиции", "name": "Замиокулькас", "price": 0, "qty_expr": 1}, {"num": "1.1.19.", "group": "заказные позиции", "name": "Стойка ресепшн, цвет - белый, габариты - 2200х1400хН920 мм", "price": 0, "qty_expr": 1}, {"num": "1.1.20.", "group": "заказные позиции", "name": "Кухонный гарнитур, материал корпуса и фасадов - ЛДСП Egger, цвет - белый/бежевый/слоновая кость - подобрать на месте, материал столешницы - ЛДСП Egger, цвет - под дерево, подобрать под пол и плинтус, габариты - 1600х2455хН920 мм. Верхние шкафы по желанию, как и фартук", "price": 0, "qty_expr": 1}, {"num": "1.1.21.", "group": "заказные позиции", "name": "Нумерация помещений, габариты - 150х150х150 мм, оранжевый -  3 шт., синий - 4 шт.", "price": 0, "qty_expr": 1}]}, {"sub": "1.2. КАБИНЕТЫ", "items": [{"num": "1.2.1.", "group": "стоковые позиции", "name": "Стул ОС - 22 - В белый, пластиковый", "price": 4350, "qty_expr": "D6"}, {"num": "1.2.2.", "group": "стоковые позиции", "name": "Ковер 150х200 детский на пол с ворсом", "price": 2586, "qty_expr": "D6"}, {"num": "1.2.3.", "group": "стоковые позиции", "name": "Стул мастера, Оранжевый", "price": 4946, "qty_expr": "D6"}, {"num": "1.2.4.", "group": "стоковые позиции", "name": "Парта для школьника 120*60 см, растущая, Imparare Grey Cubby", "price": 11668, "qty_expr": "D6"}, {"num": "1.2.5.", "group": "стоковые позиции", "name": "Тумба офисная Алтай с ящиками, на колесиках, 35.2х43х59.7 см, Белый", "price": 4718, "qty_expr": "D6"}, {"num": "1.2.6.", "group": "стоковые позиции", "name": "Стеллаж деревянный напольный с полками для книг и игрушек", "price": 8571, "qty_expr": "D6"}, {"num": "1.2.7.", "group": "стоковые позиции", "name": "Стеллаж деревянный напольный с полками для книг и игрушек (КАБИНЕТ 4)", "price": 4342, "qty_expr": 1}, {"num": "1.2.8.", "group": "стоковые позиции", "name": "Стол детский Облако, белый + стул Зайка, белый", "price": 3575, "qty_expr": "D6"}, {"num": "1.2.9.", "group": "стоковые позиции", "name": "Стул детский Мишка, белый", "price": 1774, "qty_expr": "D6"}, {"num": "1.2.10.", "group": "стоковые позиции", "name": "Шведская стенка комбинированная - КОМБИ - Т (стенка + турник навесной)  (КАБИНЕТ 4)", "price": 19580, "qty_expr": 1}, {"num": "1.2.11.", "group": "стоковые позиции", "name": "Кушетка массажная 190х70 см с вырезом для лица, регулировкой высоты (65-95 см), складная, бежевая экокожа", "price": 7971, "qty_expr": "D6"}, {"num": "1.2.12.", "group": "стоковые позиции", "name": "Замиокулькас", "price": 0, "qty_expr": "D6"}, {"num": "1.2.13.", "group": "заказные позиции", "name": "Полки-облака с подсветкой, габариты - 1200х200хН720 мм", "price": 0, "qty_expr": "D6"}, {"num": "1.2.14.", "group": "заказные позиции", "name": "Облака у потолка с подсветкой, габариты - 1600х40хН400 мм", "price": 0, "qty_expr": "D6*2"}]}, {"sub": "1.3. ПОМЕЩЕНИЕ ПЕРСОНАЛА", "items": [{"num": "1.3.1.", "group": "сток", "name": "Полубарные стулья", "price": 7128, "qty_expr": 2}]}, {"sub": "1.4. САН.УЗЕЛ", "items": []}]}, {"top": "2. ОТДЕЛКА", "subs": [{"sub": "2.1. ПОТОЛКИ", "items": [{"num": "2.1.1.", "group": "холл / ресепшен / коридор", "name": "Точечный встраиваемый светильник INER DK2155-BK", "price": 844, "qty_expr": 24}, {"num": "2.1.2.", "group": "холл / ресепшен / коридор", "name": "Светодиодная лампа Denkirs DK-GX53-12W-120-3K", "price": 229, "qty_expr": 24}, {"num": "2.1.3.", "group": "холл / ресепшен / коридор", "name": "Натяжной потолок матовый, цветной, цвет - бежевый", "price": 650, "qty_expr": 46.37}, {"num": "2.1.4.", "group": "холл / ресепшен / коридор", "name": "Евробагет (европрофиль) теневой – Бизон", "price": 85, "qty_expr": 62.56}, {"num": "2.1.5.", "group": "ресепшен", "name": "Люстра Cloud белого цвета", "price": 19790, "qty_expr": 1}, {"num": "2.1.6.", "group": "кабинеты 1-4", "name": "Потолок армстронг с белым профилем", "price": 0, "qty_expr": 47.91}, {"num": "2.1.7.", "group": "кабинеты 1-4", "name": "Светодиодный светильник потолочный армстронг матовый, цвет - белый, температура света - 4000К, размер - 600х600 мм", "price": 970, "qty_expr": 13}]}, {"sub": "2.2. СТЕНЫ", "items": [{"num": "2.2.1.", "group": "все помещения", "name": "Краска Oikos, полуматовая, примерный цвет - N2798", "price": 0, "qty_expr": 1}, {"num": "2.2.2.", "group": "все помещения", "name": "Грунтовка Oikos", "price": 0, "qty_expr": 1}, {"num": "2.2.3.", "group": "все помещения", "name": "Краска Oikos, полуматовая, примерный цвет - белый", "price": 0, "qty_expr": 1}, {"num": "2.2.4.", "group": "с/у", "name": "Керамическая плитка Kerama Marazzi Граньяно белый 15х15", "price": 1965, "qty_expr": 15.66}, {"num": "2.2.5.", "group": "кабинеты 1-4", "name": "Грифельная краска Siberia, интерьерная глубокоматовая, серая, 1л", "price": 2013, "qty_expr": 1}]}, {"sub": "2.3. ДВЕРИ", "items": [{"num": "2.3.1.", "group": null, "name": "Двери ZK001, примерный цвет полотна - слоновая кость, цвет наличника - оранжевый, цвет фурнитуры - черный. Проем 800х2100 мм (УТОЧНИТЬ ТЕХНИЧКУ У ПРОИЗВОДИТЕЛЯ)", "price": 12880, "qty_expr": 3}, {"num": "2.3.2.", "group": null, "name": "Двери ZK001, примерный цвет полотна - слоновая кость, цвет наличника - синий, цвет фурнитуры - черный. Проем 800х2100 мм (УТОЧНИТЬ ТЕХНИЧКУ У ПРОИЗВОДИТЕЛЯ)", "price": 12880, "qty_expr": 4}]}, {"sub": "2.4. ОКНА", "items": [{"num": "2.4.1.", "group": "кабинеты 1-4", "name": "Рулонные шторы  - Альфа блэкаут белая", "price": 10018, "qty_expr": 1}]}, {"sub": "2.5. ПОЛ", "items": [{"num": "2.5.1.", "group": "с/у", "name": "Staro Silk Terra White 60x60", "price": 1980, "qty_expr": 7.11}, {"num": "2.5.2.", "group": "с/у", "name": "Плинтус напольный Deartio Дуб янтарный B202-10", "price": 476, "qty_expr": 7.45}]}]}]};
+let STATE = {};
+MODEL.params.forEach(p => STATE[p.address] = p.value);
+
+let fileHandle = null;
+let lastModified = null;
+let pollTimer = null;
+
+function setSync(mode, text){
+  const dot = document.getElementById('sync-dot');
+  dot.className = 'sync-dot' + (mode ? ' ' + mode : '');
+  document.getElementById('sync-label').textContent = text;
+}
+
+function setFileStatus(mode, text){
+  const el = document.getElementById('file-status');
+  el.className = 'file-status' + (mode ? ' ' + mode : '');
+  el.textContent = text || '';
+}
+
+function showError(msg){
+  const b = document.getElementById('err-banner');
+  if(!msg){ b.classList.remove('show'); b.innerHTML=''; return; }
+  b.innerHTML = '<b>Не удалось прочитать файл.</b>&nbsp;' + msg;
+  b.classList.add('show');
+}
+
+function applyNewModel(model, fileLabel){
+  // сохраняем значения уже существующих параметров, введённые пользователем;
+  // новые параметры (появившиеся в таблице) добавляем со значением по умолчанию,
+  // удалённые из таблицы — просто перестают использоваться.
+  const newState = {};
+  model.params.forEach(p => {
+    newState[p.address] = (p.address in STATE) ? STATE[p.address] : p.value;
+  });
+  STATE = newState;
+  MODEL = model;
+  showError(null);
+  renderParams();
+  renderMain();
+  if(fileLabel){ document.getElementById('file-line').textContent = fileLabel; }
+}
+
+/* ---------------------------------------------------------------------
+   Подключение файла: File System Access API (Chrome/Edge) + запасной путь
+--------------------------------------------------------------------- */
+const supportsFSAccess = 'showOpenFilePicker' in window;
+const isMobilePicker = window.matchMedia('(pointer: coarse)').matches ||
+  /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+async function readAndApply(file, {isAuto=false} = {}){
+  setFileStatus('loading', 'Читаю «' + (file && file.name ? file.name : 'Excel-файл') + '»…');
+  setSync('', 'загрузка');
+  try{
+    if(!file) throw new Error('Файл не выбран.');
+    const lowerName = String(file.name || '').toLowerCase();
+    if(!lowerName.endsWith('.xlsx') && !lowerName.endsWith('.xls')){
+      throw new Error('Выберите файл Excel в формате .xlsx или .xls.');
+    }
+    const buf = await readFileAsArrayBuffer(file);
+    let wb;
+    if(window.XLSX && typeof XLSX.read === 'function'){
+      wb = XLSX.read(buf, {type:'array', cellFormula:true, cellText:false});
+    }else if(lowerName.endsWith('.xlsx')){
+      // Для .xlsx используем автономный встроенный разбор — интернет не нужен.
+      wb = await parseXlsxStandalone(buf);
+    }else{
+      // Старый бинарный .xls читается через SheetJS, если библиотека доступна из сети.
+      const loaded = await loadSheetJsFallback();
+      if(!loaded) throw new Error('Формат .xls требует интернет-соединения. Сохраните таблицу как .xlsx и загрузите снова.');
+      wb = XLSX.read(buf, {type:'array', cellFormula:true, cellText:false});
+    }
+    const model = parseWorkbook(wb);
+    if(!model.categories.length) throw new Error('В выбранном файле не найдены позиции сметы. Проверьте структуру листа «Спецификация».');
+    selectedSpecFile = file;
+    selectedSpecName = file.name || 'Спецификация.xlsx';
+    const stamp = file.lastModified ? new Date(file.lastModified).toLocaleString('ru-RU') : new Date().toLocaleString('ru-RU');
+    applyNewModel(model, 'Файл: ' + selectedSpecName + ' · обновлено ' + stamp);
+    refreshAttachmentButtons();
+    setSync('live', isAuto ? 'обновлено' : 'подключено');
+    setFileStatus('ok', 'Файл успешно загружен. Смета обновлена.');
+    document.getElementById('file-line').scrollIntoView({behavior:'smooth', block:'nearest'});
+  }catch(err){
+    const message = err && err.message ? err.message : String(err);
+    showError(message);
+    setSync('stale', 'ошибка чтения');
+    setFileStatus('error', 'Не удалось загрузить: ' + message);
+  }
+}
+
+async function connectFSAccess(){
+  try{
+    const [handle] = await window.showOpenFilePicker({
+      types: [{ description: 'Excel', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] } }]
+    });
+    fileHandle = handle;
+    const file = await handle.getFile();
+    lastModified = file.lastModified;
+    await readAndApply(file);
+    startPolling();
+  }catch(err){
+    if(err && err.name === 'AbortError') return;
+    // Некоторые мобильные/встроенные браузеры объявляют API,
+    // но не умеют реально открыть системный выбор файла.
+    connectFallback();
+  }
+}
+
+function startPolling(){
+  if(pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    if(!fileHandle) return;
+    try{
+      const file = await fileHandle.getFile();
+      if(file.lastModified !== lastModified){
+        lastModified = file.lastModified;
+        await readAndApply(file, {isAuto:true});
+      }
+    }catch(err){
+      setSync('stale', 'файл недоступен');
+    }
+  }, 2000);
+}
+
+function connectFallback(){
+  document.getElementById('file-input').click();
+}
+
+document.getElementById('connect-btn').addEventListener('click', () => {
+  // На мобильных поле file расположено поверх кнопки и само получает нажатие.
+  // Обработчик ниже нужен для настольных браузеров.
+  if(isMobilePicker) return;
+  supportsFSAccess ? connectFSAccess() : connectFallback();
+});
+
+const fileInput = document.getElementById('file-input');
+// Очищаем старое значение ДО открытия системного окна, а не после выбора.
+// Так можно повторно выбрать тот же файл, и при этом iOS не теряет доступ к File.
+fileInput.addEventListener('click', (e) => {
+  e.currentTarget.value = '';
+});
+fileInput.addEventListener('change', async (e) => {
+  const input = e.currentTarget;
+  const file = input.files && input.files[0];
+  if(!file) return;
+  await readAndApply(file);
+});
+
+if(!supportsFSAccess || isMobilePicker){
+  document.getElementById('sync-note').innerHTML =
+    'После изменений в таблице нажмите кнопку выше ещё раз, чтобы обновить смету.';
+}
+
+/* ---------------------------------------------------------------------
+   Рендер
+--------------------------------------------------------------------- */
+function renderParams(){
+  const wrap = document.getElementById('params-body');
+  wrap.innerHTML = MODEL.params.map((p, i) => {
+    const step = Number.isInteger(p.value) ? 1 : 0.5;
+    return `
+    <div class="param-row">
+      <div class="param-tile tile-${i % 3}">${TILE_ICON(p.label)}</div>
+      <div class="param-info">
+        <label>${p.label}</label>
+        <div class="stepper">
+          <button data-act="dec" data-addr="${p.address}" data-step="${step}">−</button>
+          <input data-addr="${p.address}" type="number" step="${step}" min="0" value="${STATE[p.address]}">
+          <button data-act="inc" data-addr="${p.address}" data-step="${step}">+</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('') || '<div class="empty-row">Не найдено ни одного входного параметра над таблицей.</div>';
+
+  wrap.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const addr = btn.dataset.addr, step = parseFloat(btn.dataset.step);
+      let v = parseFloat(STATE[addr]) || 0;
+      v = btn.dataset.act === 'inc' ? v + step : Math.max(0, v - step);
+      STATE[addr] = Math.round(v*100)/100;
+      renderParams(); renderMain();
+    });
+  });
+  wrap.querySelectorAll('input').forEach(inp=>{
+    inp.addEventListener('input', ()=>{
+      const v = parseFloat(inp.value);
+      STATE[inp.dataset.addr] = isNaN(v) ? 0 : v;
+      renderMain();
+    });
+  });
+}
+
+function computeAll(){
+  let grand = 0, mebel = 0, otdelka = 0, rabota = 0, demolitionWalls = 0;
+  const demolitionPattern = /(демонтаж|возвед|перегород)/i;
+  const workPattern = /(работ|монтаж|услуг)/i;
+  const cats = MODEL.categories.map(cat=>{
+    let catSum = 0;
+    const catName = String(cat.top || '');
+    const subs = cat.subs.map(sb=>{
+      let subSum = 0;
+      const items = sb.items.map(it=>{
+        const qty = evalQty(it.qty_expr, STATE);
+        const cost = Number.isFinite(Number(it.manual_cost)) ? Number(it.manual_cost) : (Number(it.price)||0) * qty;
+        subSum += cost;
+        return Object.assign({}, it, {qty, cost});
+      });
+      catSum += subSum;
+      const subName = String(sb.sub || '');
+      if(demolitionPattern.test(catName) || demolitionPattern.test(subName)) demolitionWalls += subSum;
+      else if(workPattern.test(catName) || workPattern.test(subName)) rabota += subSum;
+      return Object.assign({}, sb, {items, subSum});
+    });
+    grand += catSum;
+    if(/мебел/i.test(catName)) mebel += catSum;
+    else if(/отдел/i.test(catName)) otdelka += catSum;
+    else if(demolitionPattern.test(catName)){
+      /* сумма уже распределена по подразделам */
+    }else if(workPattern.test(catName)){
+      /* сумма уже распределена по подразделам */
+    }else{
+      otdelka += catSum;
+    }
+    return Object.assign({}, cat, {subs, catSum});
+  });
+  return {cats, grand, mebel, otdelka, rabota, demolitionWalls};
+}
+
+function escapeHtml(value){
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function parseEstimateNumber(value){
+  const normalized = String(value ?? '').replace(/\s/g,'').replace(',','.');
+  const number = Number(normalized);
+  return Number.isFinite(number) ? number : 0;
+}
+function editableNumber(value){
+  const number = Number(value);
+  return Number.isFinite(number) ? String(Math.round(number * 100) / 100).replace('.', ',') : '0';
+}
+function nextItemNumber(sub){
+  const nums = (sub.items || []).map(item => String(item.num || ''));
+  const last = nums.map(value => {
+    const match = value.match(/(\d+)\.?$/);
+    return match ? Number(match[1]) : 0;
+  }).reduce((max, value) => Math.max(max, value), 0) + 1;
+  const prefixMatch = String(sub.sub || '').match(/^\s*(\d+(?:\.\d+)*)/);
+  return (prefixMatch ? prefixMatch[1] + '.' : '') + last + '.';
+}
+function markEstimateChanged(){
+  if(currentLocationId) updateLocationBadge('Локация изменена · нажмите «Сохранить»');
+  if(document.getElementById('save-status').classList.contains('ok')) setSaveStatus('', '');
+}
+
+function renderMain(){
+  const {cats, grand, mebel, otdelka, rabota, demolitionWalls} = computeAll();
+  document.getElementById('grand-total').textContent = fmtMoney(grand);
+  document.getElementById('mini-breakdown').innerHTML = `
+    <div><div class="v">${fmtMoney(mebel)}</div><div class="k">Мебель</div></div>
+    <div><div class="v">${fmtMoney(otdelka)}</div><div class="k">Отделка</div></div>
+    <div><div class="v">${fmtMoney(rabota)}</div><div class="k">Работа</div></div>
+    <div><div class="v">${fmtMoney(demolitionWalls)}</div><div class="k">Демонтаж / возведение стен</div></div>
+  `;
+
+  const root = document.getElementById('cats-root');
+  root.innerHTML = cats.map((cat, ci) => `
+    <section class="category" data-cat="${ci}">
+      <div class="cat-head" onclick="toggleCat(${ci})">
+        <h2><span class="caret">▾</span>&nbsp; ${escapeHtml(cat.top || 'Без раздела')}</h2>
+        <span class="sum">${fmtMoney(cat.catSum)}</span>
+      </div>
+      <div class="cat-body">
+        ${cat.subs.map((sb, si) => `
+          <div class="sub" data-cat="${ci}" data-sub="${si}">
+            <div class="sub-head" onclick="toggleSub(${ci},${si})">
+              <span><span class="caret">▾</span>&nbsp; ${escapeHtml(sb.sub || '')}</span>
+              <span class="sum">${fmtMoney(sb.subSum)}</span>
+            </div>
+            <div class="sub-rows">
+              <table class="items">
+                <thead><tr><th class="num">№</th><th class="type">Тип</th><th>Наименование</th><th class="price">Цена</th><th class="qty">Кол-во</th><th class="cost">Стоимость</th><th class="row-action"></th></tr></thead>
+                <tbody>
+                  ${sb.items.length ? sb.items.map((it, ii) => {
+                    const source = MODEL.categories[ci].subs[si].items[ii];
+                    return `
+                    <tr data-name="${escapeHtml((source.name||'').toLowerCase())}">
+                      <td class="num"><input class="estimate-edit" data-cat="${ci}" data-sub="${si}" data-item="${ii}" data-field="num" value="${escapeHtml(source.num || '')}" aria-label="Номер позиции"></td>
+                      <td class="type"><input class="estimate-edit" data-cat="${ci}" data-sub="${si}" data-item="${ii}" data-field="group" value="${escapeHtml(source.group || '')}" aria-label="Тип позиции"></td>
+                      <td class="name"><textarea class="estimate-edit" data-cat="${ci}" data-sub="${si}" data-item="${ii}" data-field="name" aria-label="Наименование позиции">${escapeHtml(source.name || '')}</textarea></td>
+                      <td class="price"><input class="estimate-edit estimate-number" inputmode="decimal" data-cat="${ci}" data-sub="${si}" data-item="${ii}" data-field="price" value="${editableNumber(source.price)}" aria-label="Цена"></td>
+                      <td class="qty"><input class="estimate-edit estimate-number" inputmode="decimal" data-cat="${ci}" data-sub="${si}" data-item="${ii}" data-field="qty_expr" value="${editableNumber(it.qty)}" aria-label="Количество"></td>
+                      <td class="cost"><input class="estimate-edit estimate-number estimate-cost" inputmode="decimal" data-cat="${ci}" data-sub="${si}" data-item="${ii}" data-field="manual_cost" value="${editableNumber(it.cost)}" aria-label="Стоимость"></td>
+                      <td class="row-action"><button class="delete-row-btn" data-action="delete-item" data-cat="${ci}" data-sub="${si}" data-item="${ii}" type="button" title="Удалить строку" aria-label="Удалить строку">×</button></td>
+                    </tr>`;
+                  }).join('') : `<tr class="empty-table-row"><td colspan="7">В этом подразделе пока нет позиций.</td></tr>`}
+                </tbody>
+              </table>
+              <div class="sub-tools"><button class="add-row-btn" data-action="add-item" data-cat="${ci}" data-sub="${si}" type="button">＋ Добавить строку</button></div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+  `).join('');
+  applySearch();
+}
+
+function toggleCat(i){ document.querySelector(`.category[data-cat="${i}"]`).classList.toggle('collapsed'); }
+function toggleSub(i,j){ document.querySelector(`.sub[data-cat="${i}"][data-sub="${j}"]`).classList.toggle('collapsed'); }
+
+function applySearch(){
+  const input=document.getElementById('search');
+  const q=input?input.value.trim().toLowerCase():'';
+  document.querySelectorAll('table.items tbody tr[data-name]').forEach(tr=>{
+    tr.classList.toggle('hidden', Boolean(q) && !tr.dataset.name.includes(q));
+  });
+}
+const estimateSearchInput=document.getElementById('search');
+if(estimateSearchInput) estimateSearchInput.addEventListener('input', applySearch);
+
+function applyEditableFieldToModel(field){
+  const ci = Number(field.dataset.cat), si = Number(field.dataset.sub), ii = Number(field.dataset.item);
+  const item = MODEL.categories?.[ci]?.subs?.[si]?.items?.[ii];
+  if(!item) return false;
+  const key = field.dataset.field;
+  if(key === 'price'){
+    item.price = Math.max(0, parseEstimateNumber(field.value));
+    delete item.manual_cost;
+  }else if(key === 'qty_expr'){
+    item.qty_expr = Math.max(0, parseEstimateNumber(field.value));
+    delete item.manual_cost;
+  }else if(key === 'manual_cost'){
+    item.manual_cost = Math.max(0, parseEstimateNumber(field.value));
+  }else{
+    item[key] = field.value;
+  }
+  delete field.dataset.dirty;
+  return true;
+}
+
+function flushEditableEstimateFields(){
+  document.querySelectorAll('.estimate-edit[data-dirty="1"]').forEach(field => applyEditableFieldToModel(field));
+}
+
+document.getElementById('cats-root').addEventListener('input', event => {
+  const field = event.target.closest('.estimate-edit');
+  if(field) field.dataset.dirty = '1';
+});
+
+document.getElementById('cats-root').addEventListener('change', event => {
+  const field = event.target.closest('.estimate-edit');
+  if(!field) return;
+  field.dataset.dirty = '1';
+  if(!applyEditableFieldToModel(field)) return;
+  markEstimateChanged();
+  renderMain();
+});
+
+document.getElementById('cats-root').addEventListener('click', event => {
+  const button = event.target.closest('[data-action]');
+  if(!button) return;
+  const ci = Number(button.dataset.cat), si = Number(button.dataset.sub);
+  const sub = MODEL.categories?.[ci]?.subs?.[si];
+  if(!sub) return;
+  if(button.dataset.action === 'add-item'){
+    const newIndex = sub.items.length;
+    sub.items.push({num:nextItemNumber(sub),group:'',name:'Новая позиция',price:0,qty_expr:1});
+    markEstimateChanged();
+    renderMain();
+    requestAnimationFrame(() => {
+      const input = document.querySelector(`.estimate-edit[data-cat="${ci}"][data-sub="${si}"][data-item="${newIndex}"][data-field="name"]`);
+      if(input){ input.focus(); input.select(); input.scrollIntoView({behavior:'smooth',block:'center'}); }
+    });
+  }else if(button.dataset.action === 'delete-item'){
+    const ii = Number(button.dataset.item);
+    sub.items.splice(ii,1);
+    markEstimateChanged();
+    renderMain();
+  }
+});
+
+
+/* ---------------------------------------------------------------------
+   Локации: сохранение сметы в браузере сайта
+--------------------------------------------------------------------- */
+const LOCATIONS_STORAGE_KEY = 'slogi_locations_v1';
+let currentLocationId = null;
+let selectedPlanName = '';
+let selectedPlanFile = null;
+let selectedSpecName = '';
+let selectedSpecFile = null;
+
+const FILES_DB_NAME = 'slogi_files_v1';
+const FILES_STORE_NAME = 'attachments';
+
+function openFilesDb(){
+  return new Promise((resolve, reject) => {
+    if(!('indexedDB' in window)) return reject(new Error('Браузер не поддерживает хранилище файлов.'));
+    const request = indexedDB.open(FILES_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if(!db.objectStoreNames.contains(FILES_STORE_NAME)) db.createObjectStore(FILES_STORE_NAME, {keyPath:'key'});
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('Не удалось открыть хранилище файлов.'));
+  });
+}
+
+async function saveAttachment(locationId, type, file){
+  if(!locationId || !file) return;
+  if(window.SlogiCloud) await window.SlogiCloud.saveAttachment(locationId,type,file,file.name);
+  const db = await openFilesDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(FILES_STORE_NAME, 'readwrite');
+    tx.objectStore(FILES_STORE_NAME).put({
+      key: locationId + ':' + type,
+      locationId,
+      type,
+      name: file.name || (type === 'plan' ? 'План помещения' : 'Спецификация.xlsx'),
+      mime: file.type || 'application/octet-stream',
+      blob: file,
+      updatedAt: new Date().toISOString()
+    });
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error || new Error('Не удалось сохранить вложение.'));
+  });
+  db.close();
+}
+
+async function getAttachment(locationId, type){
+  if(!locationId) return null;
+  const cloud=window.SlogiCloud&&await window.SlogiCloud.getAttachment(locationId,type); if(cloud)return cloud;
+  try{
+    const db = await openFilesDb();
+    const result = await new Promise((resolve, reject) => {
+      const tx = db.transaction(FILES_STORE_NAME, 'readonly');
+      const request = tx.objectStore(FILES_STORE_NAME).get(locationId + ':' + type);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+    if(result&&result.blob&&window.SlogiCloud)window.SlogiCloud.saveAttachment(locationId,type,result.blob,result.name);
+    return result;
+  }catch(err){ return null; }
+}
+
+function safeFileName(value, fallback='файл'){
+  const clean = String(value || '').trim().replace(/[\/:*?"<>|]+/g, '_').replace(/\s+/g, ' ').slice(0,120);
+  return clean || fallback;
+}
+
+function openDownloadTab(){
+  const tab = window.open('', '_blank');
+  if(tab && !tab.closed){
+    tab.document.title = 'Подготовка файла — СЛОГИ';
+    tab.document.body.innerHTML = '<p style="font:16px Arial,sans-serif;padding:24px;color:#33474B">Подготавливаем файл…</p>';
+  }
+  return tab;
+}
+
+function triggerBlobDownload(blob, filename, downloadTab=null){
+  const url = URL.createObjectURL(blob);
+  const tab = downloadTab && !downloadTab.closed ? downloadTab : openDownloadTab();
+  if(tab && !tab.closed){
+    tab.document.title = 'Скачивание — СЛОГИ';
+    tab.document.body.innerHTML = '';
+    const wrap = tab.document.createElement('div');
+    wrap.style.cssText = 'font:16px Arial,sans-serif;padding:24px;color:#33474B;line-height:1.5';
+    const text = tab.document.createElement('p');
+    text.textContent = 'Скачивание началось. Если файл не загрузился автоматически, нажмите кнопку ниже.';
+    const link = tab.document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.textContent = 'Скачать ' + filename;
+    link.style.cssText = 'display:inline-block;padding:11px 16px;border-radius:9px;background:#4B6E73;color:white;text-decoration:none;font-weight:700';
+    wrap.append(text, link);
+    tab.document.body.appendChild(wrap);
+    link.click();
+  }else{
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+function escapeSpreadsheet(value){
+  return String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function computeEstimateFor(model, state){
+  let grand = 0;
+  const cats = (model.categories || []).map(cat => {
+    let catSum = 0;
+    const subs = (cat.subs || []).map(sb => {
+      let subSum = 0;
+      const items = (sb.items || []).map(it => {
+        const qty = evalQty(it.qty_expr, state || {});
+        const cost = Number.isFinite(Number(it.manual_cost)) ? Number(it.manual_cost) : (Number(it.price) || 0) * qty;
+        subSum += cost;
+        return Object.assign({}, it, {qty, cost});
+      });
+      catSum += subSum;
+      return Object.assign({}, sb, {items, subSum});
+    });
+    grand += catSum;
+    return Object.assign({}, cat, {subs, catSum});
+  });
+  return {cats, grand};
+}
+
+
+const zipCrcTable=(()=>{const table=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?0xEDB88320^(c>>>1):c>>>1;table[n]=c>>>0;}return table;})();
+function zipCrc32(bytes){let c=0xFFFFFFFF;for(const b of bytes)c=zipCrcTable[(c^b)&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function zipU16(value){const a=new Uint8Array(2);new DataView(a.buffer).setUint16(0,value,true);return a;}
+function zipU32(value){const a=new Uint8Array(4);new DataView(a.buffer).setUint32(0,value>>>0,true);return a;}
+function zipConcat(parts){const length=parts.reduce((s,p)=>s+p.length,0);const out=new Uint8Array(length);let offset=0;for(const p of parts){out.set(p,offset);offset+=p.length;}return out;}
+function zipDosDateTime(date=new Date()){const year=Math.max(1980,date.getFullYear());return {time:(date.getHours()<<11)|(date.getMinutes()<<5)|(date.getSeconds()>>1),date:((year-1980)<<9)|((date.getMonth()+1)<<5)|date.getDate()};}
+async function createZip(files){
+  const encoder=new TextEncoder();const locals=[];const centrals=[];let offset=0;const dt=zipDosDateTime();
+  for(const file of files){
+    const name=encoder.encode(file.name);const data=new Uint8Array(await file.blob.arrayBuffer());const crc=zipCrc32(data);const flag=0x0800;
+    const local=zipConcat([zipU32(0x04034b50),zipU16(20),zipU16(flag),zipU16(0),zipU16(dt.time),zipU16(dt.date),zipU32(crc),zipU32(data.length),zipU32(data.length),zipU16(name.length),zipU16(0),name,data]);
+    const central=zipConcat([zipU32(0x02014b50),zipU16(20),zipU16(20),zipU16(flag),zipU16(0),zipU16(dt.time),zipU16(dt.date),zipU32(crc),zipU32(data.length),zipU32(data.length),zipU16(name.length),zipU16(0),zipU16(0),zipU16(0),zipU16(0),zipU32(0),zipU32(offset),name]);
+    locals.push(local);centrals.push(central);offset+=local.length;
+  }
+  const centralData=zipConcat(centrals);const end=zipConcat([zipU32(0x06054b50),zipU16(0),zipU16(0),zipU16(files.length),zipU16(files.length),zipU32(centralData.length),zipU32(offset),zipU16(0)]);
+  return new Blob([...locals,centralData,end],{type:'application/zip'});
+}
+
+
+async function createEstimateExcelBlob(model, state, address){
+  const result = computeEstimateFor(model, state);
+  const rows = [];
+  const merges = ['A1:F1','A2:F2','A3:F3'];
+  let rowNo = 1;
+  const textCell = (ref, value, style=7) => `<c r="${ref}" t="inlineStr" s="${style}"><is><t xml:space="preserve">${escapeSpreadsheet(value)}</t></is></c>`;
+  const numCell = (ref, value, style=4) => `<c r="${ref}" s="${style}"><v>${Number(value)||0}</v></c>`;
+  rows.push(`<row r="${rowNo}" ht="28" customHeight="1">${textCell('A'+rowNo,'СМЕТА',1)}</row>`); rowNo++;
+  rows.push(`<row r="${rowNo}">${textCell('A'+rowNo,'Объект: '+(address||'Адрес не указан'),7)}</row>`); rowNo++;
+  rows.push(`<row r="${rowNo}">${textCell('A'+rowNo,'Сформировано: '+new Date().toLocaleString('ru-RU'),7)}</row>`); rowNo++;
+  rows.push(`<row r="${rowNo}"></row>`); rowNo++;
+  merges.push(`A${rowNo}:F${rowNo}`);
+  rows.push(`<row r="${rowNo}" ht="22" customHeight="1">${textCell('A'+rowNo,'ВХОДНЫЕ ПАРАМЕТРЫ',2)}</row>`); rowNo++;
+  const inputParams = Array.isArray(model.params) ? model.params : [];
+  if(inputParams.length){
+    inputParams.forEach(param => {
+      merges.push(`A${rowNo}:E${rowNo}`);
+      const paramValue = Object.prototype.hasOwnProperty.call(state || {}, param.address) ? state[param.address] : param.value;
+      const valueCell = paramValue !== '' && Number.isFinite(Number(paramValue))
+        ? numCell('F'+rowNo, Number(paramValue), 4)
+        : textCell('F'+rowNo, paramValue ?? '', 7);
+      rows.push(`<row r="${rowNo}">${textCell('A'+rowNo,param.label || param.address || 'Параметр',7)}${valueCell}</row>`); rowNo++;
+    });
+  }else{
+    merges.push(`A${rowNo}:F${rowNo}`);
+    rows.push(`<row r="${rowNo}">${textCell('A'+rowNo,'Входные параметры не заданы',7)}</row>`); rowNo++;
+  }
+  rows.push(`<row r="${rowNo}"></row>`); rowNo++;
+  rows.push(`<row r="${rowNo}" ht="24" customHeight="1">${['№','Тип','Наименование','Цена, ₽','Количество','Стоимость, ₽'].map((v,i)=>textCell(String.fromCharCode(65+i)+rowNo,v,6)).join('')}</row>`);
+  const headerRow = rowNo;
+  rowNo++;
+  result.cats.forEach(cat => {
+    merges.push(`A${rowNo}:E${rowNo}`);
+    rows.push(`<row r="${rowNo}">${textCell('A'+rowNo,cat.top||'Без раздела',2)}${numCell('F'+rowNo,Math.round(cat.catSum),2)}</row>`); rowNo++;
+    cat.subs.forEach(sb => {
+      merges.push(`A${rowNo}:E${rowNo}`);
+      rows.push(`<row r="${rowNo}">${textCell('A'+rowNo,sb.sub||'',3)}${numCell('F'+rowNo,Math.round(sb.subSum),3)}</row>`); rowNo++;
+      sb.items.forEach(it => {
+        rows.push(`<row r="${rowNo}">${textCell('A'+rowNo,it.num||'',7)}${textCell('B'+rowNo,it.group||'',7)}${textCell('C'+rowNo,it.name||'',7)}${numCell('D'+rowNo,Number(it.price)||0,4)}${numCell('E'+rowNo,Math.round(it.qty*100)/100,4)}${numCell('F'+rowNo,Math.round(it.cost),4)}</row>`); rowNo++;
+      });
+    });
+  });
+  merges.push(`A${rowNo}:E${rowNo}`);
+  rows.push(`<row r="${rowNo}" ht="25" customHeight="1">${textCell('A'+rowNo,'ИТОГО',5)}${numCell('F'+rowNo,Math.round(result.grand),5)}</row>`);
+  const lastRow = rowNo;
+  const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:F${lastRow}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="${headerRow}" topLeftCell="A${headerRow+1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols><col min="1" max="1" width="12" customWidth="1"/><col min="2" max="2" width="25" customWidth="1"/><col min="3" max="3" width="70" customWidth="1"/><col min="4" max="6" width="16" customWidth="1"/></cols><sheetData>${rows.join('')}</sheetData><autoFilter ref="A${headerRow}:F${lastRow}"/><mergeCells count="${merges.length}">${merges.map(ref=>`<mergeCell ref="${ref}"/>`).join('')}</mergeCells><pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.2" footer="0.2"/></worksheet>`;
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="14"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF37545A"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE7EFEF"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF3E9D7"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE19B2D"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFEAD9CE"/></left><right style="thin"><color rgb="FFEAD9CE"/></right><top style="thin"><color rgb="FFEAD9CE"/></top><bottom style="thin"><color rgb="FFEAD9CE"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="8"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="4" fontId="2" fillId="3" borderId="1" xfId="0" applyNumberFormat="1"/><xf numFmtId="4" fontId="2" fillId="4" borderId="1" xfId="0" applyNumberFormat="1"/><xf numFmtId="4" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="right" vertical="top"/></xf><xf numFmtId="4" fontId="1" fillId="5" borderId="1" xfId="0" applyNumberFormat="1"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Обычный" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const files = [
+    {name:'[Content_Types].xml',blob:new Blob([`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`],{type:'application/xml'})},
+    {name:'_rels/.rels',blob:new Blob([`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],{type:'application/xml'})},
+    {name:'xl/workbook.xml',blob:new Blob([`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Смета" sheetId="1" r:id="rId1"/></sheets></workbook>`],{type:'application/xml'})},
+    {name:'xl/_rels/workbook.xml.rels',blob:new Blob([`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],{type:'application/xml'})},
+    {name:'xl/worksheets/sheet1.xml',blob:new Blob([sheet],{type:'application/xml'})},
+    {name:'xl/styles.xml',blob:new Blob([styles],{type:'application/xml'})}
+  ];
+  const zip = await createZip(files);
+  return new Blob([zip], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+
+function updatePassportLinks(){
+  const suffix=currentLocationId?'?location='+encodeURIComponent(currentLocationId):'';
+  const logo=document.getElementById('logo-link');
+  const menu=document.getElementById('passport-menu-link');
+  const openButton=document.getElementById('open-passport-btn');
+  if(logo) logo.href='index.html';
+  if(menu) menu.href='passport.html'+suffix;
+  if(openButton){
+    openButton.href='passport.html'+suffix;
+    openButton.setAttribute('aria-disabled',currentLocationId?'false':'true');
+  }
+}
+
+async function refreshAttachmentButtons(){
+  const planBtn = document.getElementById('plan-download-btn');
+  const specBtn = document.getElementById('spec-download-btn');
+  const proposalBtn = document.getElementById('proposal-download-btn');
+  const proposalLine = document.getElementById('proposal-file-line');
+  const proposalEditLink = document.getElementById('proposal-edit-link');
+  const proposalMenuLink = document.getElementById('proposal-menu-link');
+  let hasPlan = Boolean(selectedPlanFile);
+  let hasSpec = Boolean(selectedSpecFile);
+  let proposal = null;
+  if(currentLocationId){
+    if(!hasPlan) hasPlan = Boolean(await getAttachment(currentLocationId, 'plan'));
+    if(!hasSpec) hasSpec = Boolean(await getAttachment(currentLocationId, 'spec'));
+    proposal = await getAttachment(currentLocationId, 'proposal');
+  }
+  planBtn.disabled = !hasPlan;
+  specBtn.disabled = !hasSpec;
+  proposalBtn.disabled = !(proposal && proposal.blob);
+  const proposalHref = currentLocationId ? 'proposal.html?location=' + encodeURIComponent(currentLocationId) : 'proposal.html';
+  proposalEditLink.href = proposalHref;
+  if(proposalMenuLink) proposalMenuLink.href = proposalHref;
+  proposalEditLink.textContent = proposal ? 'Изменить КП' : 'Сформировать КП';
+  proposalLine.textContent = proposal ? 'Файл: ' + (proposal.name || 'Коммерческое предложение.doc') : 'КП пока не сформировано.';
+}
+
+async function downloadAttachment(type){
+  const downloadTab = openDownloadTab();
+  let direct = null;
+  if(type === 'plan') direct = selectedPlanFile;
+  if(type === 'spec') direct = selectedSpecFile;
+  const stored = direct ? null : await getAttachment(currentLocationId, type);
+  const blob = direct || (stored && stored.blob);
+  const name = direct ? direct.name : stored && stored.name;
+  const labels = {
+    plan:['План помещения ещё не добавлен.','План помещения'],
+    spec:['Спецификация ещё не добавлена.','Спецификация.xlsx'],
+    proposal:['Коммерческое предложение ещё не сформировано.','Коммерческое предложение.doc']
+  };
+  const label = labels[type] || ['Файл не найден.','Файл'];
+  if(!blob){
+    if(downloadTab && !downloadTab.closed) downloadTab.close();
+    setSaveStatus('error', label[0]);
+    return;
+  }
+  triggerBlobDownload(blob, safeFileName(name, label[1]), downloadTab);
+}
+
+function readLocations(){
+  try{
+    const raw = localStorage.getItem(LOCATIONS_STORAGE_KEY);
+    const data = raw ? JSON.parse(raw) : [];
+    return Array.isArray(data) ? data : [];
+  }catch(err){
+    return [];
+  }
+}
+
+function writeLocations(locations){
+  localStorage.setItem(LOCATIONS_STORAGE_KEY, JSON.stringify(locations));
+}
+
+function populateObjectSelector(){
+  return [];
+}
+function updateSelectedObjectNote(record){
+  const objectName=document.getElementById('current-object-name');
+  const clusterName=document.getElementById('current-cluster-name');
+  if(objectName) objectName.textContent=record&&record.address?record.address:'—';
+  if(clusterName) clusterName.textContent=record&&record.clusterName?record.clusterName:'Не указан';
+  const save=document.getElementById('save-location-btn');
+  const download=document.getElementById('download-estimate-btn');
+  if(save) save.disabled=!(record&&record.id);
+  if(download) download.disabled=!(record&&record.id);
+}
+function createLocationId(){
+  if(window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+  return 'loc-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,9);
+}
+
+function setSaveStatus(mode, text){
+  const el = document.getElementById('save-status');
+  el.className = 'save-status' + (mode ? ' ' + mode : '');
+  el.textContent = text || '';
+}
+
+function updateLocationBadge(text){
+  const badge = document.getElementById('location-badge');
+  badge.textContent = text || '';
+  badge.classList.toggle('show', Boolean(text));
+}
+
+function updatePlanLine(){
+  document.getElementById('plan-file-line').textContent = selectedPlanName
+    ? 'Файл: ' + selectedPlanName
+    : 'Файл пока не выбран.';
+  refreshAttachmentButtons();
+}
+
+function updateSpecLine(){
+  if(selectedSpecName) document.getElementById('file-line').textContent = 'Файл: ' + selectedSpecName;
+  refreshAttachmentButtons();
+}
+
+function currentSourceLabel(){
+  return selectedSpecName || document.getElementById('file-line').textContent || 'Демо-набор данных';
+}
+
+function clonePlain(value){
+  return JSON.parse(JSON.stringify(value));
+}
+
+async function saveCurrentLocation(){
+  flushEditableEstimateFields();
+  const addressInput = document.getElementById('location-address');
+  const address = addressInput.value.trim();
+  if(!currentLocationId || !address){
+    setSaveStatus('error', 'Сохранение доступно только для объекта, открытого из паспорта.');
+    return;
+  }
+
+  setSaveStatus('loading', 'Сохраняю…');
+  (async()=>{
+    try{
+      const now = new Date().toISOString();
+      const locations = readLocations();
+      const existingIndex = locations.findIndex(item => item && item.id === currentLocationId);
+      const existing = existingIndex >= 0 ? locations[existingIndex] : null;
+      if(!existing){
+        setSaveStatus('error', 'Объект не найден в локальном хранилище браузера.');
+        return;
+      }
+      const totals = computeAll();
+      const record = {
+        id: currentLocationId,
+        address,
+        model: clonePlain(MODEL),
+        state: clonePlain(STATE),
+        excelLabel: currentSourceLabel(),
+        specName: selectedSpecName || existing.specName || '',
+        planName: selectedPlanName || existing.planName || '',
+        proposalName: existing.proposalName || '',
+        proposalUpdatedAt: existing.proposalUpdatedAt || '',
+        proposalHtml: existing.proposalHtml || '',
+        proposalTitle: existing.proposalTitle || '',
+        estimateName: existing.estimateName || '',
+        estimateUpdatedAt: existing.estimateUpdatedAt || '',
+        geo: existing.geo || null,
+        clusterName: existing.clusterName || '',
+        gantt: Array.isArray(existing.gantt) ? clonePlain(existing.gantt) : [],
+        paymentSchedule: Array.isArray(existing.paymentSchedule) ? clonePlain(existing.paymentSchedule) : [],
+        total: totals.grand,
+        createdAt: existing.createdAt ? existing.createdAt : now,
+        updatedAt: now
+      };
+
+      if(selectedPlanFile) await saveAttachment(currentLocationId, 'plan', selectedPlanFile);
+      if(selectedSpecFile) await saveAttachment(currentLocationId, 'spec', selectedSpecFile);
+      locations[existingIndex] = record;
+      writeLocations(locations);
+      updatePassportLinks();
+      updateSelectedObjectNote(record);
+      updateLocationBadge('Смета сохранена в паспорте объекта');
+      setSaveStatus('ok', 'Смета сохранена. Возвращаюсь в паспорт объекта…');
+      window.location.href='passport.html?location='+encodeURIComponent(currentLocationId);
+    }catch(err){
+      const message = err && err.name === 'QuotaExceededError'
+        ? 'Недостаточно места в хранилище браузера. Удалите ненужные данные сайта и повторите.'
+        : 'Не удалось сохранить данные в этом браузере.';
+      setSaveStatus('error', message);
+    }
+  })();
+}
+function loadSavedLocationFromUrl(){
+  const id=new URLSearchParams(window.location.search).get('location');
+  if(!id){
+    currentLocationId=null;
+    updatePassportLinks();
+    updateSelectedObjectNote(null);
+    setSaveStatus('error', 'Страница сметы должна открываться из паспорта объекта.');
+    return;
+  }
+  const record=readLocations().find(item=>item&&item.id===id);
+  if(!record){
+    currentLocationId=null;
+    updatePassportLinks();
+    updateSelectedObjectNote(null);
+    setSaveStatus('error','Сохранённый объект не найден в этом браузере.');
+    return;
+  }
+
+  currentLocationId=record.id;
+  updatePassportLinks();
+  updateSelectedObjectNote(record);
+  document.getElementById('location-address').value=record.address||'';
+  selectedPlanName=record.planName||'';
+  selectedPlanFile=null;
+  selectedSpecName=record.specName||(record.excelLabel&&!/демо/i.test(record.excelLabel)?String(record.excelLabel).replace(/^Файл:\s*/,'').split(' · ')[0]:'');
+  selectedSpecFile=null;
+  updatePlanLine();
+  updateSpecLine();
+
+  if(record.model&&Array.isArray(record.model.categories)) MODEL=clonePlain(record.model);
+  if(record.state&&typeof record.state==='object') STATE=clonePlain(record.state);
+  else{
+    STATE={};
+    MODEL.params.forEach(p=>STATE[p.address]=p.value);
+  }
+  renderParams();
+  renderMain();
+  if(!selectedSpecName&&record.excelLabel) document.getElementById('file-line').textContent=record.excelLabel;
+  refreshAttachmentButtons();
+  setSync('live','сохранено');
+  setFileStatus('ok','Открыта сохранённая смета. Её можно изменить и сохранить повторно.');
+  setSaveStatus('', '');
+}
+const planInput = document.getElementById('plan-input');
+planInput.addEventListener('click', event => { event.currentTarget.value = ''; });
+planInput.addEventListener('change', event => {
+  const file = event.currentTarget.files && event.currentTarget.files[0];
+  if(!file) return;
+  selectedPlanFile = file;
+  selectedPlanName = file.name;
+  updatePlanLine();
+  setSaveStatus('', 'План выбран. Нажмите «Сохранить», чтобы закрепить его название за локацией.');
+});
+document.getElementById('plan-btn').addEventListener('click', () => {
+  if(isMobilePicker) return;
+  planInput.click();
+});
+
+document.getElementById('plan-download-btn').addEventListener('click', () => downloadAttachment('plan'));
+document.getElementById('spec-download-btn').addEventListener('click', () => downloadAttachment('spec'));
+document.getElementById('proposal-download-btn').addEventListener('click', () => downloadAttachment('proposal'));
+document.getElementById('download-estimate-btn').addEventListener('click', async () => {
+  const downloadTab = openDownloadTab();
+  try{
+    flushEditableEstimateFields();
+    const address = document.getElementById('location-address').value.trim();
+    const fileName = safeFileName('Смета ' + (address || 'СЛОГИ')) + '.xlsx';
+    const blob = await createEstimateExcelBlob(MODEL, STATE, address);
+    if(currentLocationId){
+      const estimateFile = new File([blob], fileName, {type:blob.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      await saveAttachment(currentLocationId, 'estimate', estimateFile);
+      const locations = readLocations();
+      const index = locations.findIndex(item => item && item.id === currentLocationId);
+      if(index >= 0){
+        const totals = computeAll();
+        locations[index] = Object.assign({}, locations[index], {
+          address: address || locations[index].address,
+          model: clonePlain(MODEL),
+          state: clonePlain(STATE),
+          total: totals.grand,
+          estimateName: fileName,
+          estimateUpdatedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        writeLocations(locations);
+      }
+    }
+    triggerBlobDownload(blob, fileName, downloadTab);
+    setSaveStatus('ok', currentLocationId ? 'Смета скачана и сохранена в паспорте объекта.' : 'Смета скачана. Сохраните локацию, чтобы прикрепить файл к объекту.');
+  }catch(err){
+    if(downloadTab && !downloadTab.closed) downloadTab.close();
+    setSaveStatus('error', 'Не удалось сформировать Excel-файл сметы.');
+  }
+});
+
+document.getElementById('save-location-btn').addEventListener('click', saveCurrentLocation);
+document.getElementById('location-address').addEventListener('input', () => {
+  if(currentLocationId) updateLocationBadge('Локация изменена · нажмите «Сохранить»');
+  if(document.getElementById('save-status').classList.contains('ok')) setSaveStatus('', '');
+});
+
+populateObjectSelector();
+updatePassportLinks();
+setSync('', 'демо-данные');
+renderParams();
+renderMain();
+loadSavedLocationFromUrl();
+</script>
+<script id="unified-header-script">
+(function(){
+  const toggle=document.getElementById('menu-toggle');
+  const menu=document.getElementById('site-menu');
+  if(toggle&&menu){
+    toggle.addEventListener('click',()=>{const open=menu.classList.toggle('open');toggle.setAttribute('aria-expanded',String(open));});
+    menu.addEventListener('click',()=>{menu.classList.remove('open');toggle.setAttribute('aria-expanded','false');});
+  }
+})();
+</script><script src="specification-enhancements.js?v=3"></script><script src="object-header.js?v=2"></script></body>
+</html>
