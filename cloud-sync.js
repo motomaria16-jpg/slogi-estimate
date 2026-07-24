@@ -89,103 +89,158 @@
     const style = document.createElement('style');
     style.id = 'slogi-cloud-styles';
     style.textContent = `
-      .slogi-cloud-button{position:fixed;right:16px;bottom:16px;z-index:2147483000;display:inline-flex;align-items:center;gap:8px;max-width:min(360px,calc(100vw - 32px));min-height:44px;padding:10px 14px;border:1px solid rgba(55,84,90,.18);border-radius:999px;background:#fff;color:#37545a;box-shadow:0 10px 30px rgba(51,71,75,.2);font:800 13px/1.2 Arial,sans-serif;cursor:pointer}
-      .slogi-cloud-button:hover{transform:translateY(-1px)}
-      .slogi-cloud-dot{width:10px;height:10px;flex:0 0 10px;border-radius:50%;background:#c7a87b;box-shadow:0 0 0 4px rgba(199,168,123,.14)}
-      .slogi-cloud-button[data-state="online"] .slogi-cloud-dot{background:#3aaa77;box-shadow:0 0 0 4px rgba(58,170,119,.14)}
-      .slogi-cloud-button[data-state="syncing"] .slogi-cloud-dot{background:#dc972d;box-shadow:0 0 0 4px rgba(220,151,45,.14);animation:slogiCloudPulse 1s infinite alternate}
-      .slogi-cloud-button[data-state="error"] .slogi-cloud-dot{background:#d75c5c;box-shadow:0 0 0 4px rgba(215,92,92,.14)}
-      @keyframes slogiCloudPulse{to{opacity:.45}}
-      .slogi-cloud-overlay{position:fixed;inset:0;z-index:2147483200;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(31,46,50,.5);backdrop-filter:blur(4px)}
-      .slogi-cloud-overlay.show{display:flex}
-      .slogi-cloud-dialog{width:min(460px,100%);max-height:calc(100vh - 36px);overflow:auto;border-radius:20px;background:#fff;box-shadow:0 25px 70px rgba(27,42,46,.3);padding:24px;color:#33474b;font:14px/1.45 Arial,sans-serif}
-      .slogi-cloud-dialog h2{margin:0 36px 6px 0;font:800 23px/1.15 Arial,sans-serif;color:#33474b}
-      .slogi-cloud-dialog p{margin:0 0 16px;color:#66787c}
-      .slogi-cloud-close{position:absolute;margin:-8px 0 0 386px;width:36px;height:36px;border:0;border-radius:50%;background:#f1f4f4;color:#37545a;font-size:22px;cursor:pointer}
-      .slogi-cloud-field{display:grid;gap:6px;margin:12px 0}
-      .slogi-cloud-field span{font-weight:800;color:#455e63}
-      .slogi-cloud-field input{width:100%;box-sizing:border-box;min-height:46px;border:1px solid #ccd7d8;border-radius:11px;padding:11px 12px;background:#fff;color:#24383c;font:16px Arial,sans-serif;outline:none}
+      .slogi-account-nav{position:relative;z-index:2147483000;flex:0 0 auto;margin-left:auto;color:#33474b;font-family:Arial,sans-serif}
+      .slogi-account-trigger{display:flex;align-items:center;gap:10px;max-width:330px;min-height:48px;padding:6px 10px 6px 7px;border:1px solid rgba(55,84,90,.18);border-radius:14px;background:#fff;color:#33474b;box-shadow:0 5px 18px rgba(51,71,75,.10);cursor:pointer;text-align:left;transition:.16s ease}
+      .slogi-account-trigger:hover,.slogi-account-trigger[aria-expanded="true"]{border-color:rgba(79,143,145,.55);box-shadow:0 7px 22px rgba(51,71,75,.16)}
+      .slogi-account-avatar{position:relative;display:grid;place-items:center;width:35px;height:35px;flex:0 0 35px;border-radius:11px;background:#e8f1f1;color:#37545a;font:900 12px/1 Arial,sans-serif;letter-spacing:.02em}
+      .slogi-account-avatar::after{content:"";position:absolute;right:-2px;bottom:-2px;width:9px;height:9px;border:2px solid #fff;border-radius:50%;background:#c7a87b}
+      .slogi-account-nav[data-state="online"] .slogi-account-avatar::after{background:#3aaa77}
+      .slogi-account-nav[data-state="syncing"] .slogi-account-avatar::after{background:#dc972d;animation:slogiAccountPulse 1s infinite alternate}
+      .slogi-account-nav[data-state="error"] .slogi-account-avatar::after{background:#d75c5c}
+      @keyframes slogiAccountPulse{to{opacity:.35}}
+      .slogi-account-summary{display:grid;min-width:0;gap:2px}
+      .slogi-account-summary strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#33474b;font:800 13px/1.15 Arial,sans-serif}
+      .slogi-account-summary span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#76878b;font:600 11px/1.15 Arial,sans-serif}
+      .slogi-account-chevron{width:8px;height:8px;flex:0 0 8px;margin:0 2px 4px 5px;border-right:2px solid #6c8084;border-bottom:2px solid #6c8084;transform:rotate(45deg);transition:.16s ease}
+      .slogi-account-trigger[aria-expanded="true"] .slogi-account-chevron{margin-bottom:-3px;transform:rotate(225deg)}
+      .slogi-account-panel{position:absolute;top:calc(100% + 10px);right:0;width:min(410px,calc(100vw - 24px));max-height:calc(100vh - 100px);overflow:auto;display:none;padding:18px;border:1px solid rgba(55,84,90,.14);border-radius:18px;background:#fff;box-shadow:0 24px 70px rgba(27,42,46,.25);color:#33474b;font:14px/1.4 Arial,sans-serif}
+      .slogi-account-panel.show{display:block}
+      .slogi-account-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:15px}
+      .slogi-account-panel h2{margin:0;color:#33474b;font:850 21px/1.15 Arial,sans-serif}
+      .slogi-account-panel h3{margin:0 0 10px;color:#455e63;font:850 14px/1.2 Arial,sans-serif}
+      .slogi-account-email{margin-top:4px;color:#7a8b8e;font-size:12px;overflow-wrap:anywhere}
+      .slogi-account-close{display:grid;place-items:center;width:32px;height:32px;flex:0 0 32px;border:0;border-radius:50%;background:#f1f4f4;color:#4b6267;font-size:20px;line-height:1;cursor:pointer}
+      .slogi-account-section{padding:14px 0;border-top:1px solid #e6ecec}
+      .slogi-account-section:first-of-type{padding-top:0;border-top:0}
+      .slogi-cloud-field{display:grid;gap:6px;margin:10px 0}
+      .slogi-cloud-field span{font-weight:800;color:#455e63;font-size:12px}
+      .slogi-cloud-field input{width:100%;box-sizing:border-box;min-height:44px;border:1px solid #ccd7d8;border-radius:10px;padding:10px 12px;background:#fff;color:#24383c;font:16px Arial,sans-serif;outline:none}
+      .slogi-cloud-field input[readonly]{background:#f5f7f7;color:#697b7f}
       .slogi-cloud-field input:focus{border-color:#579b9d;box-shadow:0 0 0 3px rgba(87,155,157,.13)}
-      .slogi-cloud-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px}
-      .slogi-cloud-action{min-height:46px;border:0;border-radius:11px;padding:10px 12px;font:800 14px Arial,sans-serif;cursor:pointer}
+      .slogi-cloud-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:13px}
+      .slogi-cloud-actions.single{grid-template-columns:1fr}
+      .slogi-cloud-action{min-height:44px;border:0;border-radius:10px;padding:10px 12px;font:800 13px Arial,sans-serif;cursor:pointer}
       .slogi-cloud-primary{background:#4f8f91;color:#fff}
       .slogi-cloud-secondary{background:#eef3f3;color:#37545a}
       .slogi-cloud-danger{background:#fff0ef;color:#a63f3f}
-      .slogi-cloud-link{display:inline-block;margin-top:12px;border:0;background:transparent;color:#4f8f91;text-decoration:underline;font:700 13px Arial,sans-serif;cursor:pointer}
-      .slogi-cloud-message{display:none;margin:13px 0 0;padding:11px 12px;border-radius:10px;background:#edf7f3;color:#2f7658;font-weight:700;overflow-wrap:anywhere}
+      .slogi-cloud-link{display:inline-block;margin-top:11px;border:0;background:transparent;color:#4f8f91;text-decoration:underline;font:700 13px Arial,sans-serif;cursor:pointer;padding:0}
+      .slogi-cloud-message{display:none;margin:12px 0 0;padding:10px 11px;border-radius:9px;background:#edf7f3;color:#2f7658;font-weight:700;overflow-wrap:anywhere}
       .slogi-cloud-message.show{display:block}
       .slogi-cloud-message.error{background:#fff0ef;color:#9d4141}
-      .slogi-cloud-account{padding:12px;border-radius:12px;background:#f3f7f7;margin:13px 0;overflow-wrap:anywhere}
-      .slogi-cloud-note{font-size:12px!important;color:#7b8b8e!important;margin-top:14px!important}
-      .slogi-cloud-toast{position:fixed;right:16px;bottom:72px;z-index:2147483100;max-width:min(390px,calc(100vw - 32px));padding:11px 14px;border-radius:12px;background:#33474b;color:#fff;box-shadow:0 10px 30px rgba(31,45,49,.24);font:700 13px/1.35 Arial,sans-serif;opacity:0;transform:translateY(8px);pointer-events:none;transition:.2s}
+      .slogi-cloud-note{margin:9px 0 0;color:#7b8b8e;font-size:11.5px;line-height:1.4}
+      .slogi-cloud-toast{position:fixed;right:16px;bottom:16px;z-index:2147483100;max-width:min(390px,calc(100vw - 32px));padding:11px 14px;border-radius:12px;background:#33474b;color:#fff;box-shadow:0 10px 30px rgba(31,45,49,.24);font:700 13px/1.35 Arial,sans-serif;opacity:0;transform:translateY(8px);pointer-events:none;transition:.2s}
       .slogi-cloud-toast.show{opacity:1;transform:none}
       .slogi-cloud-toast.error{background:#a94747}
-      @media(max-width:600px){
-        body{padding-bottom:68px!important}
-        .slogi-cloud-button{right:10px;bottom:10px;max-width:calc(100vw - 20px);min-height:46px}
-        .slogi-cloud-dialog{padding:20px 16px;border-radius:16px}
-        .slogi-cloud-close{right:28px;top:28px;margin:0;position:fixed}
+      @media(max-width:760px){
+        .slogi-account-nav{order:20;width:100%;margin-left:0}
+        .slogi-account-trigger{width:100%;max-width:none;min-height:44px;padding:5px 8px 5px 6px;border-radius:12px}
+        .slogi-account-avatar{width:32px;height:32px;flex-basis:32px;border-radius:9px}
+        .slogi-account-summary{flex:1}
+        .slogi-account-summary strong{font-size:12px}
+        .slogi-account-summary span{font-size:10px}
+        .slogi-account-chevron{margin-left:auto}
+        .slogi-account-panel{position:absolute;top:calc(100% + 8px);right:0;left:0;width:100%;max-height:calc(100vh - 145px);padding:16px;border-radius:16px}
         .slogi-cloud-actions{grid-template-columns:1fr}
-        .slogi-cloud-toast{right:10px;bottom:67px;max-width:calc(100vw - 20px)}
+        .slogi-cloud-toast{right:10px;bottom:10px;max-width:calc(100vw - 20px)}
+      }
+      @media(max-width:430px){
+        .site-header .top{gap:8px!important}
       }
     `;
     document.head.appendChild(style);
   }
 
+  function userMetadata(){
+    return currentUser && currentUser.user_metadata && typeof currentUser.user_metadata === 'object' ? currentUser.user_metadata : {};
+  }
+
+  function displayName(){
+    const meta = userMetadata();
+    const name = String(meta.full_name || meta.name || '').trim();
+    return name || String((currentUser && currentUser.email) || 'Личный кабинет');
+  }
+
+  function displayPosition(){
+    const meta = userMetadata();
+    const position = String(meta.position || meta.job_title || '').trim();
+    return position || (currentUser ? 'Личный кабинет' : 'Вход в систему');
+  }
+
+  function userInitials(){
+    if(!currentUser) return 'ЛК';
+    const source = String(userMetadata().full_name || '').trim();
+    if(source){
+      const parts = source.split(/\s+/).filter(Boolean);
+      return parts.slice(0,2).map(part => part.charAt(0).toUpperCase()).join('') || 'ЛК';
+    }
+    const email = String(currentUser.email || 'ЛК');
+    return email.slice(0,2).toUpperCase();
+  }
+
   function ensureUi(){
-    if(!document.body || document.getElementById('slogi-cloud-button')) return;
+    if(!document.body) return;
     addStyles();
+    let root = document.getElementById('slogi-account-nav');
+    const headerTop = document.querySelector('.site-header .top');
+    if(!root){
+      root = document.createElement('div');
+      root.id = 'slogi-account-nav';
+      root.className = 'slogi-account-nav';
+      root.dataset.state = 'offline';
+      root.innerHTML = `
+        <button type="button" class="slogi-account-trigger" id="slogi-account-trigger" aria-haspopup="dialog" aria-expanded="false">
+          <span class="slogi-account-avatar" id="slogi-account-avatar">ЛК</span>
+          <span class="slogi-account-summary"><strong id="slogi-account-name">Войти</strong><span id="slogi-account-position">Личный кабинет</span></span>
+          <span class="slogi-account-chevron" aria-hidden="true"></span>
+        </button>
+        <div class="slogi-account-panel" id="slogi-account-panel" role="dialog" aria-label="Личный кабинет"></div>`;
+      (headerTop || document.body).appendChild(root);
+      root.querySelector('#slogi-account-trigger').addEventListener('click', event => {
+        event.stopPropagation();
+        const panel = root.querySelector('#slogi-account-panel');
+        if(panel.classList.contains('show')) hideDialog();
+        else showDialog(currentUser ? 'account' : 'login');
+      });
+      root.addEventListener('click', event => event.stopPropagation());
+      document.addEventListener('click', hideDialog);
+      document.addEventListener('keydown', event => {if(event.key === 'Escape') hideDialog();});
+    }else if(headerTop && root.parentElement !== headerTop){
+      headerTop.appendChild(root);
+    }
 
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.id = 'slogi-cloud-button';
-    button.className = 'slogi-cloud-button';
-    button.dataset.state = 'offline';
-    button.innerHTML = '<span class="slogi-cloud-dot"></span><span class="slogi-cloud-label">Облако: войти</span>';
-    button.addEventListener('click', () => showDialog(currentUser ? 'account' : 'login'));
-
-    const overlay = document.createElement('div');
-    overlay.id = 'slogi-cloud-overlay';
-    overlay.className = 'slogi-cloud-overlay';
-    overlay.innerHTML = `
-      <div class="slogi-cloud-dialog" role="dialog" aria-modal="true" aria-labelledby="slogi-cloud-title">
-        <button class="slogi-cloud-close" type="button" aria-label="Закрыть">×</button>
-        <div id="slogi-cloud-content"></div>
-      </div>`;
-    overlay.addEventListener('click', event => {if(event.target === overlay) hideDialog();});
-    overlay.querySelector('.slogi-cloud-close').addEventListener('click', hideDialog);
-
-    const toast = document.createElement('div');
-    toast.id = 'slogi-cloud-toast';
-    toast.className = 'slogi-cloud-toast';
-
-    document.body.appendChild(button);
-    document.body.appendChild(overlay);
-    document.body.appendChild(toast);
+    if(!document.getElementById('slogi-cloud-toast')){
+      const toast = document.createElement('div');
+      toast.id = 'slogi-cloud-toast';
+      toast.className = 'slogi-cloud-toast';
+      document.body.appendChild(toast);
+    }
     updateUi();
   }
 
   function setButtonState(state, label){
-    const button = document.getElementById('slogi-cloud-button');
-    if(!button) return;
-    button.dataset.state = state;
-    const labelEl = button.querySelector('.slogi-cloud-label');
-    if(labelEl) labelEl.textContent = label;
+    const root = document.getElementById('slogi-account-nav');
+    if(!root) return;
+    root.dataset.state = state || 'offline';
+    root.title = label || '';
   }
 
   function updateUi(){
     if(!document.body) return;
-    ensureUi();
-    if(!databaseReady){
-      setButtonState('error', 'Облако: нужна настройка');
-    }else if(initialSyncRunning){
-      setButtonState('syncing', 'Облако: синхронизация…');
-    }else if(currentUser){
-      const email = currentUser.email || 'подключено';
-      setButtonState('online', window.innerWidth < 560 ? 'Облако подключено' : 'Облако: ' + email);
-    }else{
-      setButtonState('offline', 'Облако: войти');
-    }
+    const root = document.getElementById('slogi-account-nav');
+    if(!root){ensureUi();return;}
+    let state = 'offline';
+    let stateTitle = 'Личный кабинет';
+    if(!databaseReady){state='error';stateTitle='Требуется настройка базы данных';}
+    else if(initialSyncRunning){state='syncing';stateTitle='Синхронизация данных';}
+    else if(currentUser){state='online';stateTitle='Вход выполнен';}
+    setButtonState(state, stateTitle);
+
+    const name = root.querySelector('#slogi-account-name');
+    const position = root.querySelector('#slogi-account-position');
+    const avatar = root.querySelector('#slogi-account-avatar');
+    if(name) name.textContent = currentUser ? displayName() : 'Войти';
+    if(position) position.textContent = currentUser ? displayPosition() : 'Личный кабинет';
+    if(avatar) avatar.textContent = userInitials();
   }
 
   let toastTimer = null;
@@ -200,8 +255,10 @@
   }
 
   function hideDialog(){
-    const overlay = document.getElementById('slogi-cloud-overlay');
-    if(overlay) overlay.classList.remove('show');
+    const panel = document.getElementById('slogi-account-panel');
+    const trigger = document.getElementById('slogi-account-trigger');
+    if(panel) panel.classList.remove('show');
+    if(trigger) trigger.setAttribute('aria-expanded','false');
   }
 
   function dialogMessage(text, isError){
@@ -211,49 +268,87 @@
     message.className = 'slogi-cloud-message' + (text ? ' show' : '') + (isError ? ' error' : '');
   }
 
+  function panelHeader(title, email){
+    return `<div class="slogi-account-panel-head"><div><h2>${escapeHtml(title)}</h2>${email ? `<div class="slogi-account-email">${escapeHtml(email)}</div>` : ''}</div><button type="button" class="slogi-account-close" id="slogi-account-close" aria-label="Закрыть">×</button></div>`;
+  }
+
+  function bindPanelClose(panel){
+    const close = panel.querySelector('#slogi-account-close');
+    if(close) close.addEventListener('click', hideDialog);
+  }
+
   function showDialog(mode){
     ensureUi();
-    const overlay = document.getElementById('slogi-cloud-overlay');
-    const content = document.getElementById('slogi-cloud-content');
-    if(!overlay || !content) return;
+    const panel = document.getElementById('slogi-account-panel');
+    const trigger = document.getElementById('slogi-account-trigger');
+    if(!panel || !trigger) return;
 
     if(mode === 'account' && currentUser){
-      content.innerHTML = `
-        <h2 id="slogi-cloud-title">Облачная синхронизация</h2>
-        <p>Адреса, паспорта, сметы, КП и файлы синхронизируются через Supabase.</p>
-        <div class="slogi-cloud-account"><strong>Выполнен вход:</strong><br>${escapeHtml(currentUser.email || currentUser.id)}</div>
-        <div class="slogi-cloud-actions">
-          <button type="button" class="slogi-cloud-action slogi-cloud-primary" id="slogi-cloud-sync-now">Синхронизировать сейчас</button>
-          <button type="button" class="slogi-cloud-action slogi-cloud-danger" id="slogi-cloud-signout">Выйти</button>
+      const meta = userMetadata();
+      panel.innerHTML = `
+        ${panelHeader('Личный кабинет', currentUser.email || '')}
+        <div class="slogi-account-section">
+          <label class="slogi-cloud-field"><span>ФИО</span><input id="slogi-profile-name" type="text" autocomplete="name" maxlength="160" placeholder="Введите фамилию, имя и отчество" value="${escapeHtml(meta.full_name || meta.name || '')}"></label>
+          <label class="slogi-cloud-field"><span>Должность</span><input id="slogi-profile-position" type="text" autocomplete="organization-title" maxlength="120" placeholder="Например: руководитель проекта" value="${escapeHtml(meta.position || meta.job_title || '')}"></label>
+          <div class="slogi-cloud-actions single"><button type="button" class="slogi-cloud-action slogi-cloud-primary" id="slogi-profile-save">Сохранить личные данные</button></div>
+        </div>
+        <div class="slogi-account-section">
+          <h3>Смена пароля</h3>
+          <label class="slogi-cloud-field"><span>Новый пароль</span><input id="slogi-profile-password" type="password" minlength="8" autocomplete="new-password" placeholder="Не менее 8 символов"></label>
+          <label class="slogi-cloud-field"><span>Повторите пароль</span><input id="slogi-profile-password-repeat" type="password" minlength="8" autocomplete="new-password"></label>
+          <div class="slogi-cloud-actions single"><button type="button" class="slogi-cloud-action slogi-cloud-secondary" id="slogi-profile-password-save">Сменить пароль</button></div>
         </div>
         <div class="slogi-cloud-message" id="slogi-cloud-message"></div>
-        <p class="slogi-cloud-note">После выхода локальная копия данных на этом устройстве будет очищена. В облаке данные сохранятся.</p>`;
-      content.querySelector('#slogi-cloud-sync-now').addEventListener('click', async () => {
-        dialogMessage('Синхронизация…', false);
-        const ok = await syncFromCloud({forceReload:true, manual:true});
-        if(ok) dialogMessage('Данные синхронизированы.', false);
-      });
-      content.querySelector('#slogi-cloud-signout').addEventListener('click', signOutSafely);
-    }else if(mode === 'recovery'){
-      content.innerHTML = `
-        <h2 id="slogi-cloud-title">Новый пароль</h2>
-        <p>Введите новый пароль для доступа к данным SLOGI.</p>
-        <label class="slogi-cloud-field"><span>Новый пароль</span><input id="slogi-cloud-new-password" type="password" minlength="8" autocomplete="new-password" required></label>
-        <div class="slogi-cloud-actions"><button type="button" class="slogi-cloud-action slogi-cloud-primary" id="slogi-cloud-update-password">Сохранить пароль</button></div>
-        <div class="slogi-cloud-message" id="slogi-cloud-message"></div>`;
-      content.querySelector('#slogi-cloud-update-password').addEventListener('click', async () => {
-        const password = content.querySelector('#slogi-cloud-new-password').value;
-        if(password.length < 8){dialogMessage('Пароль должен содержать не менее 8 символов.', true);return;}
-        dialogMessage('Сохраняю новый пароль…', false);
-        const {error} = await client.auth.updateUser({password});
+        <div class="slogi-account-section"><button type="button" class="slogi-cloud-action slogi-cloud-danger" id="slogi-cloud-signout" style="width:100%">Выйти из личного кабинета</button></div>`;
+      bindPanelClose(panel);
+      panel.querySelector('#slogi-profile-save').addEventListener('click', async () => {
+        const fullName = panel.querySelector('#slogi-profile-name').value.trim();
+        const position = panel.querySelector('#slogi-profile-position').value.trim();
+        dialogMessage('Сохраняю данные…', false);
+        const {data, error} = await client.auth.updateUser({data:{full_name:fullName, position}});
         if(error){dialogMessage(humanError(error), true);return;}
+        if(data && data.user) currentUser = data.user;
+        updateUi();
+        dialogMessage('Личные данные сохранены.', false);
+      });
+      panel.querySelector('#slogi-profile-password-save').addEventListener('click', async () => {
+        const password = panel.querySelector('#slogi-profile-password').value;
+        const repeat = panel.querySelector('#slogi-profile-password-repeat').value;
+        if(password.length < 8){dialogMessage('Пароль должен содержать не менее 8 символов.', true);return;}
+        if(password !== repeat){dialogMessage('Пароли не совпадают.', true);return;}
+        dialogMessage('Сохраняю новый пароль…', false);
+        const {data, error} = await client.auth.updateUser({password});
+        if(error){dialogMessage(humanError(error), true);return;}
+        if(data && data.user) currentUser = data.user;
+        panel.querySelector('#slogi-profile-password').value = '';
+        panel.querySelector('#slogi-profile-password-repeat').value = '';
+        updateUi();
         dialogMessage('Пароль изменён.', false);
-        setTimeout(() => showDialog('account'), 900);
+      });
+      panel.querySelector('#slogi-cloud-signout').addEventListener('click', signOutSafely);
+    }else if(mode === 'recovery'){
+      panel.innerHTML = `
+        ${panelHeader('Новый пароль', currentUser && currentUser.email ? currentUser.email : '')}
+        <label class="slogi-cloud-field"><span>Новый пароль</span><input id="slogi-cloud-new-password" type="password" minlength="8" autocomplete="new-password" required></label>
+        <label class="slogi-cloud-field"><span>Повторите пароль</span><input id="slogi-cloud-new-password-repeat" type="password" minlength="8" autocomplete="new-password" required></label>
+        <div class="slogi-cloud-actions single"><button type="button" class="slogi-cloud-action slogi-cloud-primary" id="slogi-cloud-update-password">Сохранить пароль</button></div>
+        <div class="slogi-cloud-message" id="slogi-cloud-message"></div>`;
+      bindPanelClose(panel);
+      panel.querySelector('#slogi-cloud-update-password').addEventListener('click', async () => {
+        const password = panel.querySelector('#slogi-cloud-new-password').value;
+        const repeat = panel.querySelector('#slogi-cloud-new-password-repeat').value;
+        if(password.length < 8){dialogMessage('Пароль должен содержать не менее 8 символов.', true);return;}
+        if(password !== repeat){dialogMessage('Пароли не совпадают.', true);return;}
+        dialogMessage('Сохраняю новый пароль…', false);
+        const {data, error} = await client.auth.updateUser({password});
+        if(error){dialogMessage(humanError(error), true);return;}
+        if(data && data.user) currentUser = data.user;
+        dialogMessage('Пароль изменён.', false);
+        setTimeout(() => showDialog('account'), 700);
       });
     }else{
-      content.innerHTML = `
-        <h2 id="slogi-cloud-title">Вход в SLOGI</h2>
-        <p>Используйте один и тот же аккаунт на компьютере и телефоне.</p>
+      panel.innerHTML = `
+        ${panelHeader('Вход в личный кабинет', '')}
         <label class="slogi-cloud-field"><span>Электронная почта</span><input id="slogi-cloud-email" type="email" autocomplete="email" placeholder="name@example.com" required></label>
         <label class="slogi-cloud-field"><span>Пароль</span><input id="slogi-cloud-password" type="password" minlength="8" autocomplete="current-password" placeholder="Не менее 8 символов" required></label>
         <div class="slogi-cloud-actions">
@@ -261,41 +356,34 @@
           <button type="button" class="slogi-cloud-action slogi-cloud-secondary" id="slogi-cloud-signup">Создать аккаунт</button>
         </div>
         <button type="button" class="slogi-cloud-link" id="slogi-cloud-forgot">Забыли пароль?</button>
-        <div class="slogi-cloud-message" id="slogi-cloud-message"></div>
-        <p class="slogi-cloud-note">При первом создании аккаунта Supabase может отправить письмо для подтверждения электронной почты.</p>`;
-      const emailInput = content.querySelector('#slogi-cloud-email');
-      const passwordInput = content.querySelector('#slogi-cloud-password');
-      content.querySelector('#slogi-cloud-login').addEventListener('click', async () => {
+        <div class="slogi-cloud-message" id="slogi-cloud-message"></div>`;
+      bindPanelClose(panel);
+      const emailInput = panel.querySelector('#slogi-cloud-email');
+      const passwordInput = panel.querySelector('#slogi-cloud-password');
+      panel.querySelector('#slogi-cloud-login').addEventListener('click', async () => {
         const email = emailInput.value.trim();
         const password = passwordInput.value;
-        if(!client){dialogMessage('Подключение к Supabase ещё загружается. Повторите через несколько секунд.', true);return;}
+        if(!client){dialogMessage('Подключение ещё загружается. Повторите через несколько секунд.', true);return;}
         if(!email || !password){dialogMessage('Введите электронную почту и пароль.', true);return;}
         dialogMessage('Выполняю вход…', false);
         const {error} = await client.auth.signInWithPassword({email, password});
         if(error){dialogMessage(humanError(error), true);return;}
         dialogMessage('Вход выполнен. Загружаю данные…', false);
       });
-      content.querySelector('#slogi-cloud-signup').addEventListener('click', async () => {
+      panel.querySelector('#slogi-cloud-signup').addEventListener('click', async () => {
         const email = emailInput.value.trim();
         const password = passwordInput.value;
-        if(!client){dialogMessage('Подключение к Supabase ещё загружается. Повторите через несколько секунд.', true);return;}
+        if(!client){dialogMessage('Подключение ещё загружается. Повторите через несколько секунд.', true);return;}
         if(!email || password.length < 8){dialogMessage('Укажите почту и пароль не короче 8 символов.', true);return;}
         dialogMessage('Создаю аккаунт…', false);
-        const {data, error} = await client.auth.signUp({
-          email,
-          password,
-          options:{emailRedirectTo:currentRedirectUrl()}
-        });
+        const {data, error} = await client.auth.signUp({email,password,options:{emailRedirectTo:currentRedirectUrl()}});
         if(error){dialogMessage(humanError(error), true);return;}
-        if(data && data.session){
-          dialogMessage('Аккаунт создан. Загружаю данные…', false);
-        }else{
-          dialogMessage('Аккаунт создан. Откройте письмо Supabase и подтвердите электронную почту, затем войдите.', false);
-        }
+        if(data && data.session) dialogMessage('Аккаунт создан. Загружаю данные…', false);
+        else dialogMessage('Аккаунт создан. Подтвердите электронную почту по ссылке из письма, затем войдите.', false);
       });
-      content.querySelector('#slogi-cloud-forgot').addEventListener('click', async () => {
+      panel.querySelector('#slogi-cloud-forgot').addEventListener('click', async () => {
         const email = emailInput.value.trim();
-        if(!client){dialogMessage('Подключение к Supabase ещё загружается. Повторите через несколько секунд.', true);return;}
+        if(!client){dialogMessage('Подключение ещё загружается. Повторите через несколько секунд.', true);return;}
         if(!email){dialogMessage('Сначала укажите электронную почту.', true);return;}
         dialogMessage('Отправляю письмо для восстановления…', false);
         const {error} = await client.auth.resetPasswordForEmail(email, {redirectTo:currentRedirectUrl()});
@@ -304,7 +392,8 @@
       });
       setTimeout(() => emailInput.focus(), 30);
     }
-    overlay.classList.add('show');
+    panel.classList.add('show');
+    trigger.setAttribute('aria-expanded','true');
   }
 
   function escapeHtml(value){
@@ -333,7 +422,7 @@
   async function uploadState(raw){
     if(!currentUser || !client) return false;
     const normalized = normalizeRaw(raw == null ? localRaw() : raw);
-    setButtonState('syncing', 'Облако: сохраняю…');
+    setButtonState('syncing', 'Сохранение данных…');
     const {error} = await client.from(STATE_TABLE).upsert({
       user_id: currentUser.id,
       locations: parseLocations(normalized),
@@ -580,7 +669,7 @@
     updateUi();
     hideDialog();
     const ok = await syncFromCloud();
-    if(ok) showToast('Облачная синхронизация подключена.', false);
+    if(ok) showToast('Вход выполнен. Данные синхронизированы.', false);
   }
 
   async function init(){
@@ -600,8 +689,10 @@
         updateUi();
         if(event === 'PASSWORD_RECOVERY'){
           setTimeout(() => showDialog('recovery'), 0);
-        }else if((event === 'SIGNED_IN' || event === 'USER_UPDATED') && currentUser){
+        }else if(event === 'SIGNED_IN' && currentUser){
           setTimeout(() => handleSignedIn(currentUser), 0);
+        }else if(event === 'USER_UPDATED' && currentUser){
+          updateUi();
         }else if(event === 'SIGNED_OUT'){
           cloudReady = false;
           lastUploadedRaw = '';
@@ -614,10 +705,7 @@
         await syncFromCloud();
       }else{
         cloudReady = false;
-        if(!sessionStorage.getItem('slogi_cloud_login_prompted')){
-          sessionStorage.setItem('slogi_cloud_login_prompted', '1');
-          setTimeout(() => showDialog('login'), 650);
-        }
+        updateUi();
       }
     }catch(error){
       cloudReady = false;
