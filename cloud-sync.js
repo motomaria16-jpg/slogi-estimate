@@ -9,16 +9,21 @@
   const STATE_TABLE = 'slogi_user_state';
   const ATTACHMENTS_TABLE = 'slogi_attachments';
   const FILES_BUCKET = 'slogi-files';
+  const WORKSPACE_KEY = 'slogi_professional_state_v2';
+  const WORKSPACE_TABLE = 'slogi_workspace_state';
   const SDK_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
   const PRODUCTION_SITE_URL = 'https://motomaria16-jpg.github.io/slogi-estimate/';
 
   let client = null;
   let currentUser = null;
   let syncTimer = null;
+  let workspaceSyncTimer = null;
   let lastUploadedRaw = '';
+  let lastWorkspaceRaw = '';
   let internalWrite = false;
   let cloudReady = false;
   let databaseReady = true;
+  let workspaceAvailable = true;
   let authEventSubscription = null;
   let initialSyncRunning = false;
 
@@ -35,6 +40,24 @@
 
   function normalizeRaw(raw){
     return JSON.stringify(parseLocations(raw));
+  }
+
+  function parseWorkspace(raw){
+    try{const value=JSON.parse(raw||'{}');return value&&typeof value==='object'&&!Array.isArray(value)?value:{};}
+    catch(err){return {};}
+  }
+
+  function normalizeWorkspaceRaw(raw){return JSON.stringify(parseWorkspace(raw));}
+
+  function localWorkspaceRaw(){
+    try{return normalizeWorkspaceRaw(localStorage.getItem(WORKSPACE_KEY)||'{}');}
+    catch(err){return '{}';}
+  }
+
+  function nativeSetWorkspace(raw){
+    internalWrite=true;
+    try{originalSetItem.call(localStorage,WORKSPACE_KEY,normalizeWorkspaceRaw(raw));}
+    finally{internalWrite=false;}
   }
 
   function localRaw(){
@@ -61,7 +84,7 @@
     const text = String((error && (error.message || error.details || error.hint)) || error || '').toLowerCase();
     const code = String((error && error.code) || '');
     return code === '42P01' || code === 'PGRST205' || code === 'PGRST204' ||
-      text.includes('slogi_user_state') || text.includes('slogi_attachments') ||
+      text.includes('slogi_user_state') || text.includes('slogi_workspace_state') || text.includes('slogi_attachments') ||
       text.includes('bucket not found') || text.includes('not found');
   }
 
@@ -645,9 +668,48 @@
     return true;
   }
 
+  function scheduleWorkspaceUpload(raw){
+    if(!currentUser || !client || !databaseReady || !workspaceAvailable) return;
+    const normalized=normalizeWorkspaceRaw(raw);
+    if(normalized===lastWorkspaceRaw) return;
+    clearTimeout(workspaceSyncTimer);
+    workspaceSyncTimer=setTimeout(()=>uploadWorkspace(normalized),700);
+  }
+
+  async function uploadWorkspace(raw){
+    if(!currentUser || !client) return false;
+    const normalized=normalizeWorkspaceRaw(raw==null?localWorkspaceRaw():raw);
+    const {error}=await client.from(WORKSPACE_TABLE).upsert({
+      user_id:currentUser.id,
+      workspace:parseWorkspace(normalized),
+      updated_at:new Date().toISOString()
+    },{onConflict:'user_id'});
+    if(error){
+      if(isSetupError(error)){workspaceAvailable=false;console.warn('SLOGI workspace table is not configured yet.');return false;}
+      showToast(humanError(error),true);return false;
+    }
+    workspaceAvailable=true;lastWorkspaceRaw=normalized;return true;
+  }
+
+  async function syncWorkspaceFromCloud(){
+    if(!currentUser || !client) return false;
+    const before=localWorkspaceRaw();
+    const local=parseWorkspace(before);
+    const {data,error}=await client.from(WORKSPACE_TABLE).select('workspace,updated_at').eq('user_id',currentUser.id).maybeSingle();
+    if(error){if(isSetupError(error)){workspaceAvailable=false;return false;}throw error;}
+    workspaceAvailable=true;
+    if(data){const remote=JSON.stringify(data.workspace&&typeof data.workspace==='object'?data.workspace:{});if(remote!==before)nativeSetWorkspace(remote);lastWorkspaceRaw=remote;}
+    else if(Object.keys(local).length){await uploadWorkspace(before);}
+    else lastWorkspaceRaw='{}';
+    window.dispatchEvent(new CustomEvent('slogi:workspace-ready'));
+    return true;
+  }
+
   async function flushState(){
-    clearTimeout(syncTimer);
-    return uploadState(localRaw());
+    clearTimeout(syncTimer);clearTimeout(workspaceSyncTimer);
+    const a=await uploadState(localRaw());
+    const b=await uploadWorkspace(localWorkspaceRaw());
+    return a&&(b||!workspaceAvailable);
   }
 
   async function syncFromCloud(options){
@@ -685,6 +747,7 @@
         lastUploadedRaw = '[]';
       }
 
+      await syncWorkspaceFromCloud();
       await migrateLocalAttachments();
       cloudReady = true;
       window.dispatchEvent(new CustomEvent('slogi:cloud-ready', {detail:{user:currentUser}}));
@@ -921,8 +984,9 @@
 
   Storage.prototype.setItem = function(key, value){
     originalSetItem.call(this, key, value);
-    if(internalWrite || this !== localStorage || key !== STORAGE_KEY) return;
-    scheduleStateUpload(String(value));
+    if(internalWrite || this !== localStorage) return;
+    if(key===STORAGE_KEY) scheduleStateUpload(String(value));
+    if(key===WORKSPACE_KEY) scheduleWorkspaceUpload(String(value));
   };
 
   window.SlogiCloud = {

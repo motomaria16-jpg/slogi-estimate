@@ -39,6 +39,7 @@
       .edit-table-wrap{overflow:auto}.edit-table{width:100%;border-collapse:separate;border-spacing:0;min-width:850px}.edit-table th{background:var(--teal);color:#fff;padding:10px 9px;font-size:11px;text-align:left}.edit-table td{border-bottom:1px solid var(--line);padding:7px}.edit-table input{width:100%;min-width:90px;border:1px solid var(--line);border-radius:7px;padding:8px;font:inherit;font-size:12px;background:#fff}.edit-table input[type=number]{text-align:right}.row-delete{border:0;background:var(--danger-pale);color:var(--danger);border-radius:7px;width:32px;height:32px;cursor:pointer;font-weight:900}
       .gantt-chart{margin-top:15px;display:grid;gap:8px}.gantt-line{display:grid;grid-template-columns:minmax(170px,260px) 1fr;gap:10px;align-items:center}.gantt-label{font-size:12px;font-weight:800;color:var(--teal-deep);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.gantt-track{height:27px;border-radius:8px;background:repeating-linear-gradient(90deg,#F3E9D7 0,#F3E9D7 1px,transparent 1px,transparent 8.333%);position:relative;border:1px solid var(--line);overflow:hidden}.gantt-bar{height:100%;min-width:8px;border-radius:7px;background:linear-gradient(90deg,var(--teal),var(--orange));display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:850;white-space:nowrap}
       .payment-summary{display:flex;justify-content:flex-end;gap:18px;flex-wrap:wrap;margin-top:12px;padding:12px;border-radius:10px;background:var(--teal-pale);font-size:12px}.payment-summary strong{color:var(--teal-deep)}
+      .gantt-edit-table{min-width:1500px}.edit-table select{width:100%;min-width:120px;border:1px solid var(--line);border-radius:7px;padding:8px;font:inherit;font-size:12px;background:#fff}.gantt-label{display:grid;gap:2px}.gantt-label small{font-size:9.5px;color:var(--ink-soft);font-weight:650}.gantt-track{height:34px;overflow:visible}.gantt-bar{position:absolute;top:4px;height:12px;background:var(--teal);font-size:8px}.gantt-actual{position:absolute;bottom:4px;height:9px;border-radius:5px;background:var(--orange);min-width:4px}.gantt-legend{display:flex;gap:15px;align-items:center;flex-wrap:wrap;margin-bottom:12px;color:var(--ink-soft);font-size:10.5px}.gantt-legend span{display:flex;align-items:center;gap:6px}.gantt-legend i{width:22px;height:8px;border-radius:5px;background:var(--teal)}.gantt-legend i.actual{background:var(--orange)}.gantt-variance{font-weight:800;color:var(--teal-deep);white-space:nowrap}.gantt-variance.late{color:var(--danger)}
       @media(max-width:760px){.gantt-line{grid-template-columns:1fr}.gantt-track{height:24px}.planning-actions{width:100%}.planning-btn{flex:1}.summary-meta.extended{grid-template-columns:1fr}.summary-meta.extended strong{text-align:left}}
     `;
     document.head.appendChild(style);
@@ -102,7 +103,7 @@
     stages.push(['Инженерные и черновые работы',8],['Чистовая отделка',12],['Монтаж мебели и оборудования',7],['Финальная приёмка объекта',2]);
     let cursor=start;
     return stages.map((stage,index)=>{
-      const row={id:'g'+Date.now()+index,task:stage[0],start:cursor,end:addDays(cursor,stage[1]-1),progress:0};
+      const row={id:'g'+Date.now()+index,task:stage[0],start:cursor,end:addDays(cursor,stage[1]-1),actualStart:'',actualEnd:'',ownerId:'member-maria',stageStatus:'Не начат',dependency:index?('g'+Date.now()+(index-1)):''};
       cursor=addDays(row.end,1); return row;
     });
   }
@@ -156,6 +157,10 @@
     if(clusterNode) clusterNode.textContent=pendingCluster||currentRecord&&currentRecord.clusterName||'Кластер пока не определён';
   }
 
+  function ganttMembers(){return window.SlogiPro?window.SlogiPro.read().members:[];}
+  function ganttOwnerName(id){const m=ganttMembers().find(x=>x.id===id);return m?m.name:'Не назначен';}
+  function scheduleVariance(row){if(!row.actualEnd)return '—';const value=Math.round((new Date(row.actualEnd)-new Date(row.end))/DAY);return value===0?'0 дн.':(value>0?'+':'')+value+' дн.';}
+
   function renderGantt(){
     const root=el('gantt-content'); if(!root) return;
     if(!hasEstimate()){
@@ -164,29 +169,14 @@
     }
     el('add-gantt-row').disabled=false; el('download-gantt').disabled=false;
     if(!ganttRows.length){root.innerHTML='<div class="planning-empty">Этапов пока нет. Нажмите «Добавить этап».</div>';return;}
-    const starts=ganttRows.map(r=>new Date(r.start).getTime()).filter(Number.isFinite);
-    const ends=ganttRows.map(r=>new Date(r.end).getTime()).filter(Number.isFinite);
+    ganttRows=ganttRows.map((r,i)=>Object.assign({actualStart:'',actualEnd:'',ownerId:'member-maria',stageStatus:'Не начат',dependency:i?ganttRows[i-1]?.id||'':''},r));
+    const starts=ganttRows.flatMap(r=>[r.start,r.actualStart]).filter(Boolean).map(x=>new Date(x).getTime()).filter(Number.isFinite);
+    const ends=ganttRows.flatMap(r=>[r.end,r.actualEnd]).filter(Boolean).map(x=>new Date(x).getTime()).filter(Number.isFinite);
     const min=Math.min(...starts),max=Math.max(...ends),span=Math.max(DAY,max-min+DAY);
-    const rows=ganttRows.map((row,index)=>{
-      const left=Math.max(0,((new Date(row.start)-min)/span)*100);
-      const width=Math.max(1,((new Date(row.end)-new Date(row.start)+DAY)/span)*100);
-      return `<tr data-index="${index}"><td><input data-field="task" value="${esc(row.task)}"></td><td><input data-field="start" type="date" value="${esc(row.start)}"></td><td><input data-field="end" type="date" value="${esc(row.end)}"></td><td><input data-field="progress" type="number" min="0" max="100" step="5" value="${num(row.progress)}"></td><td>${daysBetween(row.start,row.end)} дн.</td><td><button class="row-delete" data-delete-gantt="${index}" type="button">×</button></td></tr>`;
-    }).join('');
-    const ganttPalette=[
-      ['#496F75','#6D9599'],
-      ['#A77D43','#D0AA70'],
-      ['#C77817','#E5A54A'],
-      ['#587765','#7F9B87'],
-      ['#755F75','#9B8199'],
-      ['#9A5B4E','#C07A69']
-    ];
-    const chart=ganttRows.map((row,index)=>{
-      const left=Math.max(0,((new Date(row.start)-min)/span)*100);
-      const width=Math.max(1,((new Date(row.end)-new Date(row.start)+DAY)/span)*100);
-      const colors=ganttPalette[index%ganttPalette.length];
-      return `<div class="gantt-line"><div class="gantt-label" title="${esc(row.task)}">${esc(row.task)}</div><div class="gantt-track"><div class="gantt-bar" style="margin-left:${left}%;width:${Math.min(width,100-left)}%;--gantt-start:${colors[0]};--gantt-end:${colors[1]}">${num(row.progress)}%</div></div></div>`;
-    }).join('');
-    root.innerHTML=`<div class="edit-table-wrap"><table class="edit-table"><thead><tr><th>Этап</th><th>Начало</th><th>Окончание</th><th>Готовность, %</th><th>Срок</th><th></th></tr></thead><tbody>${rows}</tbody></table></div><div class="gantt-chart">${chart}</div>`;
+    const owners=ganttMembers();
+    const rows=ganttRows.map((row,index)=>`<tr data-index="${index}"><td><input data-field="task" value="${esc(row.task)}"></td><td><select data-field="ownerId">${owners.map(m=>`<option value="${esc(m.id)}" ${m.id===row.ownerId?'selected':''}>${esc(m.name)}</option>`).join('')}</select></td><td><input data-field="start" type="date" value="${esc(row.start)}"></td><td><input data-field="end" type="date" value="${esc(row.end)}"></td><td><input data-field="actualStart" type="date" value="${esc(row.actualStart)}"></td><td><input data-field="actualEnd" type="date" value="${esc(row.actualEnd)}"></td><td><select data-field="stageStatus">${['Не начат','В работе','Приостановлен','Завершён'].map(s=>`<option ${s===row.stageStatus?'selected':''}>${s}</option>`).join('')}</select></td><td><select data-field="dependency"><option value="">Нет</option>${ganttRows.filter(x=>x.id!==row.id).map(x=>`<option value="${esc(x.id)}" ${x.id===row.dependency?'selected':''}>${esc(x.task)}</option>`).join('')}</select></td><td class="gantt-variance ${String(scheduleVariance(row)).startsWith('+')?'late':''}">${scheduleVariance(row)}</td><td><button class="row-delete" data-delete-gantt="${index}" type="button">×</button></td></tr>`).join('');
+    const chart=ganttRows.map(row=>{const left=Math.max(0,((new Date(row.start)-min)/span)*100),width=Math.max(1,((new Date(row.end)-new Date(row.start)+DAY)/span)*100);let actual='';if(row.actualStart){const aEnd=row.actualEnd||isoDate(new Date()),aLeft=Math.max(0,((new Date(row.actualStart)-min)/span)*100),aWidth=Math.max(1,((new Date(aEnd)-new Date(row.actualStart)+DAY)/span)*100);actual=`<div class="gantt-actual" style="margin-left:${aLeft}%;width:${Math.min(aWidth,100-aLeft)}%"></div>`}return`<div class="gantt-line"><div class="gantt-label" title="${esc(row.task)}"><strong>${esc(row.task)}</strong><small>${esc(ganttOwnerName(row.ownerId))} · ${esc(row.stageStatus)}</small></div><div class="gantt-track"><div class="gantt-bar" style="margin-left:${left}%;width:${Math.min(width,100-left)}%">План</div>${actual}</div></div>`}).join('');
+    root.innerHTML=`<div class="gantt-legend"><span><i class="plan"></i>План</span><span><i class="actual"></i>Факт</span><span>Отклонение считается по фактической дате завершения</span></div><div class="edit-table-wrap"><table class="edit-table gantt-edit-table"><thead><tr><th>Этап</th><th>Ответственный</th><th>План: начало</th><th>План: окончание</th><th>Факт: начало</th><th>Факт: окончание</th><th>Статус</th><th>Предшественник</th><th>Отклонение</th><th></th></tr></thead><tbody>${rows}</tbody></table></div><div class="gantt-chart">${chart}</div>`;
   }
 
   function renderPayments(){
@@ -265,13 +255,13 @@
   }
 
   function bindEvents(){
-    el('gantt-content')?.addEventListener('change',event=>{const input=event.target.closest('input[data-field]');if(!input)return;const row=input.closest('tr');const index=Number(row.dataset.index);const field=input.dataset.field;ganttRows[index][field]=field==='progress'?Math.max(0,Math.min(100,num(input.value))):input.value;persistExtras();renderGantt();});
+    el('gantt-content')?.addEventListener('change',event=>{const input=event.target.closest('[data-field]');if(!input)return;const row=input.closest('tr');const index=Number(row.dataset.index);const field=input.dataset.field;ganttRows[index][field]=input.value;if((field==='start'||field==='end')&&ganttRows[index].dependency){const dep=ganttRows.find(x=>x.id===ganttRows[index].dependency);if(dep&&new Date(ganttRows[index].start)<=new Date(dep.end))ganttRows[index].start=addDays(dep.end,1);}persistExtras();renderGantt();});
     el('gantt-content')?.addEventListener('click',event=>{const btn=event.target.closest('[data-delete-gantt]');if(!btn)return;ganttRows.splice(Number(btn.dataset.deleteGantt),1);persistExtras();renderGantt();});
     el('payments-content')?.addEventListener('change',event=>{const input=event.target.closest('input[data-field]');if(!input)return;const row=input.closest('tr');const index=Number(row.dataset.index);const field=input.dataset.field;paymentRows[index][field]=(field==='planned'||field==='actual')?num(input.value):input.value;persistExtras();renderPayments();});
     el('payments-content')?.addEventListener('click',event=>{const btn=event.target.closest('[data-delete-payment]');if(!btn)return;paymentRows.splice(Number(btn.dataset.deletePayment),1);persistExtras();renderPayments();});
-    el('add-gantt-row')?.addEventListener('click',()=>{const start=ganttRows.length?addDays(ganttRows[ganttRows.length-1].end,1):isoDate(new Date());ganttRows.push({id:'g'+Date.now(),task:'Новый этап',start,end:addDays(start,4),progress:0});persistExtras();renderGantt();});
+    el('add-gantt-row')?.addEventListener('click',()=>{const previous=ganttRows[ganttRows.length-1],start=previous?addDays(previous.end,1):isoDate(new Date());ganttRows.push({id:'g'+Date.now(),task:'Новый этап',start,end:addDays(start,4),actualStart:'',actualEnd:'',ownerId:'member-maria',stageStatus:'Не начат',dependency:previous?previous.id:''});persistExtras();renderGantt();});
     el('add-payment-row')?.addEventListener('click',()=>{paymentRows.push({id:'p'+Date.now(),name:'Новый платёж',planDate:isoDate(new Date()),planned:0,actualDate:'',actual:0});persistExtras();renderPayments();});
-    el('download-gantt')?.addEventListener('click',async()=>{const rows=ganttRows.map((r,i)=>[i+1,r.task,r.start,r.end,daysBetween(r.start,r.end),num(r.progress)]);downloadBlob(await workbookBlob('Диаграмма Ганта',['№','Этап','Начало','Окончание','Длительность, дней','Готовность, %'],rows,[6,42,15,15,18,16]),'Диаграмма Ганта '+(el('location-address')?.value||'объект')+'.xlsx');});
+    el('download-gantt')?.addEventListener('click',async()=>{const rows=ganttRows.map((r,i)=>[i+1,r.task,ganttOwnerName(r.ownerId),r.start,r.end,r.actualStart||'',r.actualEnd||'',r.stageStatus,ganttRows.find(x=>x.id===r.dependency)?.task||'',scheduleVariance(r)]);downloadBlob(await workbookBlob('Диаграмма Ганта',['№','Этап','Ответственный','План: начало','План: окончание','Факт: начало','Факт: окончание','Статус','Предшественник','Отклонение'],rows,[6,38,24,15,15,15,15,18,30,14]),'Диаграмма Ганта '+(el('location-address')?.value||'объект')+'.xlsx');});
     el('download-payments')?.addEventListener('click',async()=>{const rows=paymentRows.map((r,i)=>[i+1,r.name,r.planDate,num(r.planned),r.actualDate,num(r.actual),num(r.planned)-num(r.actual)]);downloadBlob(await workbookBlob('График платежей',['№','Этап / назначение','Плановая дата','План, ₽','Дата оплаты','Факт, ₽','Остаток, ₽'],rows,[6,42,16,16,16,16,16]),'График платежей '+(el('location-address')?.value||'объект')+'.xlsx');});
     el('location-address')?.addEventListener('input',()=>{pendingGeo=null;pendingCluster='';const node=el('cluster-name-value');if(node)node.textContent='Ожидаю полный адрес…';clearTimeout(geocodeTimer);geocodeTimer=setTimeout(detectCluster,900);});
   }

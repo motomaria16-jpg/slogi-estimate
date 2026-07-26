@@ -10,6 +10,14 @@ create table if not exists public.slogi_user_state (
   updated_at timestamptz not null default now()
 );
 
+
+create table if not exists public.slogi_workspace_state (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  workspace jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.slogi_attachments (
   user_id uuid not null references auth.users(id) on delete cascade,
   location_id text not null,
@@ -23,6 +31,7 @@ create table if not exists public.slogi_attachments (
 );
 
 alter table public.slogi_user_state enable row level security;
+alter table public.slogi_workspace_state enable row level security;
 alter table public.slogi_attachments enable row level security;
 
 -- Повторный запуск скрипта безопасен.
@@ -49,6 +58,34 @@ with check ((select auth.uid()) = user_id);
 
 create policy "SLOGI state delete own"
 on public.slogi_user_state for delete
+to authenticated
+using ((select auth.uid()) = user_id);
+
+
+
+drop policy if exists "SLOGI workspace select own" on public.slogi_workspace_state;
+drop policy if exists "SLOGI workspace insert own" on public.slogi_workspace_state;
+drop policy if exists "SLOGI workspace update own" on public.slogi_workspace_state;
+drop policy if exists "SLOGI workspace delete own" on public.slogi_workspace_state;
+
+create policy "SLOGI workspace select own"
+on public.slogi_workspace_state for select
+to authenticated
+using ((select auth.uid()) = user_id);
+
+create policy "SLOGI workspace insert own"
+on public.slogi_workspace_state for insert
+to authenticated
+with check ((select auth.uid()) = user_id);
+
+create policy "SLOGI workspace update own"
+on public.slogi_workspace_state for update
+to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+create policy "SLOGI workspace delete own"
+on public.slogi_workspace_state for delete
 to authenticated
 using ((select auth.uid()) = user_id);
 
@@ -80,10 +117,13 @@ using ((select auth.uid()) = user_id);
 
 -- Права для Data API. Доступ дополнительно ограничивается RLS-политиками выше.
 revoke all on public.slogi_user_state from anon;
+revoke all on public.slogi_workspace_state from anon;
 revoke all on public.slogi_attachments from anon;
 grant select, insert, update, delete on public.slogi_user_state to authenticated;
+grant select, insert, update, delete on public.slogi_workspace_state to authenticated;
 grant select, insert, update, delete on public.slogi_attachments to authenticated;
 grant all on public.slogi_user_state to service_role;
+grant all on public.slogi_workspace_state to service_role;
 grant all on public.slogi_attachments to service_role;
 
 -- Закрытое хранилище файлов, максимум 50 МБ на один файл.
