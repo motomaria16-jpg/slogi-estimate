@@ -1,0 +1,162 @@
+/* СЛОГИ — единая лёгкая оболочка всех страниц, версия 2 */
+:root{
+  --site-layout-max:1460px;
+  --site-layout-gutter:30px;
+  --site-header-height:74px;
+  --app-bg:#fbf6f3;
+  --app-card:#ffffff;
+  --app-ink:#30484d;
+  --app-muted:#75878b;
+  --app-teal:#4b6e73;
+  --app-teal-dark:#36565b;
+  --app-teal-soft:#eaf1f1;
+  --app-sand:#d7b987;
+  --app-gold:#dfa02f;
+  --app-line:#e6ddd8;
+}
+*{box-sizing:border-box}
+html{
+  width:100%;max-width:100%;min-height:100%;
+  overflow-x:hidden;overflow-y:scroll!important;
+  scroll-behavior:auto!important;scroll-padding-top:132px!important;
+  scrollbar-gutter:stable;
+}
+body{
+  width:100%;max-width:100%;min-height:100vh;margin:0!important;padding:0!important;
+  overflow-x:hidden!important;overflow-y:visible!important;
+  background:var(--app-bg);color:var(--app-ink);
+  -webkit-overflow-scrolling:touch;
+}
+/* Шапка и меню — один sticky-блок. Это исключает двойные отступы и наложения. */
+.site-header{
+  position:sticky!important;top:0!important;right:auto!important;left:auto!important;
+  width:100%!important;height:auto!important;min-height:0!important;max-height:none!important;
+  margin:0!important;overflow:visible!important;z-index:2147482000!important;
+  background:rgba(255,252,250,.985)!important;
+  border:0!important;border-bottom:1px solid rgba(215,185,135,.68)!important;
+  box-shadow:0 7px 24px rgba(48,72,77,.08)!important;
+  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+}
+.site-header .top{
+  width:100%!important;max-width:var(--site-layout-max)!important;
+  height:var(--site-header-height)!important;min-height:var(--site-header-height)!important;max-height:var(--site-header-height)!important;
+  margin:0 auto!important;padding:0 var(--site-layout-gutter)!important;
+  display:flex!important;align-items:center!important;justify-content:space-between!important;
+  gap:18px!important;flex-wrap:nowrap!important;overflow:visible!important;
+}
+.site-header .brand{display:flex!important;align-items:center!important;gap:16px!important;min-width:0!important;flex:1 1 auto!important}
+.site-header .logo-link{display:inline-flex!important;align-items:center!important;flex:none!important;text-decoration:none!important;transform:none!important}
+.site-header .logo-word{display:flex!important;align-items:center!important;gap:4px!important;padding:0!important}
+.site-header .logo-word span{
+  display:grid!important;place-items:center!important;width:32px!important;height:32px!important;
+  border-radius:6px!important;color:#fff!important;font-size:20px!important;font-weight:900!important;line-height:1!important;
+  box-shadow:0 3px 9px rgba(49,73,77,.11)!important;
+}
+.site-header .logo-word span:nth-child(1),.site-header .logo-word span:nth-child(2){background:var(--app-teal)!important}
+.site-header .logo-word span:nth-child(3),.site-header .logo-word span:nth-child(4){background:#d9ba7d!important}
+.site-header .logo-word span:nth-child(5){background:var(--app-gold)!important;transform:translateY(-4px)!important}
+.site-header .title-wrap{
+  display:block!important;min-width:0!important;height:auto!important;max-height:none!important;
+  border-left:1px solid rgba(215,185,135,.78)!important;padding-left:16px!important;
+}
+.site-header h1,.site-header .title-wrap>h1{
+  margin:0!important;color:var(--app-teal-dark)!important;font-size:16px!important;line-height:1.2!important;
+  letter-spacing:.035em!important;text-transform:uppercase!important;white-space:nowrap!important;
+}
+.site-header .subtitle,.site-header .title-wrap>.subtitle{
+  display:block!important;margin:4px 0 0!important;color:var(--app-muted)!important;font-size:11.5px!important;line-height:1.3!important;
+  white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+}
+/* Меню теперь находится внутри .site-header, поэтому не создаёт второй пустой ряд. */
+.site-header>.pro-nav,.pro-nav{
+  position:static!important;top:auto!important;right:auto!important;left:auto!important;
+  width:100%!important;margin:0!important;z-index:auto!important;
+  background:#fff!important;border:0!important;border-top:1px solid #edf0ef!important;
+  border-bottom:1px solid #e3e9e8!important;box-shadow:none!important;backdrop-filter:none!important;
+}
+.pro-nav-inner{
+  width:100%!important;max-width:var(--site-layout-max)!important;margin:0 auto!important;
+  min-height:48px!important;padding:5px var(--site-layout-gutter)!important;
+  display:flex!important;align-items:center!important;gap:4px!important;
+  overflow-x:auto!important;overflow-y:hidden!important;scrollbar-width:none!important;overscroll-behavior-x:contain;
+}
+.pro-nav-inner::-webkit-scrollbar{display:none!important}
+.pro-nav a,.pro-nav button{
+  flex:0 0 auto!important;padding:8px 11px!important;border-radius:9px!important;
+  color:#667b7f!important;font:800 11.5px/1.15 Arial,sans-serif!important;
+}
+.pro-nav a:hover,.pro-nav a.active{background:var(--app-teal-soft)!important;color:var(--app-teal-dark)!important}
+.pro-nav-spacer{flex:1 1 auto!important;min-width:10px!important}
+.pro-global-search-wrap{height:36px!important;min-width:210px!important;max-width:270px!important;flex:0 1 270px!important}
+.pro-notification-btn{min-width:38px!important;min-height:36px!important}
+/* Основной контент */
+body>main,body>main.objects-main,body>.layout,#pro-app,.portfolio-shell{
+  width:100%!important;max-width:none!important;margin:0!important;box-sizing:border-box!important;
+}
+.pro-page,.portfolio-shell{
+  width:100%!important;max-width:var(--site-layout-max)!important;margin:0 auto!important;
+  padding:26px var(--site-layout-gutter) 68px!important;
+}
+.pro-page-head{margin-bottom:18px!important}
+.pro-page-head h1{color:var(--app-teal-dark)!important;font-size:26px!important}
+.pro-card,.pro-kpi,.portfolio-card,.dashboard-card,.kpi-card{box-shadow:0 10px 30px rgba(42,63,67,.065)!important}
+/* Элементы никогда не должны перехватывать страницу, когда скрыты. */
+.pro-modal-backdrop:not(.open),.slogi-account-panel:not(.show){pointer-events:none!important}
+.pro-modal-backdrop.open,.slogi-account-panel.show{pointer-events:auto!important}
+.pro-drawer:not(.open){pointer-events:none!important}.pro-drawer.open{pointer-events:auto!important}
+/* Кабинет размещается под всей шапкой, включая меню. */
+.slogi-account-panel{
+  top:calc(var(--app-shell-height,122px) + 8px)!important;
+  z-index:2147483100!important;
+}
+.slogi-account-nav{z-index:10!important}
+/* Legacy-страницы: убираем прежний искусственный верхний отступ. */
+main,.main,.layout,.workspace,.objects-main{margin-top:0!important}
+.map-column{top:12px!important}
+#locations-map{max-height:620px!important}
+@media(max-width:1080px){
+  :root{--site-layout-gutter:20px}
+  .pro-global-search-wrap{display:none!important}
+  .site-header .top{gap:12px!important}
+  .slogi-account-trigger{min-width:170px!important;max-width:210px!important}
+}
+@media(max-width:760px){
+  :root{--site-layout-gutter:14px;--site-header-height:64px}
+  html{scroll-padding-top:112px!important}
+  .site-header .top{padding:0 var(--site-layout-gutter)!important;gap:10px!important}
+  .site-header .logo-word span{width:27px!important;height:27px!important;font-size:17px!important}
+  .site-header .logo-word span:nth-child(5){display:none!important}
+  .site-header .title-wrap{padding-left:10px!important}
+  .site-header h1,.site-header .title-wrap>h1{font-size:13.5px!important}
+  .site-header .subtitle,.site-header .title-wrap>.subtitle{font-size:10.5px!important;max-width:46vw!important}
+  .slogi-account-trigger{min-width:42px!important;width:42px!important;max-width:42px!important;padding:4px!important;border:0!important;box-shadow:none!important;background:transparent!important}
+  .slogi-account-summary,.slogi-account-chevron{display:none!important}
+  .slogi-account-avatar{width:34px!important;height:34px!important;flex-basis:34px!important}
+  .pro-nav-inner{min-height:46px!important;padding:4px var(--site-layout-gutter)!important}
+  .pro-nav a{padding:8px 10px!important;font-size:11px!important}
+  .pro-page,.portfolio-shell{padding:20px var(--site-layout-gutter) 54px!important}
+  .pro-page-head h1{font-size:22px!important}
+  .slogi-account-panel{right:8px!important;width:calc(100vw - 16px)!important;top:calc(var(--app-shell-height,110px) + 6px)!important}
+}
+@media(max-width:430px){
+  .site-header .logo-word span:nth-child(n+4){display:none!important}
+  .site-header .subtitle{display:none!important}
+  .site-header .title-wrap{border-left:0!important;padding-left:2px!important}
+  .pro-page,.portfolio-shell{padding-left:11px!important;padding-right:11px!important}
+}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
+/* Кабинет всегда остаётся компактным элементом шапки, в том числе на планшетах. */
+.site-header .slogi-account-nav{
+  order:initial!important;width:auto!important;max-width:270px!important;
+  margin-left:auto!important;flex:0 0 auto!important;align-self:center!important;
+}
+.site-header .slogi-account-trigger{width:auto!important;max-width:260px!important}
+body{touch-action:pan-x pan-y;overscroll-behavior-y:auto!important}
+@media(max-width:960px){
+  .site-header .slogi-account-nav{order:initial!important;width:auto!important;max-width:210px!important;margin-left:auto!important}
+  .site-header .slogi-account-trigger{width:auto!important;min-width:170px!important;max-width:210px!important}
+}
+@media(max-width:760px){
+  .site-header .slogi-account-nav{width:42px!important;min-width:42px!important;max-width:42px!important}
+  .site-header .slogi-account-trigger{width:42px!important;min-width:42px!important;max-width:42px!important}
+}

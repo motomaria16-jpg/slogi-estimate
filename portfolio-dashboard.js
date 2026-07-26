@@ -12,6 +12,7 @@
   const safeDate = value => value && /^\d{4}-\d{2}-\d{2}/.test(String(value)) ? String(value).slice(0,10) : '';
 
   let activeView = localStorage.getItem('slogi_portfolio_view_v2') || 'table';
+  if(localStorage.getItem('slogi_dashboard_layout_v3')!=='1'){activeView='table';localStorage.setItem('slogi_portfolio_view_v2','table');localStorage.setItem('slogi_dashboard_layout_v3','1');}
   if(!['table','cards','kanban','map'].includes(activeView)) activeView = 'table';
   let snapshot = null;
   let renderTimer = null;
@@ -378,6 +379,8 @@
       if(row && !event.target.closest('a,button')) location.href = `passport.html?location=${encodeURIComponent(row.dataset.openProject)}`;
     });
     window.addEventListener('slogi:professional-state',scheduleRender);
+    window.addEventListener('slogi:locations-updated',scheduleRender);
+    window.addEventListener('slogi:workspace-updated',scheduleRender);
     window.addEventListener('slogi:cloud-ready',scheduleRender);
     window.addEventListener('storage',event => {if(['slogi_locations_v1','slogi_professional_state_v2'].includes(event.key))scheduleRender();});
   }

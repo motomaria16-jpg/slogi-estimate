@@ -26,6 +26,7 @@
   let workspaceAvailable = true;
   let authEventSubscription = null;
   let initialSyncRunning = false;
+  let initStarted = false;
 
   const originalSetItem = Storage.prototype.setItem;
 
@@ -58,6 +59,7 @@
     internalWrite=true;
     try{originalSetItem.call(localStorage,WORKSPACE_KEY,normalizeWorkspaceRaw(raw));}
     finally{internalWrite=false;}
+    try{window.dispatchEvent(new CustomEvent('slogi:workspace-updated'));}catch(err){}
   }
 
   function localRaw(){
@@ -69,6 +71,7 @@
     internalWrite = true;
     try{originalSetItem.call(localStorage, STORAGE_KEY, normalizeRaw(raw));}
     finally{internalWrite = false;}
+    try{window.dispatchEvent(new CustomEvent('slogi:locations-updated'));}catch(err){}
   }
 
   function currentRedirectUrl(){
@@ -748,18 +751,15 @@
       }
 
       await syncWorkspaceFromCloud();
-      await migrateLocalAttachments();
+      scheduleAttachmentMigration();
       cloudReady = true;
       window.dispatchEvent(new CustomEvent('slogi:cloud-ready', {detail:{user:currentUser}}));
 
       const changed = targetRaw !== beforeRaw;
-      if(changed || options.forceReload){
-        const marker = 'slogi_cloud_reload_' + simpleHash(targetRaw);
-        if(sessionStorage.getItem('slogi_cloud_last_reload') !== marker){
-          sessionStorage.setItem('slogi_cloud_last_reload', marker);
-          setTimeout(() => location.reload(), options.manual ? 250 : 80);
-        }
+      if(changed){
+        try{window.dispatchEvent(new CustomEvent('slogi:locations-updated',{detail:{source:'cloud'}}));}catch(err){}
       }
+      if(options.manual) showToast('Данные синхронизированы.', false);
       return true;
     }catch(error){
       if(isSetupError(error)) databaseReady = false;
@@ -920,6 +920,15 @@
     }
   }
 
+  function scheduleAttachmentMigration(){
+    if(!currentUser) return;
+    const marker='slogi_attachment_migration_'+currentUser.id;
+    try{if(sessionStorage.getItem(marker)==='1')return;sessionStorage.setItem(marker,'1');}catch(err){}
+    const run=()=>migrateLocalAttachments().catch(()=>{});
+    if('requestIdleCallback' in window) requestIdleCallback(run,{timeout:6000});
+    else setTimeout(run,3500);
+  }
+
   async function signOutSafely(){
     dialogMessage('Сохраняю последние изменения…', false);
     const saved = await flushState();
@@ -941,6 +950,8 @@
   }
 
   async function init(){
+    if(initStarted) return;
+    initStarted=true;
     try{
       await loadSdk();
       client = window.supabase.createClient(PROJECT_URL, PUBLISHABLE_KEY, {
@@ -957,7 +968,7 @@
         updateUi();
         if(event === 'PASSWORD_RECOVERY'){
           setTimeout(() => showDialog('recovery'), 0);
-        }else if(event === 'SIGNED_IN' && currentUser){
+        }else if(event === 'SIGNED_IN' && currentUser && !cloudReady && !initialSyncRunning){
           setTimeout(() => handleSignedIn(currentUser), 0);
         }else if(event === 'USER_UPDATED' && currentUser){
           updateUi();
@@ -1001,11 +1012,20 @@
     deleteAttachments
   };
 
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', ensureUi, {once:true});
-  }else{
-    ensureUi();
+  function startCloud(){
+    const run=()=>init();
+    const schedule=()=>{
+      if('requestIdleCallback' in window) requestIdleCallback(run,{timeout:3500});
+      else setTimeout(run,500);
+    };
+    /* Сначала отдаём браузеру время на первый экран и обработчики кликов. */
+    setTimeout(schedule,1200);
   }
-  window.addEventListener('resize', updateUi);
-  init();
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded',()=>{ensureUi();startCloud();},{once:true});
+  }else{
+    ensureUi();startCloud();
+  }
+  let resizeFrame=0;
+  window.addEventListener('resize',()=>{if(resizeFrame)return;resizeFrame=requestAnimationFrame(()=>{resizeFrame=0;updateUi();});},{passive:true});
 })();

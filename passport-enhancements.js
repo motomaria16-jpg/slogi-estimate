@@ -284,7 +284,13 @@
     savePassport=async function(options={}){
       persistExtras();
       const id=await baseSave(options);
-      if(id){persistExtras();await detectCluster();renderSummary();}
+      if(id){
+        persistExtras();
+        renderSummary();
+        const run=()=>detectCluster().then(renderSummary).catch(()=>{});
+        if('requestIdleCallback' in window) requestIdleCallback(run,{timeout:2500});
+        else setTimeout(run,250);
+      }
       return id;
     };
   }
@@ -295,5 +301,5 @@
   renderGantt();
   renderPayments();
   bindEvents();
-  if(el('location-address')?.value&&!pendingCluster) detectCluster();
+  /* Геокодирование не запускается при открытии страницы: интерфейс остаётся мгновенно доступным. */
 })();
