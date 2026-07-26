@@ -89,63 +89,140 @@
     const style = document.createElement('style');
     style.id = 'slogi-cloud-styles';
     style.textContent = `
-      .slogi-account-nav{position:relative;z-index:2147483000;flex:0 0 auto;margin-left:auto;color:#33474b;font-family:Arial,sans-serif}
-      .slogi-account-trigger{display:flex;align-items:center;gap:10px;max-width:330px;min-height:48px;padding:6px 10px 6px 7px;border:1px solid rgba(55,84,90,.18);border-radius:14px;background:#fff;color:#33474b;box-shadow:0 5px 18px rgba(51,71,75,.10);cursor:pointer;text-align:left;transition:.16s ease}
-      .slogi-account-trigger:hover,.slogi-account-trigger[aria-expanded="true"]{border-color:rgba(79,143,145,.55);box-shadow:0 7px 22px rgba(51,71,75,.16)}
-      .slogi-account-avatar{position:relative;display:grid;place-items:center;width:35px;height:35px;flex:0 0 35px;border-radius:11px;background:#e8f1f1;color:#37545a;font:900 12px/1 Arial,sans-serif;letter-spacing:.02em}
-      .slogi-account-avatar::after{content:"";position:absolute;right:-2px;bottom:-2px;width:9px;height:9px;border:2px solid #fff;border-radius:50%;background:#c7a87b}
-      .slogi-account-nav[data-state="online"] .slogi-account-avatar::after{background:#3aaa77}
-      .slogi-account-nav[data-state="syncing"] .slogi-account-avatar::after{background:#dc972d;animation:slogiAccountPulse 1s infinite alternate}
-      .slogi-account-nav[data-state="error"] .slogi-account-avatar::after{background:#d75c5c}
-      @keyframes slogiAccountPulse{to{opacity:.35}}
-      .slogi-account-summary{display:grid;min-width:0;gap:2px}
-      .slogi-account-summary strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#33474b;font:800 13px/1.15 Arial,sans-serif}
-      .slogi-account-summary span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#76878b;font:600 11px/1.15 Arial,sans-serif}
-      .slogi-account-chevron{width:8px;height:8px;flex:0 0 8px;margin:0 2px 4px 5px;border-right:2px solid #6c8084;border-bottom:2px solid #6c8084;transform:rotate(45deg);transition:.16s ease}
+      .slogi-account-nav{position:relative;z-index:2147483000;flex:0 0 auto;margin-left:auto;color:#33474b;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+      .slogi-account-trigger{display:flex;align-items:center;gap:9px;min-width:190px;max-width:260px;min-height:42px;padding:4px 10px 4px 5px;border:1px solid rgba(75,110,115,.32);border-radius:13px;background:rgba(255,255,255,.97);color:#33474b;box-shadow:0 8px 22px rgba(12,42,46,.16);cursor:pointer;text-align:left;transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease}
+      .slogi-account-trigger:hover,.slogi-account-trigger[aria-expanded="true"]{border-color:#78aeb1;box-shadow:0 10px 28px rgba(12,42,46,.22);transform:translateY(-1px)}
+      .slogi-account-avatar{position:relative;display:grid;place-items:center;width:33px;height:33px;flex:0 0 33px;border-radius:10px;background:linear-gradient(145deg,#edf5f5,#dfeaec);color:#26474d;font:900 13px/1 Arial,sans-serif;letter-spacing:.02em}
+      .slogi-account-avatar::after{content:none;display:none}
+      .slogi-account-summary{display:grid;min-width:0;gap:2px;flex:1}
+      .slogi-account-summary strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#2e4348;font:850 13px/1.15 Arial,sans-serif}
+      .slogi-account-summary span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#6f8185;font:650 11px/1.15 Arial,sans-serif}
+      .slogi-account-chevron{width:9px;height:9px;flex:0 0 9px;margin:0 2px 4px 6px;border-right:2px solid #60767a;border-bottom:2px solid #60767a;transform:rotate(45deg);transition:.16s ease}
       .slogi-account-trigger[aria-expanded="true"] .slogi-account-chevron{margin-bottom:-3px;transform:rotate(225deg)}
-      .slogi-account-panel{position:absolute;top:calc(100% + 10px);right:0;width:min(410px,calc(100vw - 24px));max-height:calc(100vh - 100px);overflow:auto;display:none;padding:18px;border:1px solid rgba(55,84,90,.14);border-radius:18px;background:#fff;box-shadow:0 24px 70px rgba(27,42,46,.25);color:#33474b;font:14px/1.4 Arial,sans-serif}
-      .slogi-account-panel.show{display:block}
+
+      .slogi-account-panel{position:fixed;top:calc(var(--site-header-height,72px) + 10px);right:max(16px,calc((100vw - var(--site-layout-max,1360px))/2 + var(--site-layout-gutter,22px)));width:min(430px,calc(100vw - 32px));max-height:calc(100vh - var(--site-header-height,72px) - 24px);overflow:auto;display:none;padding:20px;border:1px solid rgba(93,134,139,.20);border-radius:24px;background:rgba(255,255,255,.98);box-shadow:0 30px 85px rgba(26,50,54,.28);color:#33474b;font:14px/1.4 Arial,sans-serif;overscroll-behavior:contain;scrollbar-width:thin}
+      .slogi-account-panel[data-mode="account"]{width:min(600px,calc(100vw - 32px));padding:18px 20px 17px;border-radius:22px}
+      .slogi-account-panel.show{display:block;animation:slogiAccountOpen .18s ease-out}
+      @keyframes slogiAccountOpen{from{opacity:0;transform:translateY(-7px) scale(.99)}to{opacity:1;transform:none}}
       .slogi-account-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:15px}
-      .slogi-account-panel h2{margin:0;color:#33474b;font:850 21px/1.15 Arial,sans-serif}
-      .slogi-account-panel h3{margin:0 0 10px;color:#455e63;font:850 14px/1.2 Arial,sans-serif}
+      .slogi-account-panel h2{margin:0;color:#2f454a;font:850 22px/1.15 Arial,sans-serif}
+      .slogi-account-panel h3{margin:0;color:#35565b;font:850 16px/1.2 Arial,sans-serif}
       .slogi-account-email{margin-top:4px;color:#7a8b8e;font-size:12px;overflow-wrap:anywhere}
-      .slogi-account-close{display:grid;place-items:center;width:32px;height:32px;flex:0 0 32px;border:0;border-radius:50%;background:#f1f4f4;color:#4b6267;font-size:20px;line-height:1;cursor:pointer}
-      .slogi-account-section{padding:14px 0;border-top:1px solid #e6ecec}
-      .slogi-account-section:first-of-type{padding-top:0;border-top:0}
+      .slogi-account-close{display:grid;place-items:center;width:38px;height:38px;flex:0 0 38px;border:0;border-radius:50%;background:#eef2f2;color:#53696e;font-size:25px;line-height:1;cursor:pointer;transition:.15s ease}
+      .slogi-account-close:hover{background:#e2eaea;color:#28464c;transform:rotate(4deg)}
+
+      .slogi-profile-head{display:grid;grid-template-columns:68px minmax(0,1fr) 34px;align-items:center;gap:14px;margin-bottom:16px}
+      .slogi-profile-avatar-large{position:relative;display:grid;place-items:center;width:68px;height:68px;border-radius:50%;background:linear-gradient(145deg,#edf5f5,#dbe7e8);color:#29474d;font:900 23px/1 Arial,sans-serif}
+      .slogi-profile-avatar-large::after{content:none;display:none}
+      .slogi-profile-copy{min-width:0}
+      .slogi-profile-copy h2{font-size:21px;line-height:1.12;margin:0 0 2px}
+      .slogi-profile-position-large{font-size:14px;line-height:1.25;color:#667b7f;margin-bottom:2px}
+      .slogi-profile-email-large{display:inline-block;color:#71888c;font-size:12.5px;text-decoration:none;overflow-wrap:anywhere}
+      .slogi-profile-email-large:hover{text-decoration:underline}
+      .slogi-profile-head .slogi-account-close{align-self:start}
+
+      .slogi-account-accordions{display:grid;gap:8px}
+      .slogi-account-accordion{overflow:hidden;border:1px solid #cfdddd;border-radius:13px;background:#fff;transition:border-color .16s ease,box-shadow .16s ease}
+      .slogi-account-accordion.is-open{border-color:#aacacc;box-shadow:0 7px 20px rgba(57,92,97,.07)}
+      .slogi-account-accordion-toggle{width:100%;min-height:48px;display:grid;grid-template-columns:28px minmax(0,1fr) auto 10px;align-items:center;gap:10px;padding:9px 14px;border:0;background:linear-gradient(180deg,#fff,#fbfdfd);color:#33474b;text-align:left;cursor:pointer;font:850 14px/1.2 Arial,sans-serif}
+      .slogi-account-accordion.is-open .slogi-account-accordion-toggle{color:#2f777a}
+      .slogi-account-icon{width:25px;height:25px;display:grid;place-items:center;color:#5b7176}
+      .slogi-account-icon svg{width:23px;height:23px;display:block;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+      .slogi-account-accordion.is-open .slogi-account-icon{color:#2f777a}
+      .slogi-role-badge{display:inline-flex;align-items:center;justify-content:center;min-height:24px;padding:4px 9px;border-radius:999px;background:#e8f2f2;color:#2f777a;font:800 10.5px/1 Arial,sans-serif;white-space:nowrap}
+      .slogi-account-accordion-chevron{width:9px;height:9px;border-right:2px solid #61767b;border-bottom:2px solid #61767b;transform:rotate(45deg);transition:.16s ease;margin-bottom:6px}
+      .slogi-account-accordion.is-open .slogi-account-accordion-chevron{transform:rotate(225deg);margin-bottom:-5px}
+      .slogi-account-accordion-body{display:none;padding:13px 16px 16px;border-top:1px solid #d9e4e4;background:#fff}
+      .slogi-account-accordion.is-open .slogi-account-accordion-body{display:block}
+
+      .slogi-account-form-grid{display:grid;grid-template-columns:128px minmax(0,1fr);align-items:center;gap:10px 14px}
+      .slogi-account-field-label{font-weight:850;color:#344b50;font-size:12.5px}
       .slogi-cloud-field{display:grid;gap:6px;margin:10px 0}
       .slogi-cloud-field span{font-weight:800;color:#455e63;font-size:12px}
-      .slogi-cloud-field input{width:100%;box-sizing:border-box;min-height:44px;border:1px solid #ccd7d8;border-radius:10px;padding:10px 12px;background:#fff;color:#24383c;font:16px Arial,sans-serif;outline:none}
-      .slogi-cloud-field input[readonly]{background:#f5f7f7;color:#697b7f}
-      .slogi-cloud-field input:focus{border-color:#579b9d;box-shadow:0 0 0 3px rgba(87,155,157,.13)}
+      .slogi-cloud-field input,.slogi-account-input{width:100%;box-sizing:border-box;min-height:40px;border:1px solid #bfd2d4;border-radius:10px;padding:9px 11px;background:#fff;color:#24383c;font:13.5px Arial,sans-serif;outline:none;transition:.15s ease}
+      .slogi-cloud-field input[readonly],.slogi-account-input[readonly]{background:#f7fafa;color:#697b7f}
+      .slogi-cloud-field input:focus,.slogi-account-input:focus{border-color:#579b9d;box-shadow:0 0 0 3px rgba(87,155,157,.13)}
+      .slogi-account-form-action{grid-column:1/-1;margin-top:4px}
       .slogi-cloud-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:13px}
       .slogi-cloud-actions.single{grid-template-columns:1fr}
-      .slogi-cloud-action{min-height:44px;border:0;border-radius:10px;padding:10px 12px;font:800 13px Arial,sans-serif;cursor:pointer}
-      .slogi-cloud-primary{background:#4f8f91;color:#fff}
-      .slogi-cloud-secondary{background:#eef3f3;color:#37545a}
-      .slogi-cloud-danger{background:#fff0ef;color:#a63f3f}
+      .slogi-cloud-action{min-height:40px;border:0;border-radius:10px;padding:9px 12px;font:850 13px Arial,sans-serif;cursor:pointer;transition:.16s ease}
+      .slogi-cloud-action:hover{transform:translateY(-1px)}
+      .slogi-cloud-primary{background:linear-gradient(135deg,#4a9698,#3d8588);color:#fff;box-shadow:0 8px 18px rgba(63,137,140,.22)}
+      .slogi-cloud-secondary{background:#edf4f4;color:#37545a;border:1px solid #c8dada}
+      .slogi-cloud-danger{background:transparent;color:#b33f3f}
       .slogi-cloud-link{display:inline-block;margin-top:11px;border:0;background:transparent;color:#4f8f91;text-decoration:underline;font:700 13px Arial,sans-serif;cursor:pointer;padding:0}
-      .slogi-cloud-message{display:none;margin:12px 0 0;padding:10px 11px;border-radius:9px;background:#edf7f3;color:#2f7658;font-weight:700;overflow-wrap:anywhere}
+
+      .slogi-security-form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+      .slogi-security-form .slogi-cloud-field{margin:0}
+      .slogi-security-form .slogi-account-form-action{grid-column:1/-1}
+      .slogi-notification-list{display:grid;gap:7px}
+      .slogi-notification-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px;padding:7px 0;border-bottom:1px solid #edf1f1}
+      .slogi-notification-row:last-child{border-bottom:0}
+      .slogi-notification-row strong{display:block;margin-bottom:2px;color:#334b50;font-size:12.5px}
+      .slogi-notification-row span{display:block;color:#798b8e;font-size:11px;line-height:1.35}
+      .slogi-switch{position:relative;width:48px;height:27px}
+      .slogi-switch input{position:absolute;opacity:0;pointer-events:none}
+      .slogi-switch-track{position:absolute;inset:0;border-radius:999px;background:#d8e2e2;cursor:pointer;transition:.18s ease}
+      .slogi-switch-track::after{content:"";position:absolute;top:4px;left:4px;width:19px;height:19px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(37,62,66,.22);transition:.18s ease}
+      .slogi-switch input:checked + .slogi-switch-track{background:#4b9597}
+      .slogi-switch input:checked + .slogi-switch-track::after{transform:translateX(21px)}
+      .slogi-access-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px;padding:11px;border-radius:11px;background:#f4f8f8;border:1px solid #d8e5e5}
+      .slogi-access-card strong{display:block;color:#334b50;font-size:13px;margin-bottom:3px}
+      .slogi-access-card p{margin:0;color:#718589;font-size:11px;line-height:1.4}
+
+      .slogi-cloud-message{display:none;margin:14px 0 0;padding:11px 13px;border-radius:10px;background:#edf7f3;color:#2f7658;font-weight:700;overflow-wrap:anywhere}
       .slogi-cloud-message.show{display:block}
       .slogi-cloud-message.error{background:#fff0ef;color:#9d4141}
       .slogi-cloud-note{margin:9px 0 0;color:#7b8b8e;font-size:11.5px;line-height:1.4}
+      .slogi-account-signout-wrap{margin-top:12px;padding-top:12px;border-top:1px solid #d5e1e1;text-align:center}
+      .slogi-account-signout{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:7px 14px;border:0;background:transparent;color:#b43c3c;font:850 13.5px/1.2 Arial,sans-serif;cursor:pointer}
+      .slogi-account-signout svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+      .slogi-account-signout:hover{color:#8e2929}
       .slogi-cloud-toast{position:fixed;right:16px;bottom:16px;z-index:2147483100;max-width:min(390px,calc(100vw - 32px));padding:11px 14px;border-radius:12px;background:#33474b;color:#fff;box-shadow:0 10px 30px rgba(31,45,49,.24);font:700 13px/1.35 Arial,sans-serif;opacity:0;transform:translateY(8px);pointer-events:none;transition:.2s}
       .slogi-cloud-toast.show{opacity:1;transform:none}
       .slogi-cloud-toast.error{background:#a94747}
-      @media(max-width:760px){
+
+      @media(max-width:960px){
         .slogi-account-nav{order:20;width:100%;margin-left:0}
-        .slogi-account-trigger{width:100%;max-width:none;min-height:44px;padding:5px 8px 5px 6px;border-radius:12px}
-        .slogi-account-avatar{width:32px;height:32px;flex-basis:32px;border-radius:9px}
-        .slogi-account-summary{flex:1}
+        .slogi-account-trigger{width:100%;max-width:none;min-height:39px;padding:3px 8px 3px 5px;border-radius:11px}
+        .slogi-account-avatar{width:31px;height:31px;flex-basis:31px;border-radius:9px}
         .slogi-account-summary strong{font-size:12px}
         .slogi-account-summary span{font-size:10px}
         .slogi-account-chevron{margin-left:auto}
-        .slogi-account-panel{position:absolute;top:calc(100% + 8px);right:0;left:0;width:100%;max-height:calc(100vh - 145px);padding:16px;border-radius:16px}
+        .slogi-account-panel{top:calc(var(--site-header-height,104px) + 8px);right:8px;left:8px;width:auto;max-height:calc(100vh - var(--site-header-height,104px) - 16px);padding:17px;border-radius:20px}
+        .slogi-account-panel[data-mode="account"]{width:auto;padding:17px 18px}
+        .slogi-profile-head{grid-template-columns:64px minmax(0,1fr) 34px;gap:12px}
+        .slogi-profile-avatar-large{width:64px;height:64px;font-size:22px}
+        .slogi-profile-copy h2{font-size:19px}
+        .slogi-profile-position-large{font-size:13.5px}
+        .slogi-profile-email-large{font-size:12px}
+        .slogi-account-accordion-toggle{min-height:47px;padding:9px 13px;font-size:14px}
+        .slogi-account-accordion-body{padding:13px 14px}
+        .slogi-account-form-grid{grid-template-columns:122px minmax(0,1fr);gap:9px 12px}
         .slogi-cloud-actions{grid-template-columns:1fr}
         .slogi-cloud-toast{right:10px;bottom:10px;max-width:calc(100vw - 20px)}
       }
-      @media(max-width:430px){
-        .site-header .top{gap:8px!important}
+      @media(max-width:620px){
+        .slogi-account-panel[data-mode="account"]{padding:17px 14px}
+        .slogi-profile-head{grid-template-columns:66px minmax(0,1fr) 34px;gap:12px;margin-bottom:17px}
+        .slogi-profile-avatar-large{width:66px;height:66px;font-size:23px}
+        .slogi-profile-copy h2{font-size:20px}
+        .slogi-profile-position-large{font-size:14px}
+        .slogi-profile-email-large{font-size:12.5px}
+        .slogi-account-close{width:34px;height:34px;flex-basis:34px;font-size:22px}
+        .slogi-account-accordion-toggle{grid-template-columns:30px minmax(0,1fr) auto 10px;gap:10px;min-height:54px;padding:10px 12px;font-size:14px}
+        .slogi-account-icon,.slogi-account-icon svg{width:25px;height:25px}
+        .slogi-role-badge{min-height:26px;padding:4px 9px;font-size:10.5px}
+        .slogi-account-accordion-chevron{width:9px;height:9px;border-width:2px}
+        .slogi-account-accordion-body{padding:14px 12px 16px}
+        .slogi-account-form-grid{grid-template-columns:1fr;gap:7px}
+        .slogi-account-field-label{margin-top:5px;font-size:13px}
+        .slogi-account-input{min-height:46px;font-size:14px}
+        .slogi-security-form{grid-template-columns:1fr}
+        .slogi-security-form .slogi-account-form-action{grid-column:1}
+        .slogi-account-signout{font-size:14px}
       }
+      @media(max-width:430px){.site-header .top{gap:8px!important}}
     `;
     document.head.appendChild(style);
   }
@@ -277,30 +354,152 @@
     if(close) close.addEventListener('click', hideDialog);
   }
 
+
+  function accountIcon(type){
+    const paths = {
+      user:'<path d="M20 21a8 8 0 0 0-16 0"></path><circle cx="12" cy="7" r="4"></circle>',
+      lock:'<rect x="5" y="10" width="14" height="11" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path><path d="M12 14v3"></path>',
+      bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M10 21h4"></path>',
+      shield:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><circle cx="12" cy="10" r="2.5"></circle><path d="M8.5 16c.8-1.7 2-2.5 3.5-2.5s2.7.8 3.5 2.5"></path>',
+      logout:'<path d="M10 17l5-5-5-5"></path><path d="M15 12H3"></path><path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"></path>'
+    };
+    return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[type] || ''}</svg>`;
+  }
+
+  function readNotificationPreferences(){
+    try{
+      const parsed = JSON.parse(localStorage.getItem('slogi_account_notifications_v1') || '{}');
+      return {
+        documents: parsed.documents !== false,
+        estimates: parsed.estimates !== false,
+        sync: parsed.sync !== false
+      };
+    }catch(error){
+      return {documents:true, estimates:true, sync:true};
+    }
+  }
+
+  function saveNotificationPreferences(panel){
+    const prefs = {};
+    panel.querySelectorAll('[data-notification-key]').forEach(input => {prefs[input.dataset.notificationKey] = !!input.checked;});
+    localStorage.setItem('slogi_account_notifications_v1', JSON.stringify(prefs));
+  }
+
   function showDialog(mode){
     ensureUi();
     const panel = document.getElementById('slogi-account-panel');
     const trigger = document.getElementById('slogi-account-trigger');
     if(!panel || !trigger) return;
 
+    panel.dataset.mode = mode || 'login';
     if(mode === 'account' && currentUser){
       const meta = userMetadata();
+      const role = String(meta.role || meta.access_level || 'Наблюдатель').trim() || 'Наблюдатель';
+      const prefs = readNotificationPreferences();
       panel.innerHTML = `
-        ${panelHeader('Личный кабинет', currentUser.email || '')}
-        <div class="slogi-account-section">
-          <label class="slogi-cloud-field"><span>ФИО</span><input id="slogi-profile-name" type="text" autocomplete="name" maxlength="160" placeholder="Введите фамилию, имя и отчество" value="${escapeHtml(meta.full_name || meta.name || '')}"></label>
-          <label class="slogi-cloud-field"><span>Должность</span><input id="slogi-profile-position" type="text" autocomplete="organization-title" maxlength="120" placeholder="Например: руководитель проекта" value="${escapeHtml(meta.position || meta.job_title || '')}"></label>
-          <div class="slogi-cloud-actions single"><button type="button" class="slogi-cloud-action slogi-cloud-primary" id="slogi-profile-save">Сохранить личные данные</button></div>
+        <div class="slogi-profile-head">
+          <div class="slogi-profile-avatar-large">${escapeHtml(userInitials())}</div>
+          <div class="slogi-profile-copy">
+            <h2>${escapeHtml(displayName())}</h2>
+            <div class="slogi-profile-position-large">${escapeHtml(displayPosition())}</div>
+            <a class="slogi-profile-email-large" href="mailto:${escapeHtml(currentUser.email || '')}">${escapeHtml(currentUser.email || '')}</a>
+          </div>
+          <button type="button" class="slogi-account-close" id="slogi-account-close" aria-label="Закрыть">×</button>
         </div>
-        <div class="slogi-account-section">
-          <h3>Смена пароля</h3>
-          <label class="slogi-cloud-field"><span>Новый пароль</span><input id="slogi-profile-password" type="password" minlength="8" autocomplete="new-password" placeholder="Не менее 8 символов"></label>
-          <label class="slogi-cloud-field"><span>Повторите пароль</span><input id="slogi-profile-password-repeat" type="password" minlength="8" autocomplete="new-password"></label>
-          <div class="slogi-cloud-actions single"><button type="button" class="slogi-cloud-action slogi-cloud-secondary" id="slogi-profile-password-save">Сменить пароль</button></div>
+
+        <div class="slogi-account-accordions">
+          <section class="slogi-account-accordion is-open">
+            <button type="button" class="slogi-account-accordion-toggle" aria-expanded="true">
+              <span class="slogi-account-icon">${accountIcon('user')}</span>
+              <span>Личные данные</span>
+              <span></span>
+              <span class="slogi-account-accordion-chevron" aria-hidden="true"></span>
+            </button>
+            <div class="slogi-account-accordion-body">
+              <div class="slogi-account-form-grid">
+                <label class="slogi-account-field-label" for="slogi-profile-name">ФИО</label>
+                <input class="slogi-account-input" id="slogi-profile-name" type="text" autocomplete="name" maxlength="160" placeholder="Введите фамилию, имя и отчество" value="${escapeHtml(meta.full_name || meta.name || '')}">
+                <label class="slogi-account-field-label" for="slogi-profile-position">Должность</label>
+                <input class="slogi-account-input" id="slogi-profile-position" type="text" autocomplete="organization-title" maxlength="120" placeholder="Например: руководитель проекта" value="${escapeHtml(meta.position || meta.job_title || '')}">
+                <label class="slogi-account-field-label" for="slogi-profile-email">Электронная почта</label>
+                <input class="slogi-account-input" id="slogi-profile-email" type="email" value="${escapeHtml(currentUser.email || '')}" readonly>
+                <div class="slogi-account-form-action"><button type="button" class="slogi-cloud-action slogi-cloud-primary" id="slogi-profile-save" style="width:100%">Сохранить</button></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="slogi-account-accordion">
+            <button type="button" class="slogi-account-accordion-toggle" aria-expanded="false">
+              <span class="slogi-account-icon">${accountIcon('lock')}</span>
+              <span>Безопасность</span>
+              <span></span>
+              <span class="slogi-account-accordion-chevron" aria-hidden="true"></span>
+            </button>
+            <div class="slogi-account-accordion-body">
+              <div class="slogi-security-form">
+                <label class="slogi-cloud-field"><span>Новый пароль</span><input id="slogi-profile-password" type="password" minlength="8" autocomplete="new-password" placeholder="Не менее 8 символов"></label>
+                <label class="slogi-cloud-field"><span>Повторите пароль</span><input id="slogi-profile-password-repeat" type="password" minlength="8" autocomplete="new-password" placeholder="Повторите новый пароль"></label>
+                <div class="slogi-account-form-action"><button type="button" class="slogi-cloud-action slogi-cloud-secondary" id="slogi-profile-password-save" style="width:100%">Сменить пароль</button></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="slogi-account-accordion">
+            <button type="button" class="slogi-account-accordion-toggle" aria-expanded="false">
+              <span class="slogi-account-icon">${accountIcon('bell')}</span>
+              <span>Уведомления</span>
+              <span></span>
+              <span class="slogi-account-accordion-chevron" aria-hidden="true"></span>
+            </button>
+            <div class="slogi-account-accordion-body">
+              <div class="slogi-notification-list">
+                <div class="slogi-notification-row"><div><strong>Документы объекта</strong><span>Сообщать о добавлении и обновлении документов.</span></div><label class="slogi-switch"><input type="checkbox" data-notification-key="documents" ${prefs.documents ? 'checked' : ''}><span class="slogi-switch-track"></span></label></div>
+                <div class="slogi-notification-row"><div><strong>Сметы и коммерческие предложения</strong><span>Показывать уведомления о сохранении и формировании файлов.</span></div><label class="slogi-switch"><input type="checkbox" data-notification-key="estimates" ${prefs.estimates ? 'checked' : ''}><span class="slogi-switch-track"></span></label></div>
+                <div class="slogi-notification-row"><div><strong>Облачная синхронизация</strong><span>Сообщать об ошибках синхронизации между устройствами.</span></div><label class="slogi-switch"><input type="checkbox" data-notification-key="sync" ${prefs.sync ? 'checked' : ''}><span class="slogi-switch-track"></span></label></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="slogi-account-accordion">
+            <button type="button" class="slogi-account-accordion-toggle" aria-expanded="false">
+              <span class="slogi-account-icon">${accountIcon('shield')}</span>
+              <span>Доступ и права</span>
+              <span class="slogi-role-badge">${escapeHtml(role)}</span>
+              <span class="slogi-account-accordion-chevron" aria-hidden="true"></span>
+            </button>
+            <div class="slogi-account-accordion-body">
+              <div class="slogi-access-card"><div><strong>Текущая роль: ${escapeHtml(role)}</strong><p>Уровень доступа назначается администратором системы. Для изменения роли обратитесь к ответственному сотруднику.</p></div><span class="slogi-role-badge">${escapeHtml(role)}</span></div>
+            </div>
+          </section>
         </div>
+
         <div class="slogi-cloud-message" id="slogi-cloud-message"></div>
-        <div class="slogi-account-section"><button type="button" class="slogi-cloud-action slogi-cloud-danger" id="slogi-cloud-signout" style="width:100%">Выйти из личного кабинета</button></div>`;
+        <div class="slogi-account-signout-wrap"><button type="button" class="slogi-account-signout" id="slogi-cloud-signout">${accountIcon('logout')}<span>Выйти из аккаунта</span></button></div>`;
       bindPanelClose(panel);
+
+      panel.querySelectorAll('.slogi-account-accordion-toggle').forEach(button => {
+        button.addEventListener('click', () => {
+          const section = button.closest('.slogi-account-accordion');
+          const open = !section.classList.contains('is-open');
+          panel.querySelectorAll('.slogi-account-accordion').forEach(item => {
+            item.classList.remove('is-open');
+            const toggle = item.querySelector('.slogi-account-accordion-toggle');
+            if(toggle) toggle.setAttribute('aria-expanded','false');
+          });
+          if(open){
+            section.classList.add('is-open');
+            button.setAttribute('aria-expanded','true');
+          }
+        });
+      });
+
+      panel.querySelectorAll('[data-notification-key]').forEach(input => {
+        input.addEventListener('change', () => {
+          saveNotificationPreferences(panel);
+          dialogMessage('Настройки уведомлений сохранены.', false);
+        });
+      });
+
       panel.querySelector('#slogi-profile-save').addEventListener('click', async () => {
         const fullName = panel.querySelector('#slogi-profile-name').value.trim();
         const position = panel.querySelector('#slogi-profile-position').value.trim();
@@ -309,6 +508,12 @@
         if(error){dialogMessage(humanError(error), true);return;}
         if(data && data.user) currentUser = data.user;
         updateUi();
+        const profileName = panel.querySelector('.slogi-profile-copy h2');
+        const profilePosition = panel.querySelector('.slogi-profile-position-large');
+        const profileAvatar = panel.querySelector('.slogi-profile-avatar-large');
+        if(profileName) profileName.textContent = displayName();
+        if(profilePosition) profilePosition.textContent = displayPosition();
+        if(profileAvatar) profileAvatar.textContent = userInitials();
         dialogMessage('Личные данные сохранены.', false);
       });
       panel.querySelector('#slogi-profile-password-save').addEventListener('click', async () => {
