@@ -342,7 +342,7 @@
     const position = root.querySelector('#slogi-account-position');
     const avatar = root.querySelector('#slogi-account-avatar');
     if(name) name.textContent = currentUser ? displayName() : 'Войти';
-    if(position) position.textContent = currentUser ? displayPosition() : 'Личный кабинет';
+    if(position) position.textContent = currentUser ? ((window.SlogiPro && window.SlogiPro.currentRole && window.SlogiPro.currentRole()) || displayPosition()) : 'Личный кабинет';
     if(avatar) avatar.textContent = userInitials();
   }
 
@@ -396,12 +396,17 @@
     try{
       const parsed = JSON.parse(localStorage.getItem('slogi_account_notifications_v1') || '{}');
       return {
+        tasks: parsed.tasks !== false,
+        approvals: parsed.approvals !== false,
+        deadlines: parsed.deadlines !== false,
+        payments: parsed.payments !== false,
         documents: parsed.documents !== false,
         estimates: parsed.estimates !== false,
+        weekly: parsed.weekly !== false,
         sync: parsed.sync !== false
       };
     }catch(error){
-      return {documents:true, estimates:true, sync:true};
+      return {tasks:true, approvals:true, deadlines:true, payments:true, documents:true, estimates:true, weekly:true, sync:true};
     }
   }
 
@@ -420,8 +425,17 @@
     panel.dataset.mode = mode || 'login';
     if(mode === 'account' && currentUser){
       const meta = userMetadata();
-      const role = String(meta.role || meta.access_level || 'Наблюдатель').trim() || 'Наблюдатель';
+      const role = String((window.SlogiPro && window.SlogiPro.currentRole && window.SlogiPro.currentRole()) || meta.role || meta.access_level || 'Администратор').trim() || 'Администратор';
       const prefs = readNotificationPreferences();
+      let activeProject = null, accountProjects = [];
+      try{
+        const activeId = localStorage.getItem('slogi_active_project_v1') || '';
+        const projects = JSON.parse(localStorage.getItem('slogi_locations_v1') || '[]');
+        accountProjects = Array.isArray(projects) ? projects.filter(x => x && x.id && !x.deletedAt) : [];
+        activeProject = accountProjects.find(x => String(x.id) === String(activeId)) || null;
+      }catch(error){}
+      const myProjects = accountProjects.filter(x => String(x.managerName || '').toLowerCase().includes(String(displayName()).toLowerCase()) || String(x.managerId || '') === String(currentUser.id || ''));
+      const projectHref = activeProject ? 'passport.html?location=' + encodeURIComponent(activeProject.id) : 'index.html';
       panel.innerHTML = `
         <div class="slogi-profile-head">
           <div class="slogi-profile-avatar-large">${escapeHtml(userInitials())}</div>
@@ -432,100 +446,68 @@
           </div>
           <button type="button" class="slogi-account-close" id="slogi-account-close" aria-label="Закрыть">×</button>
         </div>
-
-        <div class="slogi-account-accordions">
-          <section class="slogi-account-accordion is-open">
-            <button type="button" class="slogi-account-accordion-toggle" aria-expanded="true">
-              <span class="slogi-account-icon">${accountIcon('user')}</span>
-              <span>Личные данные</span>
-              <span></span>
-              <span class="slogi-account-accordion-chevron" aria-hidden="true"></span>
-            </button>
-            <div class="slogi-account-accordion-body">
-              <div class="slogi-account-form-grid">
-                <label class="slogi-account-field-label" for="slogi-profile-name">ФИО</label>
-                <input class="slogi-account-input" id="slogi-profile-name" type="text" autocomplete="name" maxlength="160" placeholder="Введите фамилию, имя и отчество" value="${escapeHtml(meta.full_name || meta.name || '')}">
-                <label class="slogi-account-field-label" for="slogi-profile-position">Должность</label>
-                <input class="slogi-account-input" id="slogi-profile-position" type="text" autocomplete="organization-title" maxlength="120" placeholder="Например: руководитель проекта" value="${escapeHtml(meta.position || meta.job_title || '')}">
-                <label class="slogi-account-field-label" for="slogi-profile-email">Электронная почта</label>
-                <input class="slogi-account-input" id="slogi-profile-email" type="email" value="${escapeHtml(currentUser.email || '')}" readonly>
-                <div class="slogi-account-form-action"><button type="button" class="slogi-cloud-action slogi-cloud-primary" id="slogi-profile-save" style="width:100%">Сохранить</button></div>
-              </div>
+        <div class="slogi-account-dashboard">
+          <div class="slogi-role-summary"><div><strong>Роль в системе</strong><div class="slogi-account-email">Права назначаются администратором команды</div>${role === 'Администратор' ? '<a href="team.html" class="slogi-cloud-link">Управление командой</a>' : ''}</div><span class="slogi-role-badge">${escapeHtml(role)}</span></div>
+          <div class="slogi-account-quick">
+            <a href="${projectHref}"><strong>${activeProject ? 'Текущий объект' : 'Выбрать объект'}</strong><span>${activeProject ? escapeHtml(activeProject.address || 'Открыть обзор') : 'Перейти к карте объектов'}</span></a>
+            <a href="tasks.html?mine=1"><strong>Мои задачи</strong><span>Поручения, сроки и приоритеты</span></a>
+            <a href="index.html?mine=1"><strong>Мои объекты</strong><span>${myProjects.length} объектов в работе</span></a>
+          </div>
+          <div class="slogi-account-tabs" role="tablist">
+            <button type="button" class="slogi-account-tab active" data-account-tab="profile">Профиль</button>
+            <button type="button" class="slogi-account-tab" data-account-tab="objects">Мои объекты</button>
+            <button type="button" class="slogi-account-tab" data-account-tab="notifications">Уведомления</button>
+            <button type="button" class="slogi-account-tab" data-account-tab="security">Безопасность</button>
+          </div>
+          <section class="slogi-account-pane active" data-account-pane="profile">
+            <h3 class="slogi-account-section-title">Личные данные</h3>
+            <div class="slogi-account-profile-grid">
+              <label class="slogi-cloud-field"><span>ФИО</span><input class="slogi-account-input" id="slogi-profile-name" type="text" autocomplete="name" maxlength="160" value="${escapeHtml(meta.full_name || meta.name || '')}"></label>
+              <label class="slogi-cloud-field"><span>Должность</span><input class="slogi-account-input" id="slogi-profile-position" type="text" autocomplete="organization-title" maxlength="120" value="${escapeHtml(meta.position || meta.job_title || '')}"></label>
+              <label class="slogi-cloud-field full"><span>Электронная почта</span><input class="slogi-account-input" type="email" value="${escapeHtml(currentUser.email || '')}" readonly></label>
+              <div class="full"><button type="button" class="slogi-cloud-action slogi-cloud-primary" id="slogi-profile-save" style="width:100%">Сохранить профиль</button></div>
             </div>
           </section>
-
-          <section class="slogi-account-accordion">
-            <button type="button" class="slogi-account-accordion-toggle" aria-expanded="false">
-              <span class="slogi-account-icon">${accountIcon('lock')}</span>
-              <span>Безопасность</span>
-              <span></span>
-              <span class="slogi-account-accordion-chevron" aria-hidden="true"></span>
-            </button>
-            <div class="slogi-account-accordion-body">
-              <div class="slogi-security-form">
-                <label class="slogi-cloud-field"><span>Новый пароль</span><input id="slogi-profile-password" type="password" minlength="8" autocomplete="new-password" placeholder="Не менее 8 символов"></label>
-                <label class="slogi-cloud-field"><span>Повторите пароль</span><input id="slogi-profile-password-repeat" type="password" minlength="8" autocomplete="new-password" placeholder="Повторите новый пароль"></label>
-                <div class="slogi-account-form-action"><button type="button" class="slogi-cloud-action slogi-cloud-secondary" id="slogi-profile-password-save" style="width:100%">Сменить пароль</button></div>
-              </div>
+          <section class="slogi-account-pane" data-account-pane="objects">
+            <h3 class="slogi-account-section-title">Объекты в моей работе</h3>
+            <div class="slogi-account-object-list">${myProjects.length ? myProjects.slice(0,8).map(project => `<a href="passport.html?location=${encodeURIComponent(project.id)}"><strong>${escapeHtml(project.address || 'Объект без адреса')}</strong><span>${escapeHtml(project.status || 'Новый')} · ${escapeHtml(project.managerName || 'Ответственный не указан')}</span></a>`).join('') : '<div class="slogi-account-email">Объекты пока не назначены.</div>'}</div>
+            <a href="index.html?mine=1" class="slogi-cloud-link" style="display:inline-block;margin-top:12px">Открыть все мои объекты</a>
+          </section>
+          <section class="slogi-account-pane" data-account-pane="notifications">
+            <h3 class="slogi-account-section-title">Что показывать в личном кабинете</h3>
+            <div class="slogi-notification-list">
+              <div class="slogi-notification-row"><div><strong>Мои задачи</strong><span>Назначение, изменение статуса и комментарии.</span></div><label class="slogi-switch"><input type="checkbox" data-notification-key="tasks" ${prefs.tasks ? 'checked' : ''}><span class="slogi-switch-track"></span></label></div>
+              <div class="slogi-notification-row"><div><strong>Согласования</strong><span>Новые запросы, замечания и принятые решения.</span></div><label class="slogi-switch"><input type="checkbox" data-notification-key="approvals" ${prefs.approvals ? 'checked' : ''}><span class="slogi-switch-track"></span></label></div>
+              <div class="slogi-notification-row"><div><strong>Сроки и просрочки</strong><span>Контрольные точки, задачи и этапы, требующие внимания.</span></div><label class="slogi-switch"><input type="checkbox" data-notification-key="deadlines" ${prefs.deadlines ? 'checked' : ''}><span class="slogi-switch-track"></span></label></div>
+              <div class="slogi-notification-row"><div><strong>Платежи</strong><span>Предстоящие, частичные и просроченные оплаты.</span></div><label class="slogi-switch"><input type="checkbox" data-notification-key="payments" ${prefs.payments ? 'checked' : ''}><span class="slogi-switch-track"></span></label></div>
+              <div class="slogi-notification-row"><div><strong>Документы</strong><span>Новые версии и обновления файлов.</span></div><label class="slogi-switch"><input type="checkbox" data-notification-key="documents" ${prefs.documents ? 'checked' : ''}><span class="slogi-switch-track"></span></label></div>
+              <div class="slogi-notification-row"><div><strong>Сметы и КП</strong><span>Сохранение, согласование и устаревшие версии.</span></div><label class="slogi-switch"><input type="checkbox" data-notification-key="estimates" ${prefs.estimates ? 'checked' : ''}><span class="slogi-switch-track"></span></label></div>
+              <div class="slogi-notification-row"><div><strong>Еженедельная сводка</strong><span>Короткий отчёт по моим объектам и задачам.</span></div><label class="slogi-switch"><input type="checkbox" data-notification-key="weekly" ${prefs.weekly ? 'checked' : ''}><span class="slogi-switch-track"></span></label></div>
+              <div class="slogi-notification-row"><div><strong>Облачная синхронизация</strong><span>Ошибки и восстановление связи между устройствами.</span></div><label class="slogi-switch"><input type="checkbox" data-notification-key="sync" ${prefs.sync ? 'checked' : ''}><span class="slogi-switch-track"></span></label></div>
             </div>
           </section>
-
-          <section class="slogi-account-accordion">
-            <button type="button" class="slogi-account-accordion-toggle" aria-expanded="false">
-              <span class="slogi-account-icon">${accountIcon('bell')}</span>
-              <span>Уведомления</span>
-              <span></span>
-              <span class="slogi-account-accordion-chevron" aria-hidden="true"></span>
-            </button>
-            <div class="slogi-account-accordion-body">
-              <div class="slogi-notification-list">
-                <div class="slogi-notification-row"><div><strong>Документы объекта</strong><span>Сообщать о добавлении и обновлении документов.</span></div><label class="slogi-switch"><input type="checkbox" data-notification-key="documents" ${prefs.documents ? 'checked' : ''}><span class="slogi-switch-track"></span></label></div>
-                <div class="slogi-notification-row"><div><strong>Сметы и коммерческие предложения</strong><span>Показывать уведомления о сохранении и формировании файлов.</span></div><label class="slogi-switch"><input type="checkbox" data-notification-key="estimates" ${prefs.estimates ? 'checked' : ''}><span class="slogi-switch-track"></span></label></div>
-                <div class="slogi-notification-row"><div><strong>Облачная синхронизация</strong><span>Сообщать об ошибках синхронизации между устройствами.</span></div><label class="slogi-switch"><input type="checkbox" data-notification-key="sync" ${prefs.sync ? 'checked' : ''}><span class="slogi-switch-track"></span></label></div>
-              </div>
+          <section class="slogi-account-pane" data-account-pane="security">
+            <h3 class="slogi-account-section-title">Смена пароля</h3>
+            <div class="slogi-account-profile-grid">
+              <label class="slogi-cloud-field"><span>Новый пароль</span><input id="slogi-profile-password" type="password" minlength="8" autocomplete="new-password" placeholder="Не менее 8 символов"></label>
+              <label class="slogi-cloud-field"><span>Повторите пароль</span><input id="slogi-profile-password-repeat" type="password" minlength="8" autocomplete="new-password" placeholder="Повторите пароль"></label>
+              <div class="full"><button type="button" class="slogi-cloud-action slogi-cloud-secondary" id="slogi-profile-password-save" style="width:100%">Сменить пароль</button></div>
             </div>
+            <a href="settings.html" class="slogi-cloud-link" style="display:inline-block;margin-top:12px">Открыть настройки безопасности системы</a>
           </section>
-
-          <section class="slogi-account-accordion">
-            <button type="button" class="slogi-account-accordion-toggle" aria-expanded="false">
-              <span class="slogi-account-icon">${accountIcon('shield')}</span>
-              <span>Доступ и права</span>
-              <span class="slogi-role-badge">${escapeHtml(role)}</span>
-              <span class="slogi-account-accordion-chevron" aria-hidden="true"></span>
-            </button>
-            <div class="slogi-account-accordion-body">
-              <div class="slogi-access-card"><div><strong>Текущая роль: ${escapeHtml(role)}</strong><p>Уровень доступа назначается администратором системы. Для изменения роли обратитесь к ответственному сотруднику.</p></div><span class="slogi-role-badge">${escapeHtml(role)}</span></div>
-            </div>
-          </section>
-        </div>
-
-        <div class="slogi-cloud-message" id="slogi-cloud-message"></div>
-        <div class="slogi-account-signout-wrap"><button type="button" class="slogi-account-signout" id="slogi-cloud-signout">${accountIcon('logout')}<span>Выйти из аккаунта</span></button></div>`;
+          <div class="slogi-cloud-message" id="slogi-cloud-message"></div>
+          <div class="slogi-account-signout-wrap"><button type="button" class="slogi-account-signout" id="slogi-cloud-signout">${accountIcon('logout')}<span>Выйти из аккаунта</span></button></div>
+        </div>`;
       bindPanelClose(panel);
-
-      panel.querySelectorAll('.slogi-account-accordion-toggle').forEach(button => {
-        button.addEventListener('click', () => {
-          const section = button.closest('.slogi-account-accordion');
-          const open = !section.classList.contains('is-open');
-          panel.querySelectorAll('.slogi-account-accordion').forEach(item => {
-            item.classList.remove('is-open');
-            const toggle = item.querySelector('.slogi-account-accordion-toggle');
-            if(toggle) toggle.setAttribute('aria-expanded','false');
-          });
-          if(open){
-            section.classList.add('is-open');
-            button.setAttribute('aria-expanded','true');
-          }
-        });
-      });
-
-      panel.querySelectorAll('[data-notification-key]').forEach(input => {
-        input.addEventListener('change', () => {
-          saveNotificationPreferences(panel);
-          dialogMessage('Настройки уведомлений сохранены.', false);
-        });
-      });
-
+      panel.querySelectorAll('[data-account-tab]').forEach(button => button.addEventListener('click', () => {
+        const name = button.dataset.accountTab;
+        panel.querySelectorAll('[data-account-tab]').forEach(x => x.classList.toggle('active', x === button));
+        panel.querySelectorAll('[data-account-pane]').forEach(x => x.classList.toggle('active', x.dataset.accountPane === name));
+      }));
+      panel.querySelectorAll('[data-notification-key]').forEach(input => input.addEventListener('change', () => {
+        saveNotificationPreferences(panel);
+        dialogMessage('Настройки уведомлений сохранены.', false);
+      }));
       panel.querySelector('#slogi-profile-save').addEventListener('click', async () => {
         const fullName = panel.querySelector('#slogi-profile-name').value.trim();
         const position = panel.querySelector('#slogi-profile-position').value.trim();
@@ -540,7 +522,7 @@
         if(profileName) profileName.textContent = displayName();
         if(profilePosition) profilePosition.textContent = displayPosition();
         if(profileAvatar) profileAvatar.textContent = userInitials();
-        dialogMessage('Личные данные сохранены.', false);
+        dialogMessage('Профиль сохранён.', false);
       });
       panel.querySelector('#slogi-profile-password-save').addEventListener('click', async () => {
         const password = panel.querySelector('#slogi-profile-password').value;
