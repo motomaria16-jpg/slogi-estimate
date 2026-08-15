@@ -43,7 +43,7 @@
     "releaseGate":  {
                         "canonicalGitCommit":  "308c7eeb05b32fa3635c90679478ea245786cece",
                         "gitTag":  null,
-                        "smokeTestsPassed":  false
+                        "smokeTestsPassed":  true
                     },
     "nextTarget":  "v76.1 Auth \u0026 Edge Stability"
 }

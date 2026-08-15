@@ -12,24 +12,26 @@ Environment:
 
 | # | Test | Result | Notes |
 |---|---|---|---|
-| 01 | Site opens | NOT RUN | |
-| 02 | Auth UI works | NOT RUN | |
-| 03 | Login works | NOT RUN | |
-| 04 | Main page loads | NOT RUN | |
-| 05 | Object list loads | NOT RUN | |
-| 06 | Manual object creation | NOT RUN | |
-| 07 | Save object | NOT RUN | |
-| 08 | Reload persistence | NOT RUN | |
-| 09 | Open object | NOT RUN | |
-| 10 | Object card scroll | NOT RUN | |
-| 11 | Edit object | NOT RUN | |
-| 12 | Status persistence | NOT RUN | |
-| 13 | Next action persistence | NOT RUN | |
-| 14 | Map loads | NOT RUN | |
-| 15 | Cluster displays | NOT RUN | |
-| 16 | Competitive analysis opens | NOT RUN | |
-| 17 | Delete test object | NOT RUN | |
-| 18 | Logout works | NOT RUN | |
+| # | Test | Result | Notes |
+|---|---|---|---|
+| 01 | Site opens | PASS | |
+| 02 | Auth UI works | PASS | |
+| 03 | Login works | PASS | |
+| 04 | Main page loads | PASS | |
+| 05 | Object list loads | PASS | |
+| 06 | Manual object creation | PASS | |
+| 07 | Save object | PASS | |
+| 08 | Reload persistence | PASS | |
+| 09 | Open object | PASS | |
+| 10 | Object card scroll | PASS | |
+| 11 | Edit object | PASS | |
+| 12 | Status persistence | PASS | |
+| 13 | Next action persistence | NOT APPLICABLE | Factual v76 has no manual Next Action edit control |
+| 14 | Map loads | PASS | |
+| 15 | Cluster displays | PASS | |
+| 16 | Competitive analysis opens | PASS | |
+| 17 | Delete test object | PASS | |
+| 18 | Logout works | PASS | |
 
 Allowed results:
 
@@ -75,6 +77,6 @@ Provided that CORE functionality remains operational.
 
 ## Final decision
 
-[ ] BASELINE FROZEN — READY FOR v76.1
+[x] CORE SMOKE GATE PASSED
 
-[ ] BASELINE NOT READY
+[ ] BASELINE FROZEN — READY FOR v76.1
