@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1" name="viewport"/>
+  <meta content="no-cache,no-store,must-revalidate" http-equiv="Cache-Control"/>
+  <title>СЛОГИ — Анализ доступных помещений</title>
+  <link href="favicon.svg?v=40" rel="icon"/>
+  <link href="professional-ui.css?v=31" rel="stylesheet"/>
+  <link href="app-shell.css?v=61" rel="stylesheet"/>
+  <link href="objects-visual-standard.css?v=33" rel="stylesheet"/>
+  <link href="phase0.css?v=68" rel="stylesheet"/>
+  <link href="available-spaces.css?v=75" rel="stylesheet"/>
+</head>
+<body class="slogi-search-page available-spaces-page">
+<header class="site-header"><div class="top"><div class="brand"><a class="logo-link" href="index.html" aria-label="СЛОГИ — главная"><div class="logo-word" aria-hidden="true"><span>С</span><span>Л</span><span>О</span><span>Г</span><span>И</span></div></a></div></div></header>
+
+<main class="phase0-main available-main">
+  <section class="phase0-page-toolbar" aria-labelledby="available-title">
+    <div class="phase0-page-heading">
+      <div class="phase0-title-line"><h1 id="available-title">Анализ доступных помещений</h1><span id="available-count" class="phase0-title-count">0 объявлений</span></div>
+      <p>Мониторинг предложений аренды коммерческих помещений из ЦИАН и Авито</p>
+    </div>
+    <div class="phase0-page-actions available-page-status">
+      <span class="available-page-hint">ЦИАН + Авито через Supabase</span>
+    </div>
+  </section>
+
+  <section class="available-kpis" aria-label="Сводка рынка">
+    <button class="available-kpi active" data-market-filter="all" type="button"><strong id="kpi-all">0</strong><span>Все</span></button>
+    <button class="available-kpi" data-market-filter="new" type="button"><strong id="kpi-new">0</strong><span>Новые</span></button>
+    <button class="available-kpi" data-market-filter="active" type="button"><strong id="kpi-active">0</strong><span>Активные</span></button>
+    <button class="available-kpi" data-market-filter="price_changed" type="button"><strong id="kpi-price">0</strong><span>Цена изменилась</span></button>
+    <button class="available-kpi" data-market-filter="removed" type="button"><strong id="kpi-removed">0</strong><span>Снятые</span></button>
+  </section>
+
+  <section class="available-filter-card" aria-labelledby="available-filter-title">
+    <div class="available-filter-head">
+      <div><h2 id="available-filter-title">Критерии поиска</h2><p>Пустой критерий не ограничивает выборку.</p></div>
+      <div class="available-filter-actions">
+        <button id="available-reset" class="phase0-link-button" type="button">Сбросить</button>
+        <button id="available-search" class="phase0-btn primary" type="button"><span aria-hidden="true">⌕</span> Найти объявления</button>
+      </div>
+    </div>
+    <div class="available-filters">
+      <div class="available-field area-field"><span class="available-label">Площадь, м²</span><div class="available-range"><label><span>от</span><input id="available-area-min" type="number" min="0" step="1" placeholder="Любая"/></label><label><span>до</span><input id="available-area-max" type="number" min="0" step="1" placeholder="Любая"/></label></div></div>
+      <label class="available-field"><span class="available-label">Кластер</span><select id="available-cluster"><option value="">Все кластеры</option></select></label>
+      <label class="available-field"><span class="available-label">Этаж</span><input id="available-floor" type="number" min="-5" max="200" step="1" placeholder="Любой"/></label>
+      <label class="available-field"><span class="available-label">Статус объявления</span><select id="available-status"><option value="">Все статусы</option><option value="new">Новое</option><option value="active">Активно</option><option value="removed">Снято</option></select></label>
+      <label class="available-field"><span class="available-label">Источник</span><select id="available-source"><option value="">ЦИАН + Авито</option><option value="cian">Только ЦИАН</option><option value="avito">Только Авито</option></select></label>
+    </div>
+  </section>
+
+  <section class="available-health" aria-label="Состояние источников">
+    <div class="available-source-pill neutral" data-source="cian"><span class="source-dot"></span><strong>ЦИАН</strong><span>готов к проверке</span><small></small></div>
+    <div class="available-source-pill neutral" data-source="avito"><span class="source-dot"></span><strong>Авито</strong><span>готов к проверке</span><small></small></div>
+    <div class="available-last-update" id="available-last-update"></div>
+  </section>
+
+  <section id="available-diagnostics" class="available-diagnostics" hidden aria-label="Диагностика источников">
+    <div class="available-diagnostics-head"><strong>Диагностика получения данных</strong><span>Показывает, на каком этапе источник перестал отдавать данные.</span></div>
+    <div class="available-diagnostics-grid">
+      <div class="available-diagnostic-source" data-diagnostic-source="cian"><b>ЦИАН</b><span>Проверка ещё не выполнялась.</span></div>
+      <div class="available-diagnostic-source" data-diagnostic-source="avito"><b>Авито</b><span>Проверка ещё не выполнялась.</span></div>
+    </div>
+  </section>
+
+  <section class="available-results-card">
+    <div class="phase0-section-head available-results-head">
+      <div><h3>Доступные объявления</h3><p id="available-summary">Нажмите «Найти объявления». Система проверит источники через Supabase и сохранит историю изменений.</p></div>
+      <div class="available-results-tools"><select id="available-sort" aria-label="Сортировка"><option value="seen-desc">Сначала недавно проверенные</option><option value="new-desc">Сначала новые</option><option value="price-asc">Аренда — дешевле</option><option value="area-asc">Площадь — меньше</option><option value="area-desc">Площадь — больше</option><option value="address">По адресу</option></select></div>
+    </div>
+    <div id="available-loading" class="available-loading" hidden><span class="available-spinner"></span><div><strong>Ищем объявления</strong><span id="available-loading-text">Получаем объявления через Supabase…</span></div></div>
+    <div class="available-table-wrap" id="available-table-wrap" hidden>
+      <div class="available-table-head"><span>Статус</span><span>Объект</span><span>Кластер</span><span>Площадь</span><span>Этаж</span><span>Аренда / мес</span><span>₽ / м²</span><span>Изменение</span><span>Проверено</span><span></span></div>
+      <div id="available-list" class="available-list"></div>
+    </div>
+    <div id="available-empty" class="available-empty"><div class="available-empty-icon">⌕</div><strong>Рынок ещё не обновлялся</strong><span>Нажмите «Найти объявления» и запустите проверку ЦИАН и Авито.</span></div>
+  </section>
+</main>
+<div id="available-toast" class="phase0-toast" role="status" aria-live="polite"></div>
+
+<script src="professional-core.js?v=31"></script><script src="workflow-storage.js?v=31"></script><script src="professional-shell.js?v=76"></script><script src="yandex-map-config.js?v=62"></script><script src="clusters-data.js?v=31"></script><script src="pako-inflate.min.js?v=31"></script><script src="xlsx-workflow.js?v=64"></script><script src="phase0-config.js?v=76"></script><script src="phase0-services.js?v=64"></script><script src="available-spaces.js?v=76"></script><script src="cloud-sync.js?v=31"></script>
+</body>
+</html>

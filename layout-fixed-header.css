@@ -1,0 +1,67 @@
+/* СЛОГИ — выравнивание страницы «Объекты» и фиксированная оболочка, версия 33. */
+:root{
+  --site-layout-max:1460px;
+  --site-layout-gutter:30px;
+  --app-shell-height:176px;
+}
+
+/* Вся шапка: логотип, общее меню и строка выбранного объекта — единый фиксированный блок. */
+.site-header{
+  position:fixed!important;
+  top:0!important;
+  right:0!important;
+  left:0!important;
+  width:100%!important;
+  max-width:none!important;
+  margin:0!important;
+  z-index:2147482000!important;
+  transform:none!important;
+  will-change:auto!important;
+}
+body{
+  padding-top:var(--app-shell-height,176px)!important;
+}
+html{
+  scroll-padding-top:calc(var(--app-shell-height,176px) + 14px)!important;
+}
+
+/* Страница «Объекты» использует тот же внешний контейнер, что и остальные разделы. */
+.portfolio-main{
+  width:100%!important;
+  max-width:var(--site-layout-max)!important;
+  margin:0 auto!important;
+  padding:26px var(--site-layout-gutter) 68px!important;
+}
+.portfolio-main > *{
+  max-width:100%;
+}
+
+/* Левый и правый край шапки, меню, контекстной строки и страницы совпадают. */
+.site-header .top,
+.pro-nav-inner,
+.object-context-inner{
+  width:100%!important;
+  max-width:var(--site-layout-max)!important;
+  margin-right:auto!important;
+  margin-left:auto!important;
+  padding-right:var(--site-layout-gutter)!important;
+  padding-left:var(--site-layout-gutter)!important;
+}
+
+@media(max-width:1080px){
+  :root{--site-layout-gutter:20px}
+  .portfolio-main{padding-top:22px!important;padding-bottom:60px!important}
+}
+@media(max-width:760px){
+  :root{--site-layout-gutter:14px;--app-shell-height:162px}
+  .portfolio-main{padding:20px var(--site-layout-gutter) 54px!important}
+}
+@media(max-width:480px){
+  .portfolio-main{padding-right:var(--site-layout-gutter)!important;padding-left:var(--site-layout-gutter)!important}
+}
+
+/* При печати фиксированная оболочка не должна перекрывать документ. */
+@media print{
+  .site-header{position:static!important}
+  body{padding-top:0!important}
+}

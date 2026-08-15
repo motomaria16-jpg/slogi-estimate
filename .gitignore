@@ -1,0 +1,33 @@
+# Environment / secrets
+.env
+.env.local
+.env.production
+.env.development
+*.env.local
+
+# Supabase local
+.supabase/
+
+# Dependencies
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary
+tmp/
+temp/
+*.tmp
+*.log
+
+# Backups
+*.bak
+*.backup
+# Local archives / Windows metadata
+*.zip
+desktop.ini

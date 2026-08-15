@@ -1,0 +1,199 @@
+/* СЛОГИ — единый визуальный стандарт страницы «Объекты», версия 32.
+   Этот файл подключается последним и устраняет локальные отличия старых страниц. */
+:root{
+  --slogi-ui-font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --slogi-header-bg:rgba(255,252,250,.985);
+  --slogi-header-ink:#36565b;
+  --slogi-header-muted:#75878b;
+  --slogi-logo-teal:#4b6e73;
+  --slogi-logo-sand:#d9ba7d;
+  --slogi-logo-gold:#dfa02f;
+}
+
+/* Единая типографика интерфейса. */
+html,body{
+  font-family:var(--slogi-ui-font)!important;
+  font-synthesis:none;
+}
+body *{
+  font-family:var(--slogi-ui-font)!important;
+}
+button,input,select,textarea{
+  font-family:var(--slogi-ui-font)!important;
+}
+
+/* Документ КП сохраняет типографику фирменного Word-шаблона. */
+.kp-page,.kp-page *{font-family:Arial,sans-serif!important}
+.kp-title,.kp-subtitle,.kp-number,.kp-heading h2,.kp-value{
+  font-family:Georgia,"Times New Roman",serif!important;
+}
+
+/* Шапка — точная копия страницы «Объекты». */
+.site-header{
+  position:sticky!important;
+  top:0!important;
+  width:100%!important;
+  margin:0!important;
+  z-index:2147482000!important;
+  background:var(--slogi-header-bg)!important;
+  border:0!important;
+  border-bottom:1px solid rgba(215,185,135,.68)!important;
+  box-shadow:0 7px 24px rgba(48,72,77,.08)!important;
+  overflow:visible!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+.site-header .top{
+  width:100%!important;
+  max-width:var(--site-layout-max,1460px)!important;
+  height:76px!important;
+  min-height:76px!important;
+  max-height:76px!important;
+  margin:0 auto!important;
+  padding:0 var(--site-layout-gutter,30px)!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:18px!important;
+  flex-wrap:nowrap!important;
+  overflow:visible!important;
+}
+.site-header .brand{
+  display:flex!important;
+  align-items:center!important;
+  gap:16px!important;
+  min-width:0!important;
+  flex:1 1 auto!important;
+}
+.site-header .logo-link{
+  display:inline-flex!important;
+  align-items:center!important;
+  flex:none!important;
+  text-decoration:none!important;
+  transform:none!important;
+}
+.site-header .logo-word{
+  display:flex!important;
+  align-items:center!important;
+  gap:4px!important;
+  padding:0!important;
+  margin:0!important;
+}
+.site-header .logo-word span{
+  display:grid!important;
+  place-items:center!important;
+  width:34px!important;
+  height:34px!important;
+  min-width:34px!important;
+  min-height:34px!important;
+  padding:0!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:6px!important;
+  color:#fff!important;
+  font-family:var(--slogi-ui-font)!important;
+  font-size:21px!important;
+  font-weight:900!important;
+  font-style:normal!important;
+  line-height:1!important;
+  letter-spacing:0!important;
+  text-transform:none!important;
+  box-shadow:0 3px 9px rgba(49,73,77,.11)!important;
+}
+.site-header .logo-word span:nth-child(1),
+.site-header .logo-word span:nth-child(2){background:var(--slogi-logo-teal)!important}
+.site-header .logo-word span:nth-child(3),
+.site-header .logo-word span:nth-child(4){background:var(--slogi-logo-sand)!important}
+.site-header .logo-word span:nth-child(5){
+  display:grid!important;
+  background:var(--slogi-logo-gold)!important;
+  transform:translateY(-4px)!important;
+}
+.site-header .title-wrap{
+  display:block!important;
+  min-width:0!important;
+  height:auto!important;
+  max-height:none!important;
+  margin:0!important;
+  padding:0 0 0 16px!important;
+  border:0!important;
+  border-left:1px solid rgba(215,185,135,.78)!important;
+}
+.site-header h1,
+.site-header .title-wrap>h1{
+  margin:0!important;
+  padding:0!important;
+  color:var(--slogi-header-ink)!important;
+  font-family:var(--slogi-ui-font)!important;
+  font-size:17px!important;
+  font-weight:900!important;
+  font-style:normal!important;
+  line-height:1.2!important;
+  letter-spacing:.025em!important;
+  text-transform:uppercase!important;
+  white-space:nowrap!important;
+}
+.site-header .subtitle,
+.site-header .title-wrap>.subtitle{
+  display:block!important;
+  margin:4px 0 0!important;
+  padding:0!important;
+  color:var(--slogi-header-muted)!important;
+  font-family:var(--slogi-ui-font)!important;
+  font-size:11.5px!important;
+  font-weight:400!important;
+  font-style:normal!important;
+  line-height:1.3!important;
+  letter-spacing:0!important;
+  text-transform:none!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+
+/* Основное меню и контекст объекта используют ту же гарнитуру. */
+.pro-nav a,.pro-nav button,
+.pro-nav-scope,.object-context-scope,
+#active-object-select,.object-stage-chip,.object-phase-chip,
+.object-context-links a,.object-new-link,
+.slogi-account-trigger,.slogi-account-panel,
+.pro-btn,.wf-btn,.pro-status,.pro-chip{
+  font-family:var(--slogi-ui-font)!important;
+}
+
+@media(max-width:1080px){
+  .site-header .top{padding-left:20px!important;padding-right:20px!important;gap:12px!important}
+}
+@media(max-width:760px){
+  .site-header .top{
+    height:68px!important;
+    min-height:68px!important;
+    max-height:68px!important;
+    padding-left:14px!important;
+    padding-right:14px!important;
+    gap:10px!important;
+  }
+  .site-header .logo-word span{
+    display:grid!important;
+    width:28px!important;height:28px!important;min-width:28px!important;min-height:28px!important;
+    font-size:18px!important;
+  }
+  .site-header .logo-word span:nth-child(5){display:grid!important;transform:translateY(-4px)!important}
+  .site-header .title-wrap{padding-left:10px!important;border-left:1px solid rgba(215,185,135,.78)!important}
+  .site-header h1,.site-header .title-wrap>h1{font-size:13.5px!important;letter-spacing:.025em!important}
+  .site-header .subtitle,.site-header .title-wrap>.subtitle{font-size:10.5px!important;max-width:46vw!important}
+}
+@media(max-width:480px){
+  /* На узком телефоне сохраняем тот же знак; уменьшаем только размер, а не состав логотипа. */
+  .site-header .logo-word{gap:3px!important}
+  .site-header .logo-word span{
+    display:grid!important;
+    width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;
+    font-size:15px!important;border-radius:5px!important;
+  }
+  .site-header .logo-word span:nth-child(4),
+  .site-header .logo-word span:nth-child(5){display:grid!important}
+  .site-header .subtitle{display:none!important}
+  .site-header .title-wrap{padding-left:8px!important}
+  .site-header h1,.site-header .title-wrap>h1{font-size:12px!important;max-width:44vw!important;overflow:hidden!important;text-overflow:ellipsis!important}
+}

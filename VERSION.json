@@ -1,0 +1,49 @@
+{
+  "app": "SLOGI",
+  "version": "76.0.1",
+  "releaseName": "Technical Baseline Freeze",
+  "releaseType": "baseline-freeze",
+  "baselineDate": "2026-08-14",
+  "environment": "production",
+  "status": "candidate",
+  "frontendBaseline": {
+    "source": "recovered-v76",
+    "authority": "recovered-source"
+  },
+  "databaseBaseline": {
+    "source": "live-production",
+    "authority": "supabase-production",
+    "projectRef": "badyvlegwumldciibxfe"
+  },
+  "storageBaseline": {
+    "source": "live-production",
+    "bucket": "slogi-files",
+    "fileSizeLimitBytes": 52428800
+  },
+  "edgeFunctions": {
+    "search-listings": {
+      "path": "supabase/functions/search-listings/index.ts",
+      "verifyJwt": false,
+      "liveDeploymentsObserved": 5,
+      "sourceSha256": "970ca42bedba8579835f3ae3986400b242f9fefad9e043f6c709db819e0fa42c"
+    },
+    "import-listing": {
+      "path": "supabase/functions/import-listing/index.ts",
+      "verifyJwt": true,
+      "liveDeploymentsObserved": 2,
+      "sourceSha256": "784d300d803973c6383a5fd7b068d4c9f226783eef27ca6f3bdc2e89a3317677"
+    },
+    "geocode-address": {
+      "path": "supabase/functions/geocode-address/index.ts",
+      "verifyJwt": false,
+      "liveDeploymentsObserved": 2,
+      "sourceSha256": "3abba2c902966a8392ce46baf22be3a33caee77575c35122742c0df2b1cf4e7f"
+    }
+  },
+  "releaseGate": {
+    "canonicalGitCommit": null,
+    "gitTag": null,
+    "smokeTestsPassed": false
+  },
+  "nextTarget": "v76.1 Auth & Edge Stability"
+}

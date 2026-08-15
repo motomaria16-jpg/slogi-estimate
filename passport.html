@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<meta content="no-cache,no-store,must-revalidate" http-equiv="Cache-Control"/>
+<title>СЛОГИ — Рабочее пространство объекта</title>
+<link href="favicon.svg?v=31" rel="icon"/>
+<link href="professional-ui.css?v=31" rel="stylesheet"/>
+<link href="app-shell.css?v=50" rel="stylesheet"/>
+<link href="workflow-pages.css?v=31" rel="stylesheet"/>
+<link href="passport-v4.css?v=31" rel="stylesheet"/>
+<link href="objects-visual-standard.css?v=33" rel="stylesheet"/><link href="layout-fixed-header.css?v=33" rel="stylesheet"/></head>
+<body>
+<header class="site-header"><div class="top"><div class="brand"><a class="logo-link" href="index.html"><div class="logo-word"><span>С</span><span>Л</span><span>О</span><span>Г</span><span>И</span></div></a><div class="title-wrap"><h1>Рабочее пространство объекта</h1><div class="subtitle">Обзор, этапы, документы, сроки и финансы</div></div></div></div></header>
+<main class="passport-main">
+<div class="passport-scope-note"><strong>Выбранный объект</strong><span>Эта страница объединяет всю работу по одному адресу. Сводные данные по сети находятся в верхнем меню.</span></div>
+<section class="passport-hero">
+<div class="passport-address-wrap"><label>Адрес / название объекта</label><input class="passport-address" id="address" placeholder="Введите адрес объекта"/></div>
+<div><label class="hero-label">Этап открытия</label><select id="current-stage"></select></div>
+<div><label class="hero-label">Текущий статус</label><select id="status"></select></div>
+<div class="passport-actions"><button class="wf-btn accent" id="save-passport">Сохранить объект</button><button class="wf-btn" id="download-all">Скачать архив</button></div>
+</section>
+<div aria-live="polite" class="passport-status" id="passport-status" role="status"></div>
+<nav aria-label="Рабочие разделы объекта" class="passport-tabs">
+<button class="passport-tab active" data-tab="overview">Обзор</button>
+<button class="passport-tab" data-tab="stages">Этапы открытия</button>
+<button class="passport-tab" data-tab="documents">Документы</button>
+<button class="passport-tab" data-tab="calculations">Расчёты</button>
+<button class="passport-tab" data-tab="proposal">КП</button>
+<button class="passport-tab" data-tab="schedule">Работы и сроки</button>
+<button class="passport-tab" data-tab="finance">Финансы</button>
+<button class="passport-tab" data-tab="history">История</button>
+</nav>
+<section class="passport-pane active" data-pane="overview">
+<div class="passport-overview-grid">
+<section class="passport-card overview-main-card">
+<div class="passport-card-head">Основные данные объекта</div>
+<div class="passport-card-body"><div class="passport-form" id="passport-form"></div></div>
+</section>
+<aside class="passport-overview-side">
+<section class="passport-card"><div class="passport-card-head">Текущий этап</div><div class="passport-card-body"><div id="current-stage-overview"></div><div class="next-step" id="next-step"></div></div></section>
+<section class="passport-card"><div class="passport-card-head">Ключевые показатели</div><div class="passport-card-body"><div class="overview-stats" id="overview-stats"></div></div></section>
+</aside>
+<section class="passport-card overview-chain-card"><div class="passport-card-head">Рабочая цепочка документов</div><div class="passport-card-body"><div class="chain" id="document-chain"></div></div></section>
+<section class="passport-card overview-tasks-card"><div class="passport-card-head"><span>Ближайшие задачи</span><a class="card-head-link" href="tasks.html" id="all-object-tasks">Все задачи объекта</a></div><div class="passport-card-body"><div id="object-tasks"></div></div></section>
+</div>
+</section>
+<section class="passport-pane" data-pane="stages">
+<section class="passport-card">
+<div class="passport-card-head"><span>Этапы открытия объекта</span><span class="stage-table-note">Контрольные точки и результаты</span></div>
+<div class="passport-card-body"><div class="stage-intro"><strong>Этап показывает, где объект находится в процессе. Статус показывает, что происходит прямо сейчас.</strong><span>Отмечайте выполненные контрольные точки и добавляйте обязательные документы. Переход к следующему этапу станет доступен после выполнения обязательных условий.</span></div><div class="stages-root" id="stages-root"></div></div>
+</section>
+</section>
+<section class="passport-pane" data-pane="documents">
+<section class="passport-card"><div class="passport-card-head">Документы выбранного объекта</div><div class="passport-card-body"><div class="document-scope-help">Документы сгруппированы по тому этапу, на котором они используются. Исходные файлы и созданные в программе версии можно скачать отдельно.</div><div class="doc-grid" id="documents-grid"></div></div></section>
+</section>
+<section class="passport-pane" data-pane="calculations">
+<div class="calculation-workflow">
+<section class="passport-card calculation-card"><div class="passport-card-head"><span>1. Спецификация</span><span class="calculation-state" id="spec-state">Не создана</span></div><div class="passport-card-body"><p>Исходные позиции, материалы, мебель, оборудование и работы. После подтверждения спецификация становится основанием для сметы.</p><div class="calculation-meta" id="spec-meta"></div><a class="wf-btn primary" href="#" id="open-specification">Открыть спецификацию</a></div></section>
+<div aria-hidden="true" class="workflow-arrow">→</div>
+<section class="passport-card calculation-card"><div class="passport-card-head"><span>2. Смета</span><span class="calculation-state" id="estimate-state">Не создана</span></div><div class="passport-card-body"><p>Редактируемый расчёт по подтверждённой спецификации с версиями, итогами и выгрузкой в Excel.</p><div class="calculation-meta" id="estimate-meta"></div><a class="wf-btn primary" href="#" id="open-estimate">Открыть смету</a></div></section>
+</div>
+<section class="passport-card calculation-info-card"><div class="passport-card-head">Правило актуальности</div><div class="passport-card-body"><p>Если спецификация изменена после создания сметы, смета помечается как требующая обновления. Старая версия при этом не удаляется.</p></div></section>
+</section>
+<section class="passport-pane" data-pane="proposal">
+<section class="passport-card proposal-workspace-card"><div class="passport-card-head"><span>Коммерческое предложение</span><span class="calculation-state" id="proposal-state">Не создано</span></div><div class="passport-card-body proposal-workspace-body"><div><h2>КП формируется из данных паспорта и выбранной версии сметы</h2><p>Адрес, площадь, условия аренды, сроки и данные получателя можно отредактировать в предпросмотре. Готовый документ сохраняется в версиях и скачивается в DOCX или PDF.</p><div class="calculation-meta" id="proposal-meta"></div></div><a class="wf-btn primary proposal-open-btn" href="#" id="open-proposal">Открыть редактор КП</a></div></section>
+</section>
+<section class="passport-pane" data-pane="schedule">
+<section class="passport-card"><div class="passport-card-head"><span>Работы и сроки</span><button class="wf-btn small" id="add-stage">＋ Добавить работу</button></div><div class="passport-card-body"><div class="gantt-list" id="gantt-list"></div></div></section>
+</section>
+<section class="passport-pane" data-pane="finance">
+<div class="object-finance-summary" id="object-finance-summary"></div>
+<section class="passport-card"><div class="passport-card-head"><span>График платежей</span><button class="wf-btn small" id="add-payment">＋ Добавить платёж</button></div><div class="passport-card-body payment-wrap"><table class="payment-table"><thead><tr><th>Наименование</th><th>Плановая дата</th><th>План, ₽</th><th>Фактическая дата</th><th>Оплачено, ₽</th><th>Статус</th><th></th></tr></thead><tbody id="payments-root"></tbody></table></div></section>
+</section>
+<section class="passport-pane" data-pane="history">
+<section class="passport-card"><div class="passport-card-head">История версий, решений и изменений</div><div class="passport-card-body payment-wrap"><table class="history-table"><thead><tr><th>Дата</th><th>Событие</th><th>Версия / автор</th></tr></thead><tbody id="history-root"></tbody></table></div></section>
+</section>
+</main>
+<script src="professional-core.js?v=31"></script><script src="professional-shell.js?v=71"></script><script src="workflow-storage.js?v=31"></script><script src="office-zip.js?v=31"></script><script src="passport-v4.js?v=31"></script><script src="cloud-sync.js?v=31"></script>
+</body>
+</html>
