@@ -45,7 +45,7 @@
     }
   },
   "releaseGate": {
-    "canonicalGitCommit": "308c7eebe05b32fa3635c90679478ea245786cece",
+    "canonicalGitCommit": "60e1fdd9ebd5b422e99c4b9c1480d4bb0a6555f3",
     "gitTag": null,
     "phase0SourceVerified": true,
     "edgeFunctionHashesVerified": true,
