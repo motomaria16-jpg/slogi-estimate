@@ -6,7 +6,8 @@
 
 Status:
 
-OPEN until recovered v76 is committed to canonical Git.
+CLOSED for the local release candidate. Recovered v76 was committed in
+`308c7eebe05b32fa3635c90679478ea245786cec`.
 
 Target:
 
@@ -18,7 +19,8 @@ v76.0.1
 
 Status:
 
-OPEN until all three recovered functions are committed.
+CLOSED. All three recovered functions are committed and their SHA-256
+fingerprints match `VERSION.json`.
 
 Target:
 
@@ -30,7 +32,9 @@ v76.0.1
 
 Status:
 
-OPEN until reproducible baseline SQL snapshot is committed.
+CLOSED in the release candidate. The reproducible snapshot is stored at
+`supabase/migrations/20260814_7601_baseline.sql`; its evidence and
+limitations are recorded in `docs/V76_DATABASE_BASELINE_VALIDATION.md`.
 
 Target:
 
@@ -42,7 +46,8 @@ v76.0.1
 
 Status:
 
-OPEN until canonical release commit and tag v76.0.1 exist.
+OPEN. The release candidate is prepared, but tag `v76.0.1` must not be
+created until the release gate is explicitly approved.
 
 Target:
 

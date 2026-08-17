@@ -33,6 +33,7 @@ Live Supabase production
 | slogi_attachments | current | current | exists | match |
 | market listings | old baseline absent | current | exists | live current |
 | price history | old baseline absent | current | exists | live current |
+| database migration | placeholder | materialized | live metadata authority | RC ready |
 | slogi-files | documented | current | exists | match |
 
 ---
@@ -73,3 +74,20 @@ DRIFT
 Resolution:
 
 deferred to v76.1.
+
+---
+
+## Release-candidate verification
+
+- Seven recovered Phase 0 files match the preserved v76 package by
+  SHA-256.
+- Three Edge Function source hashes match `VERSION.json`.
+- `supabase/config.toml` reproduces the live JWT configuration:
+  search-listings OFF, import-listing ON, geocode-address OFF.
+- The database migration is materialized and statically reconciled to
+  the production metadata exports. It was not run against production.
+- The tracked-file secret scan found no backend secret values or private
+  key material. The committed Supabase publishable key and Yandex browser
+  key remain classified as public frontend configuration.
+- CORE smoke result: 17 PASS, 1 NOT APPLICABLE, 0 FAIL.
+- Tag `v76.0.1` remains absent pending explicit release-gate approval.

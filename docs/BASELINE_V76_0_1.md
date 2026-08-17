@@ -156,7 +156,7 @@ The following capabilities are considered CORE:
 - object card
 - object deletion
 - status
-- next action
+- derived next-action indicator (factual v76 has no manual edit control)
 - cluster
 - map
 - competitive analysis
@@ -205,6 +205,24 @@ v76.0.1 may be tagged only after:
 4. secret scan succeeds;
 5. 18 CORE smoke tests are completed;
 6. there are no baseline-blocking failures.
+
+Current release-candidate evidence:
+
+- recovered source committed to local Git;
+- all seven Phase 0 source files match the preserved v76 package;
+- all three Edge Function SHA-256 fingerprints match `VERSION.json`;
+- database baseline materialized at
+  `supabase/migrations/20260814_7601_baseline.sql`;
+- database evidence and limitations recorded in
+  `docs/V76_DATABASE_BASELINE_VALIDATION.md`;
+- tracked-file secret scan passed: no backend secret values or private
+  key material found; committed Supabase/Yandex browser credentials are
+  classified as public configuration;
+- CORE smoke gate passed: 17 PASS, 1 NOT APPLICABLE, 0 FAIL;
+- tag `v76.0.1` is intentionally absent pending explicit gate approval.
+
+The candidate is not declared frozen until the release gate is approved
+and the tag is created.
 
 ---
 

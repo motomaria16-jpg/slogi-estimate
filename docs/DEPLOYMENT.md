@@ -8,11 +8,15 @@ Reproduce the factual v76.0.1 baseline.
 
 ## 1. Repository
 
-Clone repository.
+Clone the repository.
 
-Checkout:
+Before release-gate approval, use branch:
 
-v76.0.1
+`chore/v76-0-1-baseline-recovery`
+
+After the approved release tag exists, checkout:
+
+`v76.0.1`
 
 ---
 

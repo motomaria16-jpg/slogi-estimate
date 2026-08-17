@@ -32,6 +32,15 @@ Public browser configuration may contain:
 
 These values must be distinguished from backend secrets.
 
+The recovered v76 browser source intentionally contains the production
+Supabase URL, a Supabase publishable key, and a Yandex browser API key.
+They are public browser configuration, not backend secrets.
+
+The factual Phase 0 code also reuses the browser Yandex key for its
+direct geocoder path and may send it to the Edge fallback request. This
+mixed credential path is preserved for the baseline and is not an
+endorsement of the design.
+
 ---
 
 ## Backend secrets
@@ -57,3 +66,6 @@ Yandex Maps browser API key
 is NOT the same credential as:
 
 YANDEX_GEOCODER_API_KEY
+
+The latter is the backend environment variable used by the Edge
+Function. No value for it is committed to this repository.

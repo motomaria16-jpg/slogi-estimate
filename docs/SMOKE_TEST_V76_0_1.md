@@ -1,17 +1,15 @@
 # SLOGI v76.0.1 — CORE Smoke Test
 
-Date:
+Date: 2026-08-15
 
-Tester:
+Tester: Maria Kozlova (manual)
 
-Commit:
+Commit: 3c47d5218f5aa29b8d2254497b8397cfaabc4873
 
-Environment:
+Environment: local static server (`http://localhost:8000`) connected to the production Supabase baseline
 
 ---
 
-| # | Test | Result | Notes |
-|---|---|---|---|
 | # | Test | Result | Notes |
 |---|---|---|---|
 | 01 | Site opens | PASS | |
@@ -40,6 +38,8 @@ PASS
 FAIL
 
 BLOCKED
+
+NOT APPLICABLE
 
 ---
 
@@ -80,3 +80,6 @@ Provided that CORE functionality remains operational.
 [x] CORE SMOKE GATE PASSED
 
 [ ] BASELINE FROZEN — READY FOR v76.1
+
+The second checkbox remains intentionally clear until the final release
+gate is approved and tag `v76.0.1` is created.
