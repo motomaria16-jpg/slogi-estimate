@@ -2,7 +2,7 @@
 
 ## Status
 
-Release candidate for Technical Baseline Freeze.
+Frozen Technical Baseline for v76.0.1.
 
 The purpose of v76.0.1 is to capture the factual SLOGI v76
 architecture and runtime state before further product development.
@@ -233,7 +233,7 @@ unchanged.
 
 ## Release gate
 
-v76.0.1 may be tagged only after:
+v76.0.1 was frozen only after:
 
 1. canonical recovered source is committed to Git;
 2. baseline documentation is committed;
@@ -242,7 +242,7 @@ v76.0.1 may be tagged only after:
 5. 18 CORE smoke tests are completed;
 6. there are no baseline-blocking failures.
 
-Current release-candidate evidence:
+Final freeze evidence:
 
 - recovered source committed to local Git;
 - all seven Phase 0 source files match the preserved v76 package;
@@ -262,10 +262,10 @@ Current release-candidate evidence:
   17 PASS, 1 NOT APPLICABLE, 0 FAIL;
 - Yandex map, controls, browser geocoding and cluster overlays passed
   without API-key errors;
-- tag `v76.0.1` is intentionally absent pending explicit gate approval.
+- release-gate approval was received and local annotated tag `v76.0.1`
+  records the frozen baseline.
 
-The candidate is not declared frozen until the release gate is approved
-and the tag is created.
+The baseline is frozen and ready for the v76.1 development cycle.
 
 ---
 

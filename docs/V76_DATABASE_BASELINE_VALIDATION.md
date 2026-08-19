@@ -2,7 +2,7 @@
 
 ## Result
 
-A reproducible baseline SQL candidate was materialized from the supplied
+A reproducible baseline SQL snapshot was materialized from the supplied
 production metadata exports and recovered v72/v76 setup sources.
 
 Static reconciliation passed. A production ACL fingerprint was captured

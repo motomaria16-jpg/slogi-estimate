@@ -5,7 +5,7 @@
   "releaseType": "baseline-freeze",
   "baselineDate": "2026-08-14",
   "environment": "production",
-  "status": "candidate",
+  "status": "frozen",
   "frontendBaseline": {
     "source": "recovered-v76",
     "authority": "recovered-source"
@@ -46,7 +46,7 @@
   },
   "releaseGate": {
     "canonicalGitCommit": "d9202a8575873cc7c969a74365e97f756cf96a8c",
-    "gitTag": null,
+    "gitTag": "v76.0.1",
     "phase0SourceVerified": true,
     "edgeFunctionHashesVerified": true,
     "databaseBaselineMaterialized": true,

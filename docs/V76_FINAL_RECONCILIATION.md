@@ -77,7 +77,7 @@ deferred to v76.1.
 
 ---
 
-## Release-candidate verification
+## Frozen-baseline verification
 
 - Seven recovered Phase 0 files match the preserved v76 package by
   SHA-256.
@@ -90,4 +90,5 @@ deferred to v76.1.
   key material. The committed Supabase publishable key and Yandex browser
   key remain classified as public frontend configuration.
 - CORE smoke result: 17 PASS, 1 NOT APPLICABLE, 0 FAIL.
-- Tag `v76.0.1` remains absent pending explicit release-gate approval.
+- Release-gate approval was received and local annotated tag `v76.0.1`
+  records the frozen baseline.

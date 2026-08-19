@@ -102,7 +102,7 @@ Provided that CORE functionality remains operational.
 
 [x] CORE SMOKE GATE PASSED
 
-[ ] BASELINE FROZEN — READY FOR v76.1
+[x] BASELINE FROZEN — READY FOR v76.1
 
-The second checkbox remains intentionally clear until the final release
-gate is approved and tag `v76.0.1` is created.
+The release gate was approved and local annotated tag `v76.0.1` records
+the frozen baseline.
