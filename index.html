@@ -1,18 +1,117 @@
 <!DOCTYPE html>
-<html lang="ru"><head><meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/><meta content="no-cache,no-store,must-revalidate" http-equiv="Cache-Control"/><title>СЛОГИ — Все объекты</title><link href="favicon.svg?v=31" rel="icon"/><link href="professional-ui.css?v=31" rel="stylesheet"/><link href="app-shell.css?v=33" rel="stylesheet"/><link href="portfolio-map.css?v=31" rel="stylesheet"/><link href="objects-visual-standard.css?v=33" rel="stylesheet"/><link href="layout-fixed-header.css?v=33" rel="stylesheet"/></head><body>
-<header class="site-header"><div class="top"><div class="brand"><a class="logo-link" href="index.html"><div class="logo-word"><span>С</span><span>Л</span><span>О</span><span>Г</span><span>И</span></div></a><div class="title-wrap"><h1>Все объекты</h1><div class="subtitle">Карта объектов и кластеров</div></div></div></div></header>
-<main class="portfolio-main">
-<div class="portfolio-scope-note"><strong>Все объекты</strong><span>На этой странице собрана общая картина портфеля. Для работы с конкретным объектом выберите его на карте, в карточках справа или в строке «Конкретный объект» в шапке.</span></div>
-<div class="portfolio-hero"><div><h2>Карта всех объектов</h2><p>Выберите кластер на карте, чтобы показать все связанные с ним объекты. Нажатие на карточку открывает рабочее пространство выбранного объекта.</p></div><a class="wf-btn primary" href="passport.html" style="text-decoration:none;padding:11px 15px;border-radius:11px;background:#4B6E73;color:#fff;font-weight:850;font-size:12px">＋ Добавить объект</a></div>
-<section class="portfolio-kpis" id="portfolio-kpis"></section>
-<section class="portfolio-map-card">
-<div class="portfolio-toolbar"><input id="object-search" placeholder="Найти объект по адресу…" type="search"/><select id="cluster-filter"><option value="">Все кластеры</option></select><select id="status-filter"><option value="">Все статусы</option></select><div class="portfolio-summary" id="portfolio-summary">—</div></div>
-<div class="portfolio-map-layout">
-<div class="portfolio-map-stage"><div class="portfolio-map" id="portfolio-map"></div><div class="map-loading" id="map-loading"><strong>Загружаем карту и кластеры…</strong><span>Карточки объектов уже доступны справа</span></div><div class="map-message" id="map-message">Нажмите на цветную область кластера, чтобы отфильтровать объекты.</div></div>
-<aside class="object-panel"><div class="object-panel-head"><h3 id="object-panel-title">Все объекты</h3><p id="object-panel-subtitle">Сохранённые адреса</p></div><div class="object-cards" id="object-cards"></div></aside>
-</div>
-</section>
-<div class="portfolio-bottom"><section class="portfolio-box"><h3>Требует внимания</h3><div id="attention-list"></div></section><aside class="portfolio-box"><h3>Быстрые действия</h3><div class="quick-actions"><a href="passport.html">＋ Создать объект</a><a href="tasks.html">Назначить задачу</a><a href="finance.html">Добавить платёж</a><a href="analytics.html">Открыть аналитику</a></div></aside></div>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1" name="viewport"/>
+  <meta content="no-cache,no-store,must-revalidate" http-equiv="Cache-Control"/>
+  <title>СЛОГИ — Поиск помещений</title>
+  <link href="favicon.svg?v=40" rel="icon"/>
+  <link href="professional-ui.css?v=31" rel="stylesheet"/>
+  <link href="app-shell.css?v=61" rel="stylesheet"/>
+  <link href="objects-visual-standard.css?v=33" rel="stylesheet"/>
+  <link href="phase0.css?v=68" rel="stylesheet"/>
+</head>
+<body class="slogi-search-page">
+<header class="site-header">
+  <div class="top">
+    <div class="brand">
+      <a class="logo-link" href="index.html" aria-label="СЛОГИ — главная">
+        <div class="logo-word" aria-hidden="true"><span>С</span><span>Л</span><span>О</span><span>Г</span><span>И</span></div>
+      </a>
+    </div>
+  </div>
+</header>
+
+<main class="phase0-main" id="phase0-main">
+  <section class="phase0-page-toolbar" aria-labelledby="phase0-title">
+    <div class="phase0-page-heading">
+      <div class="phase0-title-line"><h1 id="phase0-title">Поиск помещений</h1><span class="phase0-title-count" id="phase0-title-count">0 объектов</span></div>
+      <p>Поиск, сравнение и отбор потенциальных помещений</p>
+    </div>
+    <div class="phase0-page-actions">
+      <button class="phase0-btn primary" id="phase0-add" type="button"><span aria-hidden="true">＋</span> Добавить объект</button>
+      <div class="phase0-competitive-action">
+        <button class="phase0-btn secondary" id="phase0-open-competitive" type="button">Конкурентный анализ</button>
+        <div class="phase0-sync-strip" id="phase0-sync-strip" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="phase0-kpis" id="phase0-kpis" aria-label="Сводка поиска помещений"></section>
+
+  <div class="phase0-mobile-views" role="group" aria-label="Отображение объектов">
+    <button class="active" type="button" data-mobile-view="list" aria-pressed="true">Список</button>
+    <button type="button" data-mobile-view="map" aria-pressed="false">Карта</button>
+  </div>
+
+  <section class="phase0-workspace" data-mobile-view="list">
+    <div class="phase0-list-column">
+      <div class="phase0-section-head">
+        <div><h3>Список помещений</h3><p id="phase0-list-summary">Загрузка объектов…</p></div>
+      </div>
+      <div class="phase0-toolbar" aria-label="Фильтры объектов">
+        <label class="phase0-search"><span class="phase0-visually-hidden">Поиск</span><input id="phase0-search" type="search" placeholder="Поиск по адресу или комментарию" autocomplete="off"/></label>
+        <div class="phase0-core-filters" id="phase0-core-filters">
+          <label><span class="phase0-visually-hidden">Кластер</span><select id="phase0-cluster-filter" aria-label="Кластер"><option value="">Кластер · все</option></select></label>
+          <label><span class="phase0-visually-hidden">Статус</span><select id="phase0-status-filter" aria-label="Статус"><option value="">Статус · все</option></select></label>
+          <label><span class="phase0-visually-hidden">Сортировка</span><select id="phase0-sort" aria-label="Сортировка">
+            <option value="rating-asc">Рейтинг — лучший сначала</option>
+            <option value="rent-asc">Аренда — по возрастанию</option>
+            <option value="rentPerSqm-asc">Стоимость 1 м² — по возрастанию</option>
+            <option value="area-desc">Площадь — по убыванию</option>
+            <option value="created-desc">Дата добавления — сначала новые</option>
+          </select></label>
+        </div>
+        <button class="phase0-filter-button" id="phase0-filter-button" type="button" data-action="toggle-filters" aria-expanded="false" aria-controls="phase0-core-filters phase0-extra-filters">Фильтры</button>
+        <div class="phase0-extra-filters" id="phase0-extra-filters" hidden>
+          <label><span class="phase0-visually-hidden">Готовность</span><select id="phase0-readiness-filter" aria-label="Дополнительный фильтр"><option value="">Все объекты</option><option value="layout">С планировкой</option><option value="interest">С подтверждённым интересом</option><option value="measurement">Замер выполнен</option><option value="ready">Готовы к смете</option><option value="no-rating">Без рейтинга</option></select></label>
+          <button class="phase0-link-button" type="button" data-action="reset-filters">Сбросить</button>
+        </div>
+        <div class="phase0-active-filters" id="phase0-active-filters" hidden aria-live="polite"></div>
+      </div>
+      <div class="phase0-list-scroll" id="phase0-list-scroll">
+        <div class="phase0-list-table-head" aria-hidden="true">
+          <span>Рейтинг</span><span>Объект</span><span>Аренда / мес</span><span>₽ / м² / мес</span><span>К кластеру</span><span>Статус</span><span>Следующий шаг</span><span></span>
+        </div>
+        <div class="phase0-object-list" id="phase0-object-list"></div>
+      </div>
+      <div class="phase0-list-footer"><button class="phase0-list-expand" id="phase0-list-expand" type="button" data-action="toggle-list-expand" aria-expanded="false" hidden>Развернуть все</button></div>
+    </div>
+
+    <aside class="phase0-map-column" aria-labelledby="phase0-map-title">
+      <div class="phase0-section-head">
+        <div><h3 id="phase0-map-title">Карта</h3><p>Полигоны кластеров и потенциальные помещения</p></div>
+      </div>
+      <div class="phase0-map-stage">
+        <div class="phase0-map" id="phase0-map"></div>
+        <button class="phase0-map-clusters-toggle off" id="phase0-map-clusters-toggle" type="button" aria-pressed="false"><span class="phase0-layers-icon" aria-hidden="true">◇</span><span>Показать кластеры</span></button>
+        <div class="phase0-map-loading" id="phase0-map-loading"><strong>Загружаем Яндекс Карту…</strong><span>Список объектов остаётся доступен.</span></div>
+        <div class="phase0-map-message" id="phase0-map-message">Объекты без координат остаются в списке с отметкой «Нет координат».</div>
+      </div>
+    </aside>
+  </section>
 </main>
-<script src="professional-core.js?v=31"></script><script src="professional-shell.js?v=33"></script><script src="yandex-map-config.js?v=31"></script><script src="clusters-data.js?v=31"></script><script src="portfolio-map.js?v=31"></script><script src="cloud-sync.js?v=31"></script>
-</body></html>
+
+<button class="phase0-mobile-add" id="phase0-mobile-add" type="button"><span aria-hidden="true">＋</span> Добавить объект</button>
+
+<div class="phase0-overlay" id="phase0-object-overlay" hidden>
+  <aside class="phase0-drawer" id="phase0-object-drawer" role="dialog" aria-modal="true" aria-labelledby="phase0-drawer-title"></aside>
+</div>
+<div class="phase0-overlay" id="phase0-competitive-overlay" hidden>
+  <aside class="phase0-drawer phase0-competitive-drawer" id="phase0-competitive-drawer" role="dialog" aria-modal="true" aria-labelledby="phase0-competitive-title"></aside>
+</div>
+<div class="phase0-toast" id="phase0-toast" role="status" aria-live="polite"></div>
+
+<script src="professional-core.js?v=31"></script>
+<script src="workflow-storage.js?v=31"></script>
+<script src="professional-shell.js?v=71"></script>
+<script src="yandex-map-config.js?v=62"></script>
+<script src="clusters-data.js?v=31"></script>
+<script src="pako-inflate.min.js?v=31"></script>
+<script src="xlsx-workflow.js?v=64"></script>
+<script src="phase0-config.js?v=64"></script>
+<script src="phase0-services.js?v=64"></script>
+<script src="phase0-app.js?v=67"></script>
+<script src="cloud-sync.js?v=31"></script>
+</body>
+</html>
