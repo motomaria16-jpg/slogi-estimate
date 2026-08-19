@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate"/>
+  <title>СЛОГИ — Рабочий этап</title>
+  <link href="favicon.svg?v=40" rel="icon"/>
+  <link href="professional-ui.css?v=31" rel="stylesheet"/>
+  <link href="app-shell.css?v=50" rel="stylesheet"/>
+  <link href="objects-visual-standard.css?v=33" rel="stylesheet"/>
+  <link href="layout-fixed-header.css?v=33" rel="stylesheet"/>
+  <link href="stage-workspace.css?v=48" rel="stylesheet"/>
+</head>
+<body>
+<header class="site-header"><div class="top"><div class="brand"><a class="logo-link" href="index.html" aria-label="СЛОГИ — главная"><div class="logo-word" aria-hidden="true"><span>С</span><span>Л</span><span>О</span><span>Г</span><span>И</span></div></a></div></div></header>
+<main class="stage-main" id="stage-main">
+  <section class="stage-toolbar" aria-labelledby="stage-title">
+    <div><h1 id="stage-title">Загрузка…</h1><p id="stage-subtitle"></p></div>
+    <a class="stage-primary-link" href="index.html?create=1">＋ Добавить объект</a>
+  </section>
+  <section class="stage-summary" id="stage-summary" aria-live="polite"></section>
+  <section class="stage-panel">
+    <div class="stage-panel-head"><div><h2 id="stage-list-title">Объекты</h2><p id="stage-list-summary"></p></div><label class="stage-search"><span class="stage-visually-hidden">Поиск по адресу</span><input id="stage-search" type="search" placeholder="Поиск по адресу…" autocomplete="off"/></label></div>
+    <div class="stage-list" id="stage-list"></div>
+  </section>
+</main>
+<div class="pro-toast" id="pro-toast" role="status" aria-live="polite"></div>
+<script src="professional-core.js?v=31"></script>
+<script src="workflow-storage.js?v=31"></script>
+<script src="professional-shell.js?v=71"></script>
+<script src="clusters-data.js?v=31"></script>
+<script src="phase0-config.js?v=41"></script>
+<script src="phase0-services.js?v=50"></script>
+<script src="stage-workspace.js?v=48"></script>
+<script src="cloud-sync.js?v=31"></script>
+</body>
+</html>

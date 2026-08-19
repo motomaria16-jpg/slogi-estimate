@@ -170,6 +170,7 @@ async function parseXlsxStandalone(arrayBuffer){
     }
     const dim = doc.getElementsByTagName('dimension')[0];
     ws['!ref'] = dim && dim.getAttribute('ref') ? dim.getAttribute('ref') : (minR === Infinity ? 'A1' : encodeCell({r:minR,c:minC}) + ':' + encodeCell({r:maxR,c:maxC}));
+    ws['!merges'] = Array.from(doc.getElementsByTagName('mergeCell')).map(node => decodeRange(node.getAttribute('ref') || 'A1'));
     result.SheetNames.push(name);
     result.Sheets[name] = ws;
   }
@@ -397,14 +398,15 @@ async function createEstimateExcelBlob(model, state, address, title="СМЕТА"
   return new Blob([zip], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
 }
 
-async function parseXlsx(file){
+async function readWorkbookFile(file){
   const buf=await readFileAsArrayBuffer(file);
   const name=String(file&&file.name||'').toLowerCase();
   let wb;
   if(window.XLSX&&typeof window.XLSX.read==='function') wb=window.XLSX.read(buf,{type:'array',cellFormula:true,cellText:false});
   else if(name.endsWith('.xlsx')) wb=await parseXlsxStandalone(buf);
   else { const ok=await loadSheetJsFallback(); if(!ok) throw new Error('Сохраните файл в формате .xlsx.'); wb=window.XLSX.read(buf,{type:'array',cellFormula:true,cellText:false}); }
-  return parseWorkbook(wb);
+  return wb;
 }
-window.SlogiXlsx={parseXlsx,parseSpecification:parseWorkbook,evalQty,computeEstimateFor,makeXlsx:createEstimateExcelBlob};
+async function parseXlsx(file){ return parseWorkbook(await readWorkbookFile(file)); }
+window.SlogiXlsx={parseXlsx,readWorkbook:readWorkbookFile,parseSpecification:parseWorkbook,evalQty,computeEstimateFor,makeXlsx:createEstimateExcelBlob,utils:{decodeRange,encodeCell,decodeCellAddress,numberToCol,colToNumber}};
 })();
