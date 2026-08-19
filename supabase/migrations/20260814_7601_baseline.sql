@@ -21,12 +21,11 @@ IMPORTANT
    from the recovered SUPABASE_MARKET_ANALYSIS_V72.sql. The v76 release
    documentation states that the v72 market SQL schema was unchanged.
 4. Storage bucket configuration and storage.objects policy definitions
-   are taken from the recovered SUPABASE_SETUP.sql and are consistent
-   with the observed live bucket (slogi-files, 50 MiB, 4 policies), but
-   the exact live storage policy expressions were not independently
-   fingerprinted during this freeze.
-5. Data API grants are reproduced from the recovered setup SQL because
-   live table privilege grants were not separately fingerprinted.
+   match the later production fingerprint: slogi-files, 50 MiB, any MIME
+   type, and four exact policy expressions.
+5. Existing SLOGI object ACLs are explicitly materialized from the
+   production fingerprint. Platform-managed default ACLs are observed
+   but are not modified by this migration.
 
 This baseline intentionally DOES NOT redesign the schema.
 ============================================================
@@ -263,41 +262,48 @@ to authenticated
 using ((select auth.uid() as uid) = user_id);
 
 -- ==========================================================
--- 6. RECOVERED DATA API GRANT CONTRACT
+-- 6. PRODUCTION OBJECT ACL SNAPSHOT
 -- ==========================================================
--- Reproduced from recovered setup SQL.
--- Table grants were not independently live-fingerprinted during freeze.
+-- Exact production object ACL snapshot for v76.0.1. This materializes
+-- the frozen production state and is not a privilege recommendation for
+-- new schemas. Platform-managed default ACLs remain outside this migration.
 
-revoke all on public.slogi_user_state from anon;
-revoke all on public.slogi_workspace_state from anon;
-revoke all on public.slogi_attachments from anon;
+revoke all on public.slogi_user_state
+  from anon, authenticated, service_role;
+revoke all on public.slogi_workspace_state
+  from anon, authenticated, service_role;
+revoke all on public.slogi_attachments
+  from anon, authenticated, service_role;
+revoke all on public.slogi_market_listings
+  from anon, authenticated, service_role;
+revoke all on public.slogi_market_price_history
+  from anon, authenticated, service_role;
 
-grant select, insert, update, delete
-  on public.slogi_user_state to authenticated;
-grant select, insert, update, delete
-  on public.slogi_workspace_state to authenticated;
-grant select, insert, update, delete
-  on public.slogi_attachments to authenticated;
+grant select, insert, update, delete, truncate, references, trigger, maintain
+  on public.slogi_user_state to authenticated, service_role;
+grant select, insert, update, delete, truncate, references, trigger, maintain
+  on public.slogi_workspace_state to authenticated, service_role;
+grant select, insert, update, delete, truncate, references, trigger, maintain
+  on public.slogi_attachments to authenticated, service_role;
 
-grant all on public.slogi_user_state to service_role;
-grant all on public.slogi_workspace_state to service_role;
-grant all on public.slogi_attachments to service_role;
+-- Market tables remain server-side only. RLS is enabled and no market
+-- client policies are introduced by this ACL materialization.
+grant select, insert, update, delete, truncate, references, trigger, maintain
+  on public.slogi_market_listings to service_role;
+grant select, insert, update, delete, truncate, references, trigger, maintain
+  on public.slogi_market_price_history to service_role;
 
--- Market tables are server-side only in the recovered v72/v76 contract.
-revoke all on public.slogi_market_listings from anon, authenticated;
-revoke all on public.slogi_market_price_history from anon, authenticated;
-grant all on public.slogi_market_listings to service_role;
-grant all on public.slogi_market_price_history to service_role;
+revoke all on sequence public.slogi_market_listings_id_seq
+  from anon, authenticated, service_role;
+revoke all on sequence public.slogi_market_price_history_id_seq
+  from anon, authenticated, service_role;
 
--- Identity sequence privileges are needed for service-role inserts in
--- a clean environment.
-grant usage, select
+grant usage, select, update
   on sequence public.slogi_market_listings_id_seq
-  to service_role;
-
-grant usage, select
+  to anon, authenticated, service_role;
+grant usage, select, update
   on sequence public.slogi_market_price_history_id_seq
-  to service_role;
+  to anon, authenticated, service_role;
 
 -- ==========================================================
 -- 7. STORAGE BASELINE

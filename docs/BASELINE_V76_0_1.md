@@ -60,6 +60,33 @@ Live Supabase production Storage.
 
 RLS is enabled on all five tables.
 
+### Production object ACL
+
+The v76.0.1 migration explicitly materializes the effective production
+ACL for all five SLOGI tables and both market identity sequences. It
+first revokes object-specific privileges from `anon`, `authenticated`
+and `service_role`, then grants the captured production privileges.
+
+For the three user-owned tables, `anon` has no table privileges;
+`authenticated` and `service_role` have `SELECT`, `INSERT`, `UPDATE`,
+`DELETE`, `TRUNCATE`, `REFERENCES`, `TRIGGER` and `MAINTAIN`.
+
+For both market tables, `anon` and `authenticated` have no table
+privileges; `service_role` has all eight table privileges listed above.
+All three API roles have `USAGE`, `SELECT` and `UPDATE` on both market
+identity sequences.
+
+`information_schema.role_table_grants` exposes the seven pre-PostgreSQL
+17 table privileges but is not a complete source for `MAINTAIN` in this
+environment. The production value is therefore also verified through
+`raw_acl`/`aclexplode` and
+`has_table_privilege(role, table, 'MAINTAIN')`. The expected API-role
+table ACL is `arwdDxtm`.
+
+This is an exact production snapshot, not a recommendation for new
+schemas. Supabase platform default privileges remain platform-managed
+and are not altered by the baseline migration.
+
 ---
 
 ## Market tables
@@ -190,8 +217,17 @@ unless they break CORE functionality.
 - environment-specific production URLs exist in frontend configuration
 - Browserless production secret status is not fully confirmed
 - several generations of CSS/JS coexist
+- production table and sequence ACLs are broader than the intended
+  future least-privilege model
 
 These are not corrected in v76.0.1.
+
+The broad authenticated table ACL, including `MAINTAIN`, and the
+`anon`/`authenticated` sequence access are accepted post-freeze security
+debt. Hardening will be implemented only by a forward migration after
+tag `v76.0.1`; the baseline migration must not be repurposed to harden
+production. RLS, the market server-only contract and product logic are
+unchanged.
 
 ---
 
@@ -215,10 +251,17 @@ Current release-candidate evidence:
   `supabase/migrations/20260814_7601_baseline.sql`;
 - database evidence and limitations recorded in
   `docs/V76_DATABASE_BASELINE_VALIDATION.md`;
+- clean local Supabase apply and `db reset --local` passed with exact
+  production object ACL, including `MAINTAIN`;
 - tracked-file secret scan passed: no backend secret values or private
   key material found; committed Supabase/Yandex browser credentials are
   classified as public configuration;
-- CORE smoke gate passed: 17 PASS, 1 NOT APPLICABLE, 0 FAIL;
+- tracked, untracked and ignored secret scan passed with zero test-key
+  matches;
+- CORE smoke gate passed in the isolated localhost environment:
+  17 PASS, 1 NOT APPLICABLE, 0 FAIL;
+- Yandex map, controls, browser geocoding and cluster overlays passed
+  without API-key errors;
 - tag `v76.0.1` is intentionally absent pending explicit gate approval.
 
 The candidate is not declared frozen until the release gate is approved

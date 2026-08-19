@@ -137,6 +137,35 @@ future stability release.
 
 ---
 
+## TD-H07 — Production object ACL hardening
+
+The frozen production ACL grants the full eight table privileges,
+including PostgreSQL 17 `MAINTAIN`, to `authenticated` on the three
+user-owned tables and grants `USAGE`, `SELECT` and `UPDATE` on both
+market identity sequences to `anon` and `authenticated`.
+
+`MAINTAIN` is present in production `raw_acl` as `m`. Because
+`information_schema.role_table_grants` does not expose it in this
+environment, audits must use `raw_acl`/`aclexplode` and
+`has_table_privilege(..., 'MAINTAIN')`.
+
+The v76.0.1 baseline intentionally materializes this state exactly.
+RLS remains enabled, market tables remain without client policies, and
+no product logic changes are included.
+
+Status:
+
+OPEN — accepted post-freeze security debt.
+
+Target:
+
+Separate least-privilege forward migration after tag `v76.0.1`.
+
+The hardening migration must not be added to, or replaced by edits to,
+the baseline freeze.
+
+---
+
 # MEDIUM
 
 - accumulated CSS generations

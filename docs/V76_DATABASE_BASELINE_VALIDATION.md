@@ -5,9 +5,14 @@
 A reproducible baseline SQL candidate was materialized from the supplied
 production metadata exports and recovered v72/v76 setup sources.
 
-Static reconciliation passed. The migration was not applied to the
-production project and was not executed against a clean local Supabase
-instance during this freeze.
+Static reconciliation passed. A production ACL fingerprint was captured
+and used as the authority for object privileges. The baseline migration
+was not applied to the production project.
+
+The finalized migration was applied from an empty database with stable
+Supabase CLI 2.115.0 on 2026-08-19. A subsequent `db reset --local`
+also completed successfully and recorded migration
+`20260814 / 7601_baseline`.
 
 ## Live metadata used
 
@@ -17,6 +22,10 @@ instance during this freeze.
 - 12 live public-schema RLS policies.
 - RLS enabled on all 5 public tables.
 - FORCE RLS disabled on all 5 public tables.
+- effective and explicit table privileges for the three API roles.
+- raw ACL for five tables and two identity sequences.
+- platform-managed default ACL for `postgres` and `supabase_admin`.
+- all 12 public and 4 Storage policy expressions.
 
 ## Tables
 
@@ -48,22 +57,66 @@ The migration explicitly creates only the six additional live indexes.
 ### Market RLS and grants
 
 Production has RLS enabled on both market tables and zero `pg_policies`
-on them. The migration preserves that topology. The recovered v72 SQL
-revokes `anon`/`authenticated` access and grants market access to
-`service_role`; this grant contract is included with a provenance note.
+on them. The migration preserves that topology. Object-specific table
+ACL is explicitly revoked from all three API roles and only the captured
+production privileges are re-granted. Market table access remains
+server-only through `service_role`.
 
 ### Storage
 
 Live state confirmed bucket `slogi-files`, a 50 MiB limit, any MIME type,
-and four policies. Exact live Storage policy expressions were not
-exported. The four definitions in the migration come from recovered
-`SUPABASE_SETUP.sql` and match the observed count and topology.
+and four policies. The later production fingerprint contains all four
+policy expressions; they match the definitions reconstructed from
+`SUPABASE_SETUP.sql`.
 
-### Privilege limitation
+### Production ACL materialization
 
-Live table privilege grants were not independently exported. Data API
-grants in the migration come from the recovered setup SQL and are marked
-accordingly.
+The production fingerprint contains `table_effective`, `table_explicit`,
+`sequence_effective`, `raw_acl`, `default_acl` and `policy` sections.
+
+For `slogi_attachments`, `slogi_user_state` and
+`slogi_workspace_state`, `anon` has no table privileges, while
+`authenticated` and `service_role` have `SELECT`, `INSERT`, `UPDATE`,
+`DELETE`, `TRUNCATE`, `REFERENCES`, `TRIGGER` and `MAINTAIN`.
+
+For both market tables, `anon` and `authenticated` have no table
+privileges and `service_role` has those eight table privileges. All
+three API roles have `USAGE`, `SELECT` and `UPDATE` on both market
+identity sequences.
+
+The expected raw table ACL for every granted API role is `arwdDxtm`.
+The `m` privilege is PostgreSQL 17 `MAINTAIN`.
+
+`information_schema.role_table_grants` reports the other seven table
+privileges but is not complete for `MAINTAIN` in this environment.
+`MAINTAIN` must be checked independently through raw ACL expansion with
+`aclexplode` and through
+`has_table_privilege(role, table, 'MAINTAIN')`.
+
+The clean audit confirmed all 15 role/table `MAINTAIN` decisions and
+eight positive API-role grants through both methods. Raw ACL for all
+seven SLOGI objects matched the production fingerprint after comparing
+ACL entries as sets rather than relying on array order.
+
+The migration now materializes these object ACLs with object-specific
+`REVOKE ALL` followed by explicit `GRANT` statements. It does not use
+`ALTER DEFAULT PRIVILEGES`; Supabase platform defaults owned by
+`postgres` and `supabase_admin` remain platform-managed.
+
+The broad authenticated ACL, including `MAINTAIN`, and client-role
+sequence access are known security debt. They reproduce production
+exactly and will be narrowed only through a separate forward migration
+after tag `v76.0.1`. This baseline migration must not be used as a
+production-hardening mechanism.
+
+### Platform-managed default ACL
+
+The local Supabase 2.115.0 stack and production have different
+`postgres`-owned default ACL for tables, sequences and functions. The
+three `supabase_admin` defaults match. This platform drift is observed
+but intentionally not materialized: the migration contains no
+`ALTER DEFAULT PRIVILEGES` and the explicit SLOGI object ACL does not
+depend on either set of defaults.
 
 ## Expected clean-environment result
 
@@ -76,8 +129,32 @@ accordingly.
 - named table constraints: 12
 - `slogi-files`: private, 50 MiB, any MIME type
 - SLOGI Storage policies: 4
+- effective and explicit SLOGI object ACL: exact production fingerprint
+- raw object ACL: exact production fingerprint, compared without relying
+  on ACL array order
+
+## Actual clean-environment result
+
+- public tables: 5 — PASS
+- public columns: 40 — PASS
+- named constraints: 12 — PASS
+- indexes: 12 — PASS
+- owners: 5 tables and 2 sequences owned by `postgres` — PASS
+- RLS enabled/forced: 5 enabled, 0 forced — PASS
+- public policies: 12 — PASS
+- market policies: 0 — PASS
+- Storage policies: 4 — PASS
+- explicit legacy table privilege rows: 56 — PASS
+- effective role/table comparisons: 15 — PASS
+- sequence role/object comparisons: 6 — PASS
+- `has_table_privilege(..., 'MAINTAIN')`: 15 — PASS
+- positive API-role `MAINTAIN` rows from `aclexplode`: 8 — PASS
+- raw object ACL comparisons: 7 — PASS
+- migration history: 1 expected entry — PASS
 
 ## Safety
 
 This SQL is a baseline reconstruction for a clean Supabase environment.
 Do not run it blindly against production project `badyvlegwumldciibxfe`.
+The ACL materialization changes no product logic, RLS policy or Storage
+grant, and no production write was performed.

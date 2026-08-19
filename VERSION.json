@@ -16,8 +16,8 @@
     "projectRef": "badyvlegwumldciibxfe",
     "migrationPath": "supabase/migrations/20260814_7601_baseline.sql",
     "validationReport": "docs/V76_DATABASE_BASELINE_VALIDATION.md",
-    "sourceSha256": "dd622ff51757d6c0c62d3bb4ab037c3141dd92d9191c60b93849f9f6077d9a80",
-    "cleanEnvironmentApplyTested": false
+    "sourceSha256": "a4ab16221f6c76c21b6f541c7780111afcbcc72b8726cdac75c0d0adea656bc3",
+    "cleanEnvironmentApplyTested": true
   },
   "storageBaseline": {
     "source": "live-production",
@@ -51,9 +51,17 @@
     "edgeFunctionHashesVerified": true,
     "databaseBaselineMaterialized": true,
     "databaseBaselineStaticValidationPassed": true,
-    "cleanEnvironmentApplyTested": false,
+    "cleanEnvironmentApplyTested": true,
     "secretScanPassed": true,
-    "smokeTestsPassed": true
+    "smokeTestsPassed": true,
+    "productionAclFingerprintVerified": true,
+    "smokeSummary": {
+      "passed": 17,
+      "notApplicable": 1,
+      "failed": 0,
+      "environment": "isolated-local-supabase",
+      "testedAt": "2026-08-19"
+    }
   },
   "nextTarget": "v76.1 Auth & Edge Stability"
 }
