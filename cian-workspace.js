@@ -5,8 +5,8 @@
   const DAY=24*60*60*1000;
   const MAX_FRESH_DAYS=30;
   const $=id=>document.getElementById(id);
-  const fields={address:$('available-address'),areaMin:$('available-area-min'),areaMax:$('available-area-max'),rentMin:$('available-rent-min'),rentMax:$('available-rent-max'),sqmMin:$('available-sqm-min'),sqmMax:$('available-sqm-max'),days:$('available-date'),sort:$('available-sort')};
-  const nodes={button:$('available-search'),reset:$('available-reset'),count:$('available-count'),updated:$('available-last-update'),source:$('cian-source-state'),badge:$('cian-source-badge'),summary:$('available-summary'),loading:$('available-loading'),list:$('available-list'),empty:$('available-empty'),map:$('cian-map'),mapLoading:$('cian-map-loading'),mapMessage:$('cian-map-message'),mapCount:$('cian-map-count'),dialog:$('cian-listing-dialog'),dialogContent:$('cian-dialog-content')};
+  const fields={cluster:$('available-cluster'),areaMin:$('available-area-min'),areaMax:$('available-area-max'),rentMin:$('available-rent-min'),rentMax:$('available-rent-max'),sqmMin:$('available-sqm-min'),sqmMax:$('available-sqm-max'),days:$('available-date'),sort:$('available-sort')};
+  const nodes={button:$('available-search'),reset:$('available-reset'),count:$('available-count'),updated:$('available-last-update'),source:$('cian-source-state'),badge:$('cian-source-badge'),summary:$('available-summary'),loading:$('available-loading'),list:$('available-list'),empty:$('available-empty'),map:$('cian-map'),mapLoading:$('cian-map-loading'),mapMessage:$('cian-map-message'),mapCount:$('cian-map-count'),clusterToggle:$('cian-clusters-toggle'),dialog:$('cian-listing-dialog'),dialogContent:$('cian-dialog-content')};
   let all=[];
   let visible=[];
   let loading=false;
@@ -14,6 +14,9 @@
   let map=null;
   let clusterer=null;
   let markerById=new Map();
+  let polygonByCluster=new Map();
+  let clustersVisible=true;
+  let selectedListingId='';
   let lastFocused=null;
 
   const esc=value=>String(value==null?'':value).replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
@@ -23,6 +26,8 @@
   const area=value=>value==null?'Нет данных':Number(value).toLocaleString('ru-RU',{maximumFractionDigits:1})+' м²';
   const formatDate=value=>{const date=new Date(value||'');return Number.isNaN(date.getTime())?'Нет данных':date.toLocaleDateString('ru-RU',{day:'2-digit',month:'long',year:'numeric'});};
   const freshnessId=item=>String(item.externalId||item.listingUrl||'');
+  const clusterService=()=>window.SlogiPhase0&&window.SlogiPhase0.clusterService||null;
+  const phase0Service=()=>window.SlogiPhase0&&window.SlogiPhase0.phase0Service||null;
 
   function safeCianUrl(value){
     try{const url=new URL(String(value||''));return url.protocol==='https:'&&(/(^|\.)cian\.ru$/i.test(url.hostname))?url.href:'';}catch(_err){return'';}
@@ -39,35 +44,50 @@
     const age=now-time;
     return age>=0&&age<=Number(days)*DAY;
   }
+  function canonicalClusterFor(value){
+    const service=clusterService();if(!service)return null;
+    const latitude=number(value&&value.latitude),longitude=number(value&&value.longitude);
+    if(latitude!=null&&longitude!=null){const match=service.findByCoordinates(latitude,longitude);if(match)return match;}
+    const stated=String(value&&value.clusterName||value&&value.cluster_name||'').trim();
+    return stated?service.find(stated):null;
+  }
   function normalize(raw){
     const areaValue=number(raw.area);
     const rent=number(raw.rentMonthly??raw.rent_monthly);
     const price=number(raw.pricePerSquareMeter)??(areaValue&&rent?Math.round(rent/areaValue):null);
-    return{
+    const item={
       source:String(raw.source||''),listingUrl:safeCianUrl(raw.listingUrl||raw.listing_url),externalId:String(raw.externalId||raw.external_id||''),title:String(raw.title||''),address:String(raw.address||''),description:String(raw.description||''),
       latitude:number(raw.latitude),longitude:number(raw.longitude),area:areaValue,rentMonthly:rent,pricePerSquareMeter:price,floor:number(raw.floor),totalFloors:number(raw.totalFloors??raw.total_floors),ceilingHeight:number(raw.ceilingHeight??raw.ceiling_height),
-      freshnessAt:String(raw.freshnessAt||raw.freshness_at||''),freshnessKind:String(raw.freshnessKind||raw.freshness_kind||''),publishedAt:String(raw.publishedAt||raw.published_at||''),sourceUpdatedAt:String(raw.sourceUpdatedAt||raw.source_updated_at||''),marketStatus:String(raw.marketStatus||raw.market_status||'active'),clusterName:String(raw.clusterName||raw.cluster_name||''),parseCompleteness:number(raw.parseCompleteness??raw.parse_completeness)||0,parseWarnings:Array.isArray(raw.parseWarnings)?raw.parseWarnings.map(String):[]
+      freshnessAt:String(raw.freshnessAt||raw.freshness_at||''),freshnessKind:String(raw.freshnessKind||raw.freshness_kind||''),publishedAt:String(raw.publishedAt||raw.published_at||''),sourceUpdatedAt:String(raw.sourceUpdatedAt||raw.source_updated_at||''),marketStatus:String(raw.marketStatus||raw.market_status||'active'),clusterId:'',clusterName:'',parseCompleteness:number(raw.parseCompleteness??raw.parse_completeness)||0,parseWarnings:Array.isArray(raw.parseWarnings)?raw.parseWarnings.map(String):[]
     };
+    const canonical=canonicalClusterFor(Object.assign({},raw,item));if(canonical){item.clusterId=canonical.id;item.clusterName=canonical.name;}
+    return item;
   }
-  function criteria(){return{query:String(fields.address.value||'').trim().toLocaleLowerCase('ru'),areaMin:inputNumber(fields.areaMin),areaMax:inputNumber(fields.areaMax),rentMin:inputNumber(fields.rentMin),rentMax:inputNumber(fields.rentMax),sqmMin:inputNumber(fields.sqmMin),sqmMax:inputNumber(fields.sqmMax),days:Number(fields.days.value)||MAX_FRESH_DAYS,sort:String(fields.sort.value||'freshness-desc')};}
+  function criteria(){return{cluster:String(fields.cluster.value||''),areaMin:inputNumber(fields.areaMin),areaMax:inputNumber(fields.areaMax),rentMin:inputNumber(fields.rentMin),rentMax:inputNumber(fields.rentMax),sqmMin:inputNumber(fields.sqmMin),sqmMax:inputNumber(fields.sqmMax),days:Number(fields.days.value)||MAX_FRESH_DAYS,sort:String(fields.sort.value||'freshness-desc')};}
   function within(value,min,max){if(min!=null&&(value==null||value<min))return false;if(max!=null&&(value==null||value>max))return false;return true;}
+  function populateClusters(){
+    const current=fields.cluster.value,items=clusterService()&&clusterService().list()||[];
+    fields.cluster.innerHTML='<option value="">Все кластеры</option>'+items.map(item=>`<option value="${esc(item.id)}">${esc(item.name)}</option>`).join('')+'<option value="__unassigned">Кластер не определён</option>';
+    if(Array.from(fields.cluster.options).some(option=>option.value===current))fields.cluster.value=current;
+  }
 
   function applyFilters(){
     const c=criteria();
     visible=all.filter(item=>{
       if(!isRecent(item,c.days))return false;
-      const haystack=(item.address+' '+item.clusterName+' '+item.title).toLocaleLowerCase('ru');
-      return(!c.query||haystack.includes(c.query))&&within(item.area,c.areaMin,c.areaMax)&&within(item.rentMonthly,c.rentMin,c.rentMax)&&within(item.pricePerSquareMeter,c.sqmMin,c.sqmMax);
+      const clusterMatch=!c.cluster||(c.cluster==='__unassigned'?!item.clusterId:item.clusterId===c.cluster);
+      return clusterMatch&&within(item.area,c.areaMin,c.areaMax)&&within(item.rentMonthly,c.rentMin,c.rentMax)&&within(item.pricePerSquareMeter,c.sqmMin,c.sqmMax);
     });
     visible.sort((left,right)=>c.sort==='rent-asc'?(left.rentMonthly??Infinity)-(right.rentMonthly??Infinity):c.sort==='area-asc'?(left.area??Infinity)-(right.area??Infinity):c.sort==='sqm-asc'?(left.pricePerSquareMeter??Infinity)-(right.pricePerSquareMeter??Infinity):freshnessTime(right)-freshnessTime(left));
-    render();
+    render();focusSelectedCluster(c.cluster);
   }
 
   function card(item){
     const id=esc(freshnessId(item));
     const title=esc(item.title||item.address||'Коммерческое помещение');
     const dateLabel=item.freshnessKind==='published'?'Опубликовано':'Обновлено';
-    return`<button class="cian-listing-card" type="button" data-listing-id="${id}" aria-label="Открыть объявление ${title}"><div class="cian-card-main"><div class="cian-card-top"><span class="cian-badge">ЦИАН</span><span class="cian-badge fresh">${dateLabel} ${esc(formatDate(item.freshnessAt))}</span></div><h3>${title}</h3><p class="cian-address">${esc(item.address||'Адрес не опубликован')}</p><div class="cian-card-metrics"><span>${esc(area(item.area))}</span><span>${item.floor==null?'Этаж не указан':esc('Этаж '+item.floor+(item.totalFloors?' из '+item.totalFloors:''))}</span><span>${item.ceilingHeight==null?'Высота не указана':esc('Потолки '+item.ceilingHeight+' м')}</span></div></div><div class="cian-card-price"><strong>${esc(money(item.rentMonthly))}</strong><span>${item.pricePerSquareMeter==null?'Цена за м² не указана':esc(money(item.pricePerSquareMeter)+' / м²')}</span></div></button>`;
+    const existing=existingProject(item),projectId=existing&&existing.id||'';
+    return`<article class="cian-listing-card ${selectedListingId===freshnessId(item)?'selected':''}" data-listing-card="${id}"><button class="cian-card-open" type="button" data-listing-id="${id}" aria-label="Открыть объявление ${title}"><div class="cian-card-main"><div class="cian-card-top"><span class="cian-badge">ЦИАН</span><span class="cian-badge cluster">${esc(item.clusterName||'Кластер не определён')}</span><span class="cian-badge fresh">${dateLabel} ${esc(formatDate(item.freshnessAt))}</span></div><h3>${title}</h3><p class="cian-address">${esc(item.address||'Адрес не опубликован')}</p><div class="cian-card-metrics"><span>${esc(area(item.area))}</span><span>${item.floor==null?'Этаж не указан':esc('Этаж '+item.floor+(item.totalFloors?' из '+item.totalFloors:''))}</span><span>${item.ceilingHeight==null?'Высота не указана':esc('Потолки '+item.ceilingHeight+' м')}</span></div></div><div class="cian-card-price"><strong>${esc(money(item.rentMonthly))}</strong><span>${item.pricePerSquareMeter==null?'Цена за м² не указана':esc(money(item.pricePerSquareMeter)+' / м²')}</span></div></button><div class="cian-card-actions"><button class="cian-button cian-add-object" type="button" data-add-listing="${id}" ${existing?'disabled':''}>${existing?'Добавлено':'Добавить объект'}</button>${existing?`<a href="index.html?location=${encodeURIComponent(projectId)}">Открыть в «Моих помещениях»</a>`:''}</div></article>`;
   }
   function render(){
     nodes.loading.hidden=true;
@@ -76,30 +96,38 @@
     nodes.empty.hidden=visible.length!==0;
     nodes.list.hidden=visible.length===0;
     nodes.list.innerHTML=visible.map(card).join('');
-    nodes.list.querySelectorAll('[data-listing-id]').forEach(button=>button.addEventListener('click',()=>openListing(button.dataset.listingId,button)));
+    nodes.list.querySelectorAll('[data-listing-id]').forEach(button=>button.addEventListener('click',()=>{selectListing(button.dataset.listingId);openListing(button.dataset.listingId,button)}));
+    nodes.list.querySelectorAll('[data-add-listing]').forEach(button=>button.addEventListener('click',()=>addListing(button.dataset.addListing,button)));
+    nodes.list.querySelectorAll('[data-listing-card]').forEach(cardNode=>{cardNode.addEventListener('mouseenter',()=>selectListing(cardNode.dataset.listingCard,{center:false}));cardNode.addEventListener('focusin',()=>selectListing(cardNode.dataset.listingCard,{center:false}));});
     updateMap();
   }
-
-  function savedListings(){const state=window.SlogiPro&&window.SlogiPro.read?window.SlogiPro.read():{};return Array.isArray(state.savedListings)?state.savedListings:[];}
-  function saveListing(item){
-    if(!window.SlogiPro||!window.SlogiPro.read||!window.SlogiPro.write)return;
-    const state=window.SlogiPro.read();
-    if(!Array.isArray(state.savedListings))state.savedListings=[];
-    const id=freshnessId(item);
-    const stored={id,source:'cian',listingUrl:item.listingUrl,externalId:item.externalId,title:item.title,address:item.address,area:item.area,rentMonthly:item.rentMonthly,pricePerSquareMeter:item.pricePerSquareMeter,freshnessAt:item.freshnessAt,savedAt:new Date().toISOString()};
-    const index=state.savedListings.findIndex(entry=>entry.id===id);
-    if(index>=0)state.savedListings[index]=stored;else state.savedListings.unshift(stored);
-    window.SlogiPro.write(state,'cian-listing-saved');
-    const button=nodes.dialogContent.querySelector('[data-save-listing]');if(button){button.textContent='Сохранено';button.disabled=true;}
+  function existingProject(item){const service=phase0Service();return service&&typeof service.findListingProject==='function'?service.findListingProject(item):null;}
+  function selectListing(id,{center=true}={}){
+    selectedListingId=String(id||'');nodes.list.querySelectorAll('[data-listing-card]').forEach(node=>node.classList.toggle('selected',node.dataset.listingCard===selectedListingId));
+    markerById.forEach((marker,key)=>marker.options.set('preset',key===selectedListingId?'islands#orangeDotIcon':'islands#darkGreenDotIcon'));
+    const item=all.find(entry=>freshnessId(entry)===selectedListingId);if(center&&map&&item&&Number.isFinite(item.latitude)&&Number.isFinite(item.longitude))map.panTo([item.latitude,item.longitude],{flying:false,duration:180}).catch(()=>{});
+  }
+  async function addListing(id,button){
+    const item=all.find(entry=>freshnessId(entry)===id),service=phase0Service();if(!item||!service||typeof service.addMarketListing!=='function'){toast('Добавление объекта временно недоступно.',true);return;}
+    const prior=existingProject(item);if(prior){location.href='index.html?location='+encodeURIComponent(prior.id);return;}
+    button.disabled=true;button.textContent='Добавляем…';
+    try{
+      const result=await service.addMarketListing(item);
+      if(window.SlogiCloud&&window.SlogiCloud.ready&&typeof window.SlogiCloud.sync==='function')await window.SlogiCloud.sync();
+      toast(result.created?'Объект добавлен в «Мои помещения».':'Объект уже находится в «Моих помещениях».');render();
+    }catch(_error){button.disabled=false;button.textContent='Добавить объект';toast('Не удалось добавить объект. Повторите попытку.',true);}
+  }
+  function toast(message,isError=false){
+    const node=$('available-toast');node.textContent=message;node.dataset.error=isError?'true':'false';node.classList.add('show');clearTimeout(node._timer);node._timer=setTimeout(()=>node.classList.remove('show'),3200);
   }
   function openListing(id,trigger){
     const item=all.find(entry=>freshnessId(entry)===id);if(!item)return;
     lastFocused=trigger||document.activeElement;
-    const already=savedListings().some(entry=>entry.id===id);
+    const existing=existingProject(item),already=Boolean(existing);
     const url=safeCianUrl(item.listingUrl);
-    nodes.dialogContent.innerHTML=`<div class="cian-dialog-body"><div class="cian-dialog-head"><div><p class="cian-eyebrow">ЦИАН · ${esc(item.externalId||'объявление')}</p><h2 id="cian-dialog-title">${esc(item.title||'Коммерческое помещение')}</h2></div><button class="cian-dialog-close" type="button" aria-label="Закрыть">×</button></div><p class="cian-dialog-address">${esc(item.address||'Адрес не опубликован')}</p><div class="cian-dialog-grid"><div><span>Площадь</span><strong>${esc(area(item.area))}</strong></div><div><span>Аренда в месяц</span><strong>${esc(money(item.rentMonthly))}</strong></div><div><span>Цена за м²</span><strong>${esc(item.pricePerSquareMeter==null?'Нет данных':money(item.pricePerSquareMeter))}</strong></div><div><span>${item.freshnessKind==='published'?'Опубликовано':'Обновлено'}</span><strong>${esc(formatDate(item.freshnessAt))}</strong></div></div>${item.description?`<p class="cian-dialog-description">${esc(item.description)}</p>`:''}<div class="cian-dialog-actions"><button class="cian-button" type="button" data-save-listing ${already?'disabled':''}>${already?'Сохранено':'Сохранить в работу'}</button>${url?`<a class="cian-dialog-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Открыть на ЦИАН</a>`:''}</div></div>`;
+    nodes.dialogContent.innerHTML=`<div class="cian-dialog-body"><div class="cian-dialog-head"><div><p class="cian-eyebrow">ЦИАН · ${esc(item.externalId||'объявление')}</p><h2 id="cian-dialog-title">${esc(item.title||'Коммерческое помещение')}</h2></div><button class="cian-dialog-close" type="button" aria-label="Закрыть">×</button></div><p class="cian-dialog-address">${esc(item.address||'Адрес не опубликован')}</p><div class="cian-dialog-grid"><div><span>Кластер</span><strong>${esc(item.clusterName||'Кластер не определён')}</strong></div><div><span>Площадь</span><strong>${esc(area(item.area))}</strong></div><div><span>Аренда в месяц</span><strong>${esc(money(item.rentMonthly))}</strong></div><div><span>Цена за м²</span><strong>${esc(item.pricePerSquareMeter==null?'Нет данных':money(item.pricePerSquareMeter))}</strong></div><div><span>${item.freshnessKind==='published'?'Опубликовано':'Обновлено'}</span><strong>${esc(formatDate(item.freshnessAt))}</strong></div></div>${item.description?`<p class="cian-dialog-description">${esc(item.description)}</p>`:''}<div class="cian-dialog-actions"><button class="cian-button" type="button" data-add-dialog ${already?'disabled':''}>${already?'Добавлено':'Добавить объект'}</button>${already?`<a class="cian-dialog-link" href="index.html?location=${encodeURIComponent(existing.id)}">Открыть в «Моих помещениях»</a>`:''}${url?`<a class="cian-dialog-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Открыть на ЦИАН</a>`:''}</div></div>`;
     nodes.dialogContent.querySelector('.cian-dialog-close').addEventListener('click',()=>nodes.dialog.close());
-    const save=nodes.dialogContent.querySelector('[data-save-listing]');if(save&&!already)save.addEventListener('click',()=>saveListing(item));
+    const add=nodes.dialogContent.querySelector('[data-add-dialog]');if(add&&!already)add.addEventListener('click',async()=>{await addListing(id,add);if(nodes.dialog.open)nodes.dialog.close();});
     nodes.dialog.showModal();
     nodes.dialogContent.querySelector('.cian-dialog-close').focus();
   }
@@ -157,15 +185,35 @@
       setTimeout(()=>reject(new Error('map_api_timeout')),15000);
     });
   }
+  function featureCoords(feature){const geometry=feature&&feature.geometry||{},convert=ring=>ring.map(point=>[point[1],point[0]]);if(geometry.type==='Polygon')return geometry.coordinates.map(convert);if(geometry.type==='MultiPolygon')return geometry.coordinates.map(poly=>poly.map(convert));return null;}
+  function featureBounds(feature){
+    if(Array.isArray(feature&&feature.bbox)&&feature.bbox.length===4)return[[feature.bbox[1],feature.bbox[0]],[feature.bbox[3],feature.bbox[2]]];
+    const points=[];const walk=value=>{if(Array.isArray(value)&&typeof value[0]==='number')points.push([value[1],value[0]]);else if(Array.isArray(value))value.forEach(walk)};walk(feature&&feature.geometry&&feature.geometry.coordinates);
+    return points.length?[[Math.min(...points.map(point=>point[0])),Math.min(...points.map(point=>point[1]))],[Math.max(...points.map(point=>point[0])),Math.max(...points.map(point=>point[1]))]]:null;
+  }
+  function polygonStyle(id,{hover=false}={}){const selected=fields.cluster.value===id;return{fillColor:selected?'#E39B2F':'#4F8580',strokeColor:selected?'#B86F10':'#285B58',strokeWidth:selected?3:hover?2.4:1.5,fillOpacity:!clustersVisible?0:(selected?0.34:(hover?0.25:0.14)),visible:clustersVisible};}
+  function stylePolygons(){polygonByCluster.forEach((polygons,id)=>polygons.forEach(polygon=>polygon.options.set(polygonStyle(id))));}
+  function addClusterPolygons(){
+    polygonByCluster=new Map();nodes.map.dataset.clusterPolygons='0';const service=clusterService();if(!service)return;
+    service.list().forEach(cluster=>{const coords=featureCoords(cluster.feature);if(!coords)return;const list=[];const add=geometry=>{const polygon=new window.ymaps.Polygon(geometry,{hintContent:cluster.name,clusterId:cluster.id},polygonStyle(cluster.id));polygon.events.add('mouseenter',()=>polygon.options.set(polygonStyle(cluster.id,{hover:true})));polygon.events.add('mouseleave',()=>polygon.options.set(polygonStyle(cluster.id)));polygon.events.add('click',()=>{fields.cluster.value=cluster.id;applyFilters();});map.geoObjects.add(polygon);list.push(polygon)};if(cluster.feature.geometry.type==='Polygon')add(coords);else coords.forEach(add);if(list.length)polygonByCluster.set(cluster.id,list);});
+    nodes.map.dataset.clusterPolygons=String([...polygonByCluster.values()].reduce((sum,items)=>sum+items.length,0));
+  }
+  function focusSelectedCluster(id){
+    nodes.map.dataset.selectedCluster=id||'all';stylePolygons();if(!map)return;
+    if(!id){const features=clusterService()&&clusterService().list()||[];const bounds=features.map(item=>featureBounds(item.feature)).filter(Boolean);if(bounds.length){const merged=[[Math.min(...bounds.map(value=>value[0][0])),Math.min(...bounds.map(value=>value[0][1]))],[Math.max(...bounds.map(value=>value[1][0])),Math.max(...bounds.map(value=>value[1][1]))]];map.setBounds(merged,{checkZoomRange:true,zoomMargin:34}).catch(()=>{});}return;}
+    if(id==='__unassigned')return;const cluster=clusterService()&&clusterService().find(id),bounds=cluster&&featureBounds(cluster.feature);if(bounds)map.setBounds(bounds,{checkZoomRange:true,zoomMargin:34}).catch(()=>{});
+  }
   async function initMap(){
     try{
       await loadYandex();
       map=new window.ymaps.Map(nodes.map,{center:[55.7558,37.6176],zoom:10,controls:['zoomControl','fullscreenControl']},{suppressMapOpenBlock:true});
       map.behaviors.disable('scrollZoom');
+      if(window.matchMedia('(max-width: 800px)').matches)map.behaviors.disable('drag');
       clusterer=new window.ymaps.Clusterer({preset:'islands#darkGreenClusterIcons',groupByCoordinates:false,clusterDisableClickZoom:false,clusterOpenBalloonOnClick:true});
       map.geoObjects.add(clusterer);
+      addClusterPolygons();
       nodes.mapLoading.hidden=true;
-      nodes.mapMessage.textContent='Маркеры объединяются в кластеры. Масштабируйте карту кнопками управления.';
+      nodes.mapMessage.textContent='Канонические зоны СЛОГИ показаны поверх карты. Маркеры объявлений объединяются автоматически.';
       updateMap();
     }catch(_error){nodes.mapLoading.textContent='Карта временно недоступна';nodes.mapMessage.textContent='Список предложений продолжает работать.';}
   }
@@ -174,21 +222,22 @@
     clusterer.removeAll();markerById=new Map();
     const points=visible.filter(item=>Number.isFinite(item.latitude)&&Number.isFinite(item.longitude));
     const markers=points.map(item=>{
-      const marker=new window.ymaps.Placemark([item.latitude,item.longitude],{hintContent:item.address||item.title||'Объявление ЦИАН',balloonContent:`<div class="cian-balloon"><strong>${esc(item.title||item.address||'Помещение')}</strong><span>${esc(item.address||'Адрес не указан')}</span><span>${esc(area(item.area))} · ${esc(money(item.rentMonthly))}</span></div>`},{preset:'islands#darkGreenDotIcon'});
-      marker.events.add('click',()=>{const button=nodes.list.querySelector(`[data-listing-id="${CSS.escape(freshnessId(item))}"]`);openListing(freshnessId(item),button);});
+      const marker=new window.ymaps.Placemark([item.latitude,item.longitude],{hintContent:item.address||item.title||'Объявление ЦИАН',balloonContent:`<div class="cian-balloon"><strong>${esc(item.title||item.address||'Помещение')}</strong><span>${esc(item.address||'Адрес не указан')}</span><span>${esc(item.clusterName||'Кластер не определён')}</span><span>${esc(area(item.area))} · ${esc(money(item.rentMonthly))}</span></div>`},{preset:selectedListingId===freshnessId(item)?'islands#orangeDotIcon':'islands#darkGreenDotIcon'});
+      marker.events.add('click',()=>{const button=nodes.list.querySelector(`[data-listing-id="${CSS.escape(freshnessId(item))}"]`);selectListing(freshnessId(item),{center:false});button?.scrollIntoView({behavior:'smooth',block:'center'});openListing(freshnessId(item),button);});
       markerById.set(freshnessId(item),marker);return marker;
     });
     clusterer.add(markers);nodes.mapCount.textContent=`${markers.length} ${markers.length===1?'точка':markers.length>1&&markers.length<5?'точки':'точек'}`;
-    if(markers.length)map.setBounds(clusterer.getBounds(),{checkZoomRange:true,zoomMargin:50}).catch(()=>{});
+    if(markers.length&&!fields.cluster.value)map.setBounds(clusterer.getBounds(),{checkZoomRange:true,zoomMargin:50}).catch(()=>{});stylePolygons();
   }
 
-  function resetFilters(){Object.values(fields).forEach(field=>{if(field.tagName==='SELECT')field.selectedIndex=0;else field.value='';});applyFilters();}
+  function resetFilters(){Object.values(fields).forEach(field=>{if(field.tagName==='SELECT')field.selectedIndex=0;else field.value='';});selectedListingId='';applyFilters();}
   function bind(){
     nodes.button.addEventListener('click',loadListings);nodes.reset.addEventListener('click',resetFilters);
     Object.values(fields).forEach(field=>field.addEventListener(field.tagName==='INPUT'?'input':'change',applyFilters));
+    nodes.clusterToggle.addEventListener('click',()=>{clustersVisible=!clustersVisible;nodes.clusterToggle.setAttribute('aria-pressed',String(clustersVisible));nodes.clusterToggle.textContent=clustersVisible?'Скрыть кластеры':'Показать кластеры';stylePolygons();});
     nodes.dialog.addEventListener('keydown',trapDialogFocus);
     nodes.dialog.addEventListener('close',()=>{if(lastFocused&&document.contains(lastFocused))lastFocused.focus();lastFocused=null;});
   }
-  function init(){if(initialized)return;initialized=true;bind();initMap();loadListings();}
+  function init(){if(initialized)return;initialized=true;populateClusters();bind();initMap();loadListings();window.addEventListener('slogi:locations-updated',render);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
