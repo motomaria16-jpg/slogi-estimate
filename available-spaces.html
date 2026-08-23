@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1" name="viewport"/>
+  <meta content="no-cache,no-store,must-revalidate" http-equiv="Cache-Control"/>
+  <title>СЛОГИ — Предложения ЦИАН</title>
+  <link href="favicon.svg?v=40" rel="icon"/>
+  <link href="professional-ui.css?v=31" rel="stylesheet"/>
+  <link href="app-shell.css?v=61" rel="stylesheet"/>
+  <link href="objects-visual-standard.css?v=33" rel="stylesheet"/>
+  <link href="phase0.css?v=68" rel="stylesheet"/>
+  <link href="cian-workspace.css?v=761" rel="stylesheet"/>
+</head>
+<body class="slogi-search-page available-spaces-page">
+<header class="site-header"><div class="top"><div class="brand"><a class="logo-link" href="index.html" aria-label="СЛОГИ — главная"><div class="logo-word" aria-hidden="true"><span>С</span><span>Л</span><span>О</span><span>Г</span><span>И</span></div></a></div></div></header>
+
+<main class="cian-main" id="cian-main">
+  <section class="cian-hero" aria-labelledby="available-title">
+    <div><p class="cian-eyebrow">СЛОГИ · Пространство специалиста</p><h1 id="available-title">Предложения ЦИАН</h1><p>Свежая база коммерческой аренды. Фильтры работают по сохранённым данным и не запускают внешний сбор.</p></div>
+    <button class="cian-button secondary" id="available-search" type="button">Обновить список</button>
+  </section>
+
+  <section class="cian-source-grid" aria-label="Состояние источников">
+    <article class="cian-source-card active" data-source="cian"><div class="cian-source-mark">Ц</div><div><span>Активный источник</span><h2>ЦИАН</h2><p id="cian-source-state">Получаем состояние сохранённой базы…</p></div><span class="cian-status" id="cian-source-badge">Проверка</span></article>
+    <article class="cian-source-card disabled" aria-disabled="true"><div class="cian-source-mark">А</div><div><span>Будущий источник</span><h2>Авито — подключение готовится</h2><p>В этом релизе источник неактивен и не выполняет сетевых запросов.</p></div><span class="cian-status">Неактивно</span></article>
+  </section>
+
+  <section class="cian-metrics" aria-label="Сводка предложений">
+    <article><span>Актуальные объявления</span><strong id="available-count">0</strong></article>
+    <article><span>Последнее успешное обновление</span><strong id="available-last-update">—</strong></article>
+    <article><span>Период актуальности</span><strong>30 суток</strong></article>
+  </section>
+
+  <section class="cian-filter-card" aria-labelledby="available-filter-title">
+    <div class="cian-section-heading"><div><p class="cian-eyebrow">Отбор</p><h2 id="available-filter-title">Фильтры предложений</h2></div><button id="available-reset" class="cian-text-button" type="button">Сбросить</button></div>
+    <div class="cian-filters">
+      <label class="wide"><span>Адрес или район</span><input id="available-address" type="search" autocomplete="off" placeholder="Например, Хамовники"/></label>
+      <fieldset><legend>Площадь, м²</legend><input id="available-area-min" type="number" min="0" step="1" placeholder="От" aria-label="Минимальная площадь"/><input id="available-area-max" type="number" min="0" step="1" placeholder="До" aria-label="Максимальная площадь"/></fieldset>
+      <fieldset><legend>Аренда в месяц, ₽</legend><input id="available-rent-min" type="number" min="0" step="1000" placeholder="От" aria-label="Минимальная аренда"/><input id="available-rent-max" type="number" min="0" step="1000" placeholder="До" aria-label="Максимальная аренда"/></fieldset>
+      <fieldset><legend>Цена за м², ₽</legend><input id="available-sqm-min" type="number" min="0" step="100" placeholder="От" aria-label="Минимальная цена за квадратный метр"/><input id="available-sqm-max" type="number" min="0" step="100" placeholder="До" aria-label="Максимальная цена за квадратный метр"/></fieldset>
+      <label><span>Дата</span><select id="available-date"><option value="30">Последние 30 суток</option><option value="14">Последние 14 суток</option><option value="7">Последние 7 суток</option></select></label>
+      <label><span>Сортировка</span><select id="available-sort"><option value="freshness-desc">Сначала новые</option><option value="rent-asc">Аренда — дешевле</option><option value="area-asc">Площадь — меньше</option><option value="sqm-asc">Цена за м² — ниже</option></select></label>
+    </div>
+  </section>
+
+  <section class="cian-workspace" aria-label="Предложения и карта">
+    <div class="cian-results">
+      <div class="cian-section-heading"><div><p class="cian-eyebrow">Сохранённая база</p><h2>Подходящие помещения</h2><p id="available-summary" aria-live="polite">Загрузка предложений…</p></div></div>
+      <div id="available-loading" class="cian-loading" role="status"><span></span><p>Читаем сохранённые предложения…</p></div>
+      <div id="available-list" class="cian-list" aria-live="polite"></div>
+      <div id="available-empty" class="cian-empty" hidden><span aria-hidden="true">⌕</span><h3>Предложений пока нет</h3><p>После планового обновления здесь появятся актуальные помещения ЦИАН.</p></div>
+    </div>
+    <aside class="cian-map-card" aria-labelledby="cian-map-title">
+      <div class="cian-section-heading"><div><p class="cian-eyebrow">Расположение</p><h2 id="cian-map-title">Карта предложений</h2></div><span class="cian-map-count" id="cian-map-count">0 точек</span></div>
+      <div id="cian-map" class="cian-map" tabindex="0" aria-label="Карта объявлений ЦИАН"></div>
+      <div id="cian-map-loading" class="cian-map-overlay" role="status">Загружаем карту…</div>
+      <p id="cian-map-message">Объявления без координат остаются в списке.</p>
+    </aside>
+  </section>
+</main>
+
+<dialog class="cian-dialog" id="cian-listing-dialog" aria-labelledby="cian-dialog-title"><div id="cian-dialog-content"></div></dialog>
+<div id="available-toast" class="phase0-toast" role="status" aria-live="polite"></div>
+
+<script src="professional-core.js?v=31"></script><script src="professional-shell.js?v=761"></script><script src="yandex-map-config.js?v=62"></script><script src="phase0-config.js?v=761"></script><script src="shared-workspace.js?v=761"></script><script src="cian-workspace.js?v=761"></script>
+</body>
+</html>

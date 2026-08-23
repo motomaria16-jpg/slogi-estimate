@@ -1,0 +1,103 @@
+{
+  "app": "SLOGI",
+  "version": "76.1.0",
+  "releaseName": "Cian Shared Workspace",
+  "releaseType": "feature",
+  "releaseDate": "2026-08-23",
+  "status": "released",
+  "baseTag": "v76.0.1",
+  "databaseBaseline": {
+    "migrationPath": "supabase/migrations/20260814_7601_baseline.sql",
+    "recordedV7601WorkingTreeSha256": "a4ab16221f6c76c21b6f541c7780111afcbcc72b8726cdac75c0d0adea656bc3",
+    "canonicalTaggedBlobSha256": "0830bc91a01ac002bb461fbc7a243a1c946247c987e1b10a46906aa5b07e44c7",
+    "localCrlfCheckoutSha256": "10132242682ed5940e627e42e141f5a6b9c5ecdf3d55176ba4ab3dc222b6e587",
+    "unchangedFromBaseTag": true,
+    "cleanEnvironmentApplyTested": true
+  },
+  "forwardMigrations": {
+    "listingRefresh": {
+      "path": "supabase/migrations/20260821_7610_listing_refresh.sql",
+      "sourceSha256": "efdeb03e49eb8ae93b19ab4fdf0000f2d2b47e45368e68a1f1cdf227fd820f25"
+    },
+    "sharedWorkspace": {
+      "path": "supabase/migrations/20260823_7611_shared_workspace.sql",
+      "sourceSha256": "c4097cd4ae74b138d62d7858fcee7efb991ca83406ef843d187ce00fff7b5eda"
+    }
+  },
+  "edgeFunctions": {
+    "geocode-address": {
+      "path": "supabase/functions/geocode-address/index.ts",
+      "verifyJwt": false,
+      "sourceSha256": "3abba2c902966a8392ce46baf22be3a33caee77575c35122742c0df2b1cf4e7f"
+    },
+    "import-listing": {
+      "path": "supabase/functions/import-listing/index.ts",
+      "verifyJwt": true,
+      "sourceSha256": "5631da65fed7bb9715011f88b0972439aba1bb079b7269d4bab2f4cd42d114b9"
+    },
+    "search-listings": {
+      "path": "supabase/functions/search-listings/index.ts",
+      "verifyJwt": true,
+      "sourceSha256": "8e5b5460b4a612cb19b6f649e4713a30d5e9d82b5f5d9f9c3dde08a4a1893787"
+    },
+    "refresh-listings": {
+      "path": "supabase/functions/refresh-listings/index.ts",
+      "verifyJwt": true,
+      "sourceSha256": "d5c92641d0a82045720724bea1661900ccee0bdf3b8e2170c9d936bdfda2d657"
+    },
+    "hydrate-listings": {
+      "path": "supabase/functions/hydrate-listings/index.ts",
+      "verifyJwt": true,
+      "sourceSha256": "6a79dc3fde0bab481f4f37076b2c22cd03ba66311a24627fb7f47029a8c799c0"
+    },
+    "join-workspace": {
+      "path": "supabase/functions/join-workspace/index.ts",
+      "verifyJwt": true,
+      "sourceSha256": "a4fb0b120a96d760d96361d63a05e76909d550475a2ba674476b36928fb1e62a"
+    },
+    "sharedListingsModuleSha256": "ff4ddd2a6b20b61182b6e8f308a1973722662b1c5702f4abc6333b6ac3cb7ac0"
+  },
+  "releaseGate": {
+    "canonicalGitCommit": "88372f4b194d028192482ddf99598fc39ba301de",
+    "metadataGitCommit": "eeb23056788290dc1087637c6f2021779662b1ed",
+    "gitTag": "v76.1.0",
+    "cleanEnvironmentApplyTested": true,
+    "catalogAuditPassed": true,
+    "unitFixtureTests": {
+      "passed": 30,
+      "failed": 0
+    },
+    "edgeFunctionsLoaded": 6,
+    "frontendJavaScriptParsed": 24,
+    "localCianIntegrationPassed": true,
+    "sharedWorkspaceCrossDevicePassed": true,
+    "storageRlsPassed": true,
+    "browserDesktopPassed": true,
+    "browserResponsivePassed": true,
+    "accessibilitySmokePassed": true,
+    "secretScanPassed": true,
+    "avitoRuntimeAbsent": true,
+    "ozonRuntimeAbsent": true,
+    "externalBrowserlessCalls": 2,
+    "cianLiveEvidencePassed": true,
+    "cianLiveEvidenceStatus": "passed",
+    "cianLiveEvidence": {
+      "hostname": "production-sfo.browserless.io",
+      "discoveryCalls": 1,
+      "cardCalls": 1,
+      "httpResponses": 2,
+      "canonicalUrlsDiscovered": 28,
+      "externalId": "326369393",
+      "freshnessKind": "updated",
+      "freshnessAt": "2026-08-23T09:11:00.000Z",
+      "localPersistencePassed": true,
+      "authenticatedSearchPassed": true,
+      "unauthenticatedSearchRejected": true,
+      "browserUiReadPassed": true,
+      "browserConsoleErrors": 0
+    },
+    "publicationAllowed": true,
+    "testEnvironment": "isolated-local-supabase-postgresql-17"
+  },
+  "nextTarget": "production deployment requires separate owner authorization"
+}

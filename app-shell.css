@@ -1,4 +1,5 @@
 /* СЛОГИ — единая лёгкая оболочка всех страниц, версия 2 */
+@import url("design-system-v76-1.css?v=761");
 :root{
   --site-layout-max:1460px;
   --site-layout-gutter:30px;
@@ -101,15 +102,9 @@ body>main,body>main.objects-main,body>.layout,#pro-app,.portfolio-shell{
 .pro-page-head h1{color:var(--app-teal-dark)!important;font-size:26px!important}
 .pro-card,.pro-kpi,.portfolio-card,.dashboard-card,.kpi-card{box-shadow:0 10px 30px rgba(42,63,67,.065)!important}
 /* Элементы никогда не должны перехватывать страницу, когда скрыты. */
-.pro-modal-backdrop:not(.open),.slogi-account-panel:not(.show){pointer-events:none!important}
-.pro-modal-backdrop.open,.slogi-account-panel.show{pointer-events:auto!important}
+.pro-modal-backdrop:not(.open){pointer-events:none!important}
+.pro-modal-backdrop.open{pointer-events:auto!important}
 .pro-drawer:not(.open){pointer-events:none!important}.pro-drawer.open{pointer-events:auto!important}
-/* Кабинет размещается под всей шапкой, включая меню. */
-.slogi-account-panel{
-  top:calc(var(--app-shell-height,122px) + 8px)!important;
-  z-index:2147483100!important;
-}
-.slogi-account-nav{z-index:10!important}
 /* Legacy-страницы: убираем прежний искусственный верхний отступ. */
 main,.main,.layout,.workspace,.objects-main{margin-top:0!important}
 .map-column{top:12px!important}
@@ -118,7 +113,6 @@ main,.main,.layout,.workspace,.objects-main{margin-top:0!important}
   :root{--site-layout-gutter:20px}
   .pro-global-search-wrap{display:none!important}
   .site-header .top{gap:12px!important}
-  .slogi-account-trigger{min-width:170px!important;max-width:210px!important}
 }
 @media(max-width:760px){
   :root{--site-layout-gutter:14px;--site-header-height:64px}
@@ -129,14 +123,10 @@ main,.main,.layout,.workspace,.objects-main{margin-top:0!important}
   .site-header .title-wrap{padding-left:10px!important}
   .site-header h1,.site-header .title-wrap>h1{font-size:13.5px!important}
   .site-header .subtitle,.site-header .title-wrap>.subtitle{font-size:10.5px!important;max-width:46vw!important}
-  .slogi-account-trigger{min-width:42px!important;width:42px!important;max-width:42px!important;padding:4px!important;border:0!important;box-shadow:none!important;background:transparent!important}
-  .slogi-account-summary,.slogi-account-chevron{display:none!important}
-  .slogi-account-avatar{width:34px!important;height:34px!important;flex-basis:34px!important}
   .pro-nav-inner{min-height:46px!important;padding:4px var(--site-layout-gutter)!important}
   .pro-nav a{padding:8px 10px!important;font-size:11px!important}
   .pro-page,.portfolio-shell{padding:20px var(--site-layout-gutter) 54px!important}
   .pro-page-head h1{font-size:22px!important}
-  .slogi-account-panel{right:8px!important;width:calc(100vw - 16px)!important;top:calc(var(--app-shell-height,110px) + 6px)!important}
 }
 @media(max-width:430px){
   .site-header .logo-word span:nth-child(n+4){display:none!important}
@@ -145,21 +135,7 @@ main,.main,.layout,.workspace,.objects-main{margin-top:0!important}
   .pro-page,.portfolio-shell{padding-left:11px!important;padding-right:11px!important}
 }
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
-/* Кабинет всегда остаётся компактным элементом шапки, в том числе на планшетах. */
-.site-header .slogi-account-nav{
-  order:initial!important;width:auto!important;max-width:270px!important;
-  margin-left:auto!important;flex:0 0 auto!important;align-self:center!important;
-}
-.site-header .slogi-account-trigger{width:auto!important;max-width:260px!important}
 body{touch-action:pan-x pan-y;overscroll-behavior-y:auto!important}
-@media(max-width:960px){
-  .site-header .slogi-account-nav{order:initial!important;width:auto!important;max-width:210px!important;margin-left:auto!important}
-  .site-header .slogi-account-trigger{width:auto!important;min-width:170px!important;max-width:210px!important}
-}
-@media(max-width:760px){
-  .site-header .slogi-account-nav{width:42px!important;min-width:42px!important;max-width:42px!important}
-  .site-header .slogi-account-trigger{width:42px!important;min-width:42px!important;max-width:42px!important}
-}
 
 /* === Структура навигации v20: портфель и конкретный объект разделены явно === */
 .site-header h1,.site-header .title-wrap>h1{
@@ -190,21 +166,6 @@ body{touch-action:pan-x pan-y;overscroll-behavior-y:auto!important}
 .object-context-links a.disabled{opacity:.38;pointer-events:none}
 .object-new-link{margin-left:auto;background:#fff;border:1px solid #cbd9d8;color:#35565b!important}
 .object-new-link:hover{background:#eaf1f1}
-/* Аккаунт располагается ниже всей трёхуровневой оболочки. */
-.slogi-account-panel{top:calc(var(--app-shell-height,170px) + 8px)!important}
-/* Новый компактный личный кабинет */
-.slogi-account-panel[data-mode="account"]{width:min(640px,calc(100vw - 28px))!important;padding:18px!important}
-.slogi-account-dashboard{display:grid;gap:14px}
-.slogi-account-quick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.slogi-account-quick a{display:flex;flex-direction:column;gap:3px;padding:11px 12px;border:1px solid #d5e1e1;border-radius:11px;background:#fff;color:#314b50;text-decoration:none}
-.slogi-account-quick a strong{font-size:12.5px}.slogi-account-quick a span{font-size:10.5px;color:#72868a}
-.slogi-account-tabs{display:flex;gap:6px;padding:4px;background:#f2f6f6;border-radius:11px}
-.slogi-account-tab{flex:1;min-height:35px;border:0;border-radius:8px;background:transparent;color:#667c80;font:850 11.5px Arial;cursor:pointer}
-.slogi-account-tab.active{background:#fff;color:#36565b;box-shadow:0 3px 10px rgba(48,72,77,.08)}
-.slogi-account-pane{display:none;padding:4px 1px}.slogi-account-pane.active{display:block}
-.slogi-account-profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
-.slogi-account-profile-grid .full{grid-column:1/-1}
-.slogi-account-section-title{margin:0 0 8px;color:#36565b;font-size:13px;font-weight:900}
 .slogi-role-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border:1px solid #d7e1e1;border-radius:11px;background:#f9fbfb}
 @media(max-width:1160px){.pro-nav-scope{display:none}.object-context-scope{display:none}.object-new-link{margin-left:0}}
 @media(max-width:760px){
@@ -214,9 +175,6 @@ body{touch-action:pan-x pan-y;overscroll-behavior-y:auto!important}
   .object-phase-chip{display:none}
   .object-context-links a{padding:7px 8px;font-size:10px}
   .object-new-link{display:none}
-  .slogi-account-quick{grid-template-columns:1fr 1fr}
-  .slogi-account-profile-grid{grid-template-columns:1fr}
-  .slogi-account-profile-grid .full{grid-column:1}
 }
 
 /* === Интуитивная структура сайта v30 === */
@@ -234,7 +192,6 @@ body{touch-action:pan-x pan-y;overscroll-behavior-y:auto!important}
 #active-object-select{font-size:12px!important;min-width:230px!important;max-width:350px!important}
 .pro-management-trigger{border-radius:9px!important;color:#667b7f!important}
 .pro-management-menu{z-index:2147483300!important}
-.slogi-account-panel{top:calc(var(--app-shell-height,180px) + 8px)!important}
 @media(max-width:1260px){
   .object-stage-chip{display:none}
   .object-context-links a{padding:8px 8px!important}
@@ -256,4 +213,252 @@ body{touch-action:pan-x pan-y;overscroll-behavior-y:auto!important}
 @media(max-width:480px){
   .site-header .logo-word span:nth-child(4),.site-header .logo-word span:nth-child(5){display:none!important}
   #active-object-select{min-width:185px!important;flex-basis:210px!important}
+}
+
+/* === Продуктовая оболочка: три понятных этапа и компактные инструменты === */
+.site-header{background:#fffdfb!important;box-shadow:0 4px 16px rgba(48,72,77,.055)!important}
+.site-header .top{height:64px!important;min-height:64px!important;max-height:64px!important}
+.site-header .brand{flex:0 0 auto!important}
+.site-header .title-wrap{display:none!important}
+.site-header .logo-word span{width:30px!important;height:30px!important;font-size:18px!important;box-shadow:none!important}
+.pro-header-utilities{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0;margin-left:auto}
+.pro-header-utilities .pro-global-search-wrap{display:flex!important;height:38px!important;min-width:220px!important;max-width:300px!important;flex:0 1 300px!important}
+.pro-header-utilities .pro-notification-btn{position:relative;display:grid!important;width:42px!important;height:42px!important;min-width:42px!important;min-height:42px!important;place-items:center;padding:0!important;border:1px solid #dbe3e2!important;border-radius:10px!important;background:#fff!important;color:#526c71!important}
+.pro-header-utilities .pro-notification-btn:hover{background:#edf3f3!important;color:#36565b!important}
+.site-header>.pro-nav,.pro-nav{border-top:1px solid #eef1f0!important;border-bottom:1px solid #dfe6e5!important}
+.pro-nav-inner{min-height:48px!important;padding-top:4px!important;padding-bottom:4px!important;overflow:visible!important}
+.pro-product-nav{display:flex;align-items:center;gap:3px;min-width:0}
+.pro-product-nav a{position:relative;display:inline-flex!important;min-height:40px;align-items:center;justify-content:center;padding:9px 16px!important;border-radius:9px!important;color:#667b7f!important;text-decoration:none;white-space:nowrap}
+.pro-product-nav a:hover{background:#f0f4f4!important;color:#36565b!important}
+.pro-product-nav a.active{background:#e7efef!important;color:#2f5359!important}
+.pro-product-nav a.active::after{position:absolute;right:14px;bottom:-5px;left:14px;height:2px;border-radius:2px;background:#4b6e73;content:""}
+.pro-nav-label-short{display:none}
+.pro-nav .pro-management-trigger{min-height:40px!important;padding:9px 12px!important;border:1px solid transparent!important}
+.pro-nav .pro-management-trigger:hover,.pro-nav .pro-management-trigger.active{border-color:#d7e1e0!important}
+.pro-management-menu{top:calc(100% + 6px)!important;min-width:220px!important;grid-template-columns:1fr!important}
+.pro-management-menu a{min-height:40px!important;align-items:center!important}
+.pro-tools-menu{width:260px!important;padding:8px!important;gap:0!important}
+.pro-management-group{display:grid;padding:5px 0;border-bottom:1px solid #e8eeed}
+.pro-management-group:last-child{border-bottom:0}
+.pro-management-group-title{padding:5px 10px 3px;color:#829194;font-size:9px;font-weight:850;letter-spacing:.07em;text-transform:uppercase}
+.pro-management-group a{min-height:34px!important;padding:7px 10px!important;border-radius:7px!important}
+.object-context-inner{min-height:46px!important;padding-top:5px!important;padding-bottom:5px!important}
+.object-context-scope{background:#edf3f3!important;color:#526c71!important}
+.object-stage-chip{min-height:28px!important;background:#f6efe2!important}
+.object-context-links a{min-height:34px!important}
+.object-new-link{min-height:36px!important}
+
+@media(max-width:1080px){
+  .pro-header-utilities .pro-global-search-wrap{display:flex!important;min-width:180px!important;max-width:230px!important}
+}
+@media(max-width:760px){
+  .site-header .top{height:58px!important;min-height:58px!important;max-height:58px!important}
+  .site-header .logo-word span{display:grid!important;width:27px!important;height:27px!important;font-size:16px!important}
+  .site-header .logo-word span:nth-child(5){display:none!important}
+  .pro-header-utilities .pro-global-search-wrap{display:none!important}
+  .pro-header-utilities{gap:4px}
+  .pro-nav-inner{min-height:50px!important;gap:5px!important;overflow:visible!important}
+  .pro-product-nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));flex:1;gap:3px;padding:3px;border:1px solid #dde6e5;border-radius:11px;background:#f1f5f5}
+  .pro-product-nav a{min-width:0;min-height:38px;padding:8px 7px!important;font-size:11px!important}
+  .pro-product-nav a.active{background:#fff!important;box-shadow:0 2px 7px rgba(48,72,77,.07)!important}
+  .pro-product-nav a.active::after{display:none}
+  .pro-nav-label-full{display:none}.pro-nav-label-short{display:inline}
+  .pro-nav-spacer{display:none!important}
+  .pro-nav .pro-management-trigger{width:42px;min-width:42px;justify-content:center;padding:8px 6px!important;font-size:0!important}
+  .pro-nav .pro-management-trigger::before{font-size:18px;line-height:1;content:"⋯"}
+  .pro-nav .pro-management-trigger span{display:none}
+  .pro-management-menu{right:0;top:calc(100% + 5px)!important;width:min(260px,calc(100vw - 28px))}
+  .object-context-inner{min-height:46px!important}
+}
+@media(max-width:430px){
+  .site-header .logo-word span:nth-child(4),.site-header .logo-word span:nth-child(5){display:none!important}
+  .pro-product-nav a{font-size:10.5px!important}
+}
+
+
+/* v52 desktop scale tuning */
+@media(min-width:901px){
+  .site-header .top{height:70px!important;min-height:70px!important;max-height:70px!important}
+  .site-header .logo-word span{width:34px!important;height:34px!important;font-size:20px!important}
+  .pro-nav-inner{min-height:54px!important}
+  .pro-product-nav a{min-height:44px!important;padding:10px 20px!important;font-size:13px!important;font-weight:850!important}
+  .pro-nav .pro-management-trigger{min-height:44px!important;padding:10px 14px!important;font-size:12px!important}
+  .pro-header-utilities .pro-global-search-wrap{height:42px!important}
+  .pro-header-utilities .pro-notification-btn{width:44px!important;height:44px!important}
+}
+
+/* ======================================================================
+   v53 — Search workspace shell. Matches the approved visual reference.
+   Scoped to the search page so the remaining product pages are unchanged.
+   ====================================================================== */
+.slogi-search-page{
+  --site-layout-max:1460px;
+  --site-layout-gutter:38px;
+  background:#fbfcfc!important;
+}
+.slogi-search-page .site-header{
+  position:sticky!important;
+  top:0!important;
+  z-index:2147482000!important;
+  background:rgba(255,255,255,.985)!important;
+  border:0!important;
+  border-bottom:1px solid #e8eceb!important;
+  box-shadow:none!important;
+}
+.slogi-search-page .site-header .top{
+  width:100%!important;
+  max-width:1536px!important;
+  height:74px!important;
+  min-height:74px!important;
+  max-height:74px!important;
+  margin:0 auto!important;
+  padding:0 38px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:30px!important;
+  overflow:visible!important;
+}
+.slogi-search-page .site-header .brand{
+  flex:0 0 auto!important;
+  min-width:auto!important;
+  margin:0!important;
+}
+.slogi-search-page .site-header .logo-word{gap:4px!important}
+.slogi-search-page .site-header .logo-word span{
+  width:34px!important;height:34px!important;
+  border-radius:6px!important;
+  font-size:20px!important;
+  line-height:1!important;
+  box-shadow:none!important;
+}
+.slogi-search-page .site-header .logo-word span:nth-child(5){transform:none!important}
+
+/* Primary product navigation is one row with the brand, like the approved mockup. */
+.slogi-search-page .site-header .top>.pro-nav{
+  position:static!important;
+  width:auto!important;
+  min-width:0!important;
+  flex:1 1 auto!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+.slogi-search-page .site-header .top>.pro-nav .pro-nav-inner{
+  width:auto!important;
+  max-width:none!important;
+  min-height:74px!important;
+  height:74px!important;
+  margin:0!important;
+  padding:0!important;
+  display:flex!important;
+  align-items:stretch!important;
+  gap:0!important;
+  overflow:visible!important;
+}
+.slogi-search-page .pro-product-nav{
+  display:flex!important;
+  align-items:stretch!important;
+  gap:18px!important;
+  height:74px!important;
+}
+.slogi-search-page .pro-product-nav a{
+  position:relative!important;
+  display:flex!important;
+  min-height:74px!important;
+  height:74px!important;
+  align-items:center!important;
+  padding:0 15px!important;
+  border-radius:0!important;
+  background:transparent!important;
+  color:#202d30!important;
+  font-size:15px!important;
+  font-weight:800!important;
+  line-height:1!important;
+  text-decoration:none!important;
+  box-shadow:none!important;
+}
+.slogi-search-page .pro-product-nav a:hover{background:transparent!important;color:#0a6e72!important}
+.slogi-search-page .pro-product-nav a.active{background:transparent!important;color:#087579!important}
+.slogi-search-page .pro-product-nav a.active::after{
+  content:""!important;
+  position:absolute!important;
+  left:15px!important;right:15px!important;bottom:0!important;
+  height:2px!important;
+  border-radius:2px!important;
+  background:#0b7b7f!important;
+}
+.slogi-search-page .pro-nav-spacer{display:block!important;flex:1 1 auto!important}
+.slogi-search-page .site-header .top>.pro-nav .pro-management{
+  display:flex!important;
+  align-items:center!important;
+  margin-left:auto!important;
+}
+.slogi-search-page .site-header .top>.pro-nav .pro-management-trigger{
+  min-height:42px!important;
+  padding:0 16px!important;
+  border:1px solid #e1e7e6!important;
+  border-radius:10px!important;
+  background:#f4f7f7!important;
+  color:#25373a!important;
+  font-size:12.5px!important;
+  font-weight:750!important;
+  box-shadow:none!important;
+}
+.slogi-search-page .site-header .top>.pro-nav .pro-management-trigger:hover{background:#edf3f3!important}
+.slogi-search-page .site-header .top>.pro-nav .pro-management-menu{right:0!important;top:calc(100% - 10px)!important}
+
+.slogi-search-page .pro-header-utilities{
+  display:flex!important;
+  flex:0 0 auto!important;
+  align-items:center!important;
+  gap:10px!important;
+  margin-left:0!important;
+  order:3!important;
+}
+.slogi-search-page .pro-header-utilities .pro-global-search-wrap{display:none!important}
+.slogi-search-page .pro-header-utilities .pro-notification-btn{
+  width:42px!important;height:42px!important;min-width:42px!important;min-height:42px!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:50%!important;
+  background:transparent!important;
+  color:#273c40!important;
+}
+.slogi-search-page .pro-header-utilities .pro-notification-btn:hover{background:#f3f7f6!important}
+.slogi-search-page .pro-notification-count{top:3px!important;right:1px!important}
+
+@media(max-width:1120px) and (min-width:761px){
+  .slogi-search-page .site-header .top{padding-inline:22px!important;gap:15px!important}
+  .slogi-search-page .pro-product-nav{gap:4px!important}
+  .slogi-search-page .pro-product-nav a{padding-inline:10px!important;font-size:13px!important}
+}
+
+@media(max-width:760px){
+  .slogi-search-page{--site-layout-gutter:12px}
+  .slogi-search-page .site-header .top{
+    height:auto!important;min-height:58px!important;max-height:none!important;
+    padding:0 12px 8px!important;
+    display:flex!important;flex-wrap:wrap!important;gap:6px 8px!important;
+  }
+  .slogi-search-page .site-header .brand{height:58px!important;display:flex!important;align-items:center!important}
+  .slogi-search-page .site-header .logo-word span{display:grid!important;width:27px!important;height:27px!important;font-size:16px!important}
+  .slogi-search-page .site-header .logo-word span:nth-child(5){display:none!important}
+  .slogi-search-page .pro-header-utilities{height:58px!important;margin-left:auto!important}
+  .slogi-search-page .site-header .top>.pro-nav{order:5!important;flex:0 0 100%!important;width:100%!important}
+  .slogi-search-page .site-header .top>.pro-nav .pro-nav-inner{height:auto!important;min-height:48px!important;width:100%!important}
+  .slogi-search-page .pro-product-nav{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;width:100%!important;height:auto!important;gap:3px!important;padding:3px!important;border:1px solid #dde6e5!important;border-radius:11px!important;background:#f1f5f5!important}
+  .slogi-search-page .pro-product-nav a{height:40px!important;min-height:40px!important;padding:8px 5px!important;border-radius:8px!important;font-size:11px!important}
+  .slogi-search-page .pro-product-nav a.active{background:#fff!important;box-shadow:0 2px 7px rgba(48,72,77,.07)!important}
+  .slogi-search-page .pro-product-nav a.active::after{display:none!important}
+  .slogi-search-page .site-header .top>.pro-nav .pro-nav-spacer,
+  .slogi-search-page .site-header .top>.pro-nav .pro-management{display:none!important}
+}
+
+/* v55 search: remove any legacy space above the fixed desktop header. */
+@media(min-width:901px){
+  html,body.slogi-search-page{margin-top:0!important}
+  body.slogi-search-page{padding-top:74px!important}
+  body.slogi-search-page>.site-header{position:fixed!important;top:0!important;left:0!important;right:0!important;margin:0!important}
 }

@@ -156,7 +156,6 @@ button,input,select,textarea{
 .pro-nav-scope,.object-context-scope,
 #active-object-select,.object-stage-chip,.object-phase-chip,
 .object-context-links a,.object-new-link,
-.slogi-account-trigger,.slogi-account-panel,
 .pro-btn,.wf-btn,.pro-status,.pro-chip{
   font-family:var(--slogi-ui-font)!important;
 }

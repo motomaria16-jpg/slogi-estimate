@@ -1,0 +1,17 @@
+[functions.import-listing]
+verify_jwt = true
+
+[functions.geocode-address]
+verify_jwt = false
+
+[functions.search-listings]
+verify_jwt = true
+
+[functions.refresh-listings]
+verify_jwt = true
+
+[functions.hydrate-listings]
+verify_jwt = true
+
+[functions.join-workspace]
+verify_jwt = true
