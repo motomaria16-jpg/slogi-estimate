@@ -4,7 +4,7 @@
   "releaseName": "Cian Shared Workspace",
   "releaseType": "feature",
   "releaseDate": "2026-08-23",
-  "status": "candidate",
+  "status": "released",
   "baseTag": "v76.0.1",
   "databaseBaseline": {
     "migrationPath": "supabase/migrations/20260814_7601_baseline.sql",
@@ -59,8 +59,8 @@
   },
   "releaseGate": {
     "canonicalGitCommit": "88372f4b194d028192482ddf99598fc39ba301de",
-    "metadataGitCommit": null,
-    "gitTag": null,
+    "metadataGitCommit": "eeb23056788290dc1087637c6f2021779662b1ed",
+    "gitTag": "v76.1.0",
     "cleanEnvironmentApplyTested": true,
     "catalogAuditPassed": true,
     "unitFixtureTests": {
@@ -99,5 +99,5 @@
     "publicationAllowed": true,
     "testEnvironment": "isolated-local-supabase-postgresql-17"
   },
-  "nextTarget": "content commits and GitHub pull request"
+  "nextTarget": "production deployment requires separate owner authorization"
 }
