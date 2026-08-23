@@ -44,6 +44,12 @@
     return{locations:Array.isArray(state.locations)?state.locations:[],workspace:state.workspace&&typeof state.workspace==='object'&&!Array.isArray(state.workspace)?state.workspace:{}};
   }
   function serialized(value){return JSON.stringify(normalizedState(value));}
+  async function isRevisionConflict(response){
+    if(response.status===400||response.status===409)return true;
+    if(response.status!==500)return false;
+    const payload=await response.clone().json().catch(()=>null);
+    return payload&&payload.code==='40001'&&payload.message==='workspace_revision_conflict';
+  }
 
   function nativeSet(key,value){internalWrite=true;try{originalSetItem.call(localStorage,key,value);}finally{internalWrite=false;}}
   function applyRemoteState(value){
@@ -149,7 +155,7 @@
         nativeSet(CACHE_KEY,JSON.stringify({workspaceId:membership.workspace_id,revision,state,updatedAt:row&&row.updated_at||new Date().toISOString()}));
         return true;
       }
-      if(response.status===409||response.status===400){
+      if(await isRevisionConflict(response)){
         nativeSet(CONFLICT_KEY,JSON.stringify({workspaceId:membership.workspace_id,state,savedAt:new Date().toISOString()}));
         const remote=await readRemoteState();
         if(remote)applyRemoteState(remote);
