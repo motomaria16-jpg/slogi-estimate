@@ -1,4 +1,5 @@
 /* СЛОГИ — единая лёгкая оболочка всех страниц, версия 2 */
+@import url("design-system-v76-1.css?v=761");
 :root{
   --site-layout-max:1460px;
   --site-layout-gutter:30px;
@@ -101,15 +102,9 @@ body>main,body>main.objects-main,body>.layout,#pro-app,.portfolio-shell{
 .pro-page-head h1{color:var(--app-teal-dark)!important;font-size:26px!important}
 .pro-card,.pro-kpi,.portfolio-card,.dashboard-card,.kpi-card{box-shadow:0 10px 30px rgba(42,63,67,.065)!important}
 /* Элементы никогда не должны перехватывать страницу, когда скрыты. */
-.pro-modal-backdrop:not(.open),.slogi-account-panel:not(.show){pointer-events:none!important}
-.pro-modal-backdrop.open,.slogi-account-panel.show{pointer-events:auto!important}
+.pro-modal-backdrop:not(.open){pointer-events:none!important}
+.pro-modal-backdrop.open{pointer-events:auto!important}
 .pro-drawer:not(.open){pointer-events:none!important}.pro-drawer.open{pointer-events:auto!important}
-/* Кабинет размещается под всей шапкой, включая меню. */
-.slogi-account-panel{
-  top:calc(var(--app-shell-height,122px) + 8px)!important;
-  z-index:2147483100!important;
-}
-.slogi-account-nav{z-index:10!important}
 /* Legacy-страницы: убираем прежний искусственный верхний отступ. */
 main,.main,.layout,.workspace,.objects-main{margin-top:0!important}
 .map-column{top:12px!important}
@@ -118,7 +113,6 @@ main,.main,.layout,.workspace,.objects-main{margin-top:0!important}
   :root{--site-layout-gutter:20px}
   .pro-global-search-wrap{display:none!important}
   .site-header .top{gap:12px!important}
-  .slogi-account-trigger{min-width:170px!important;max-width:210px!important}
 }
 @media(max-width:760px){
   :root{--site-layout-gutter:14px;--site-header-height:64px}
@@ -129,14 +123,10 @@ main,.main,.layout,.workspace,.objects-main{margin-top:0!important}
   .site-header .title-wrap{padding-left:10px!important}
   .site-header h1,.site-header .title-wrap>h1{font-size:13.5px!important}
   .site-header .subtitle,.site-header .title-wrap>.subtitle{font-size:10.5px!important;max-width:46vw!important}
-  .slogi-account-trigger{min-width:42px!important;width:42px!important;max-width:42px!important;padding:4px!important;border:0!important;box-shadow:none!important;background:transparent!important}
-  .slogi-account-summary,.slogi-account-chevron{display:none!important}
-  .slogi-account-avatar{width:34px!important;height:34px!important;flex-basis:34px!important}
   .pro-nav-inner{min-height:46px!important;padding:4px var(--site-layout-gutter)!important}
   .pro-nav a{padding:8px 10px!important;font-size:11px!important}
   .pro-page,.portfolio-shell{padding:20px var(--site-layout-gutter) 54px!important}
   .pro-page-head h1{font-size:22px!important}
-  .slogi-account-panel{right:8px!important;width:calc(100vw - 16px)!important;top:calc(var(--app-shell-height,110px) + 6px)!important}
 }
 @media(max-width:430px){
   .site-header .logo-word span:nth-child(n+4){display:none!important}
@@ -145,21 +135,7 @@ main,.main,.layout,.workspace,.objects-main{margin-top:0!important}
   .pro-page,.portfolio-shell{padding-left:11px!important;padding-right:11px!important}
 }
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
-/* Кабинет всегда остаётся компактным элементом шапки, в том числе на планшетах. */
-.site-header .slogi-account-nav{
-  order:initial!important;width:auto!important;max-width:270px!important;
-  margin-left:auto!important;flex:0 0 auto!important;align-self:center!important;
-}
-.site-header .slogi-account-trigger{width:auto!important;max-width:260px!important}
 body{touch-action:pan-x pan-y;overscroll-behavior-y:auto!important}
-@media(max-width:960px){
-  .site-header .slogi-account-nav{order:initial!important;width:auto!important;max-width:210px!important;margin-left:auto!important}
-  .site-header .slogi-account-trigger{width:auto!important;min-width:170px!important;max-width:210px!important}
-}
-@media(max-width:760px){
-  .site-header .slogi-account-nav{width:42px!important;min-width:42px!important;max-width:42px!important}
-  .site-header .slogi-account-trigger{width:42px!important;min-width:42px!important;max-width:42px!important}
-}
 
 /* === Структура навигации v20: портфель и конкретный объект разделены явно === */
 .site-header h1,.site-header .title-wrap>h1{
@@ -190,21 +166,6 @@ body{touch-action:pan-x pan-y;overscroll-behavior-y:auto!important}
 .object-context-links a.disabled{opacity:.38;pointer-events:none}
 .object-new-link{margin-left:auto;background:#fff;border:1px solid #cbd9d8;color:#35565b!important}
 .object-new-link:hover{background:#eaf1f1}
-/* Аккаунт располагается ниже всей трёхуровневой оболочки. */
-.slogi-account-panel{top:calc(var(--app-shell-height,170px) + 8px)!important}
-/* Новый компактный личный кабинет */
-.slogi-account-panel[data-mode="account"]{width:min(640px,calc(100vw - 28px))!important;padding:18px!important}
-.slogi-account-dashboard{display:grid;gap:14px}
-.slogi-account-quick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.slogi-account-quick a{display:flex;flex-direction:column;gap:3px;padding:11px 12px;border:1px solid #d5e1e1;border-radius:11px;background:#fff;color:#314b50;text-decoration:none}
-.slogi-account-quick a strong{font-size:12.5px}.slogi-account-quick a span{font-size:10.5px;color:#72868a}
-.slogi-account-tabs{display:flex;gap:6px;padding:4px;background:#f2f6f6;border-radius:11px}
-.slogi-account-tab{flex:1;min-height:35px;border:0;border-radius:8px;background:transparent;color:#667c80;font:850 11.5px Arial;cursor:pointer}
-.slogi-account-tab.active{background:#fff;color:#36565b;box-shadow:0 3px 10px rgba(48,72,77,.08)}
-.slogi-account-pane{display:none;padding:4px 1px}.slogi-account-pane.active{display:block}
-.slogi-account-profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
-.slogi-account-profile-grid .full{grid-column:1/-1}
-.slogi-account-section-title{margin:0 0 8px;color:#36565b;font-size:13px;font-weight:900}
 .slogi-role-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border:1px solid #d7e1e1;border-radius:11px;background:#f9fbfb}
 @media(max-width:1160px){.pro-nav-scope{display:none}.object-context-scope{display:none}.object-new-link{margin-left:0}}
 @media(max-width:760px){
@@ -214,9 +175,6 @@ body{touch-action:pan-x pan-y;overscroll-behavior-y:auto!important}
   .object-phase-chip{display:none}
   .object-context-links a{padding:7px 8px;font-size:10px}
   .object-new-link{display:none}
-  .slogi-account-quick{grid-template-columns:1fr 1fr}
-  .slogi-account-profile-grid{grid-template-columns:1fr}
-  .slogi-account-profile-grid .full{grid-column:1}
 }
 
 /* === Интуитивная структура сайта v30 === */
@@ -234,7 +192,6 @@ body{touch-action:pan-x pan-y;overscroll-behavior-y:auto!important}
 #active-object-select{font-size:12px!important;min-width:230px!important;max-width:350px!important}
 .pro-management-trigger{border-radius:9px!important;color:#667b7f!important}
 .pro-management-menu{z-index:2147483300!important}
-.slogi-account-panel{top:calc(var(--app-shell-height,180px) + 8px)!important}
 @media(max-width:1260px){
   .object-stage-chip{display:none}
   .object-context-links a{padding:8px 8px!important}
@@ -471,33 +428,11 @@ body{touch-action:pan-x pan-y;overscroll-behavior-y:auto!important}
 }
 .slogi-search-page .pro-header-utilities .pro-notification-btn:hover{background:#f3f7f6!important}
 .slogi-search-page .pro-notification-count{top:3px!important;right:1px!important}
-.slogi-search-page .site-header .slogi-account-nav{
-  order:4!important;
-  flex:0 0 auto!important;
-  width:auto!important;
-  max-width:220px!important;
-  margin-left:0!important;
-}
-.slogi-search-page .site-header .slogi-account-trigger{
-  min-width:170px!important;
-  max-width:220px!important;
-  min-height:46px!important;
-  padding:5px 10px!important;
-  border:0!important;
-  border-radius:12px!important;
-  background:#fff!important;
-  box-shadow:none!important;
-}
-.slogi-search-page .slogi-account-avatar{width:36px!important;height:36px!important;flex-basis:36px!important}
-.slogi-search-page .slogi-account-summary strong{font-size:13px!important}
-.slogi-search-page .slogi-account-summary span{font-size:10px!important}
-.slogi-search-page .slogi-account-panel{top:82px!important}
 
 @media(max-width:1120px) and (min-width:761px){
   .slogi-search-page .site-header .top{padding-inline:22px!important;gap:15px!important}
   .slogi-search-page .pro-product-nav{gap:4px!important}
   .slogi-search-page .pro-product-nav a{padding-inline:10px!important;font-size:13px!important}
-  .slogi-search-page .site-header .slogi-account-trigger{min-width:150px!important}
 }
 
 @media(max-width:760px){
@@ -511,8 +446,6 @@ body{touch-action:pan-x pan-y;overscroll-behavior-y:auto!important}
   .slogi-search-page .site-header .logo-word span{display:grid!important;width:27px!important;height:27px!important;font-size:16px!important}
   .slogi-search-page .site-header .logo-word span:nth-child(5){display:none!important}
   .slogi-search-page .pro-header-utilities{height:58px!important;margin-left:auto!important}
-  .slogi-search-page .site-header .slogi-account-nav{height:58px!important;width:42px!important;min-width:42px!important;max-width:42px!important}
-  .slogi-search-page .site-header .slogi-account-trigger{width:42px!important;min-width:42px!important;max-width:42px!important;padding:4px!important}
   .slogi-search-page .site-header .top>.pro-nav{order:5!important;flex:0 0 100%!important;width:100%!important}
   .slogi-search-page .site-header .top>.pro-nav .pro-nav-inner{height:auto!important;min-height:48px!important;width:100%!important}
   .slogi-search-page .pro-product-nav{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;width:100%!important;height:auto!important;gap:3px!important;padding:3px!important;border:1px solid #dde6e5!important;border-radius:11px!important;background:#f1f5f5!important}
@@ -521,7 +454,6 @@ body{touch-action:pan-x pan-y;overscroll-behavior-y:auto!important}
   .slogi-search-page .pro-product-nav a.active::after{display:none!important}
   .slogi-search-page .site-header .top>.pro-nav .pro-nav-spacer,
   .slogi-search-page .site-header .top>.pro-nav .pro-management{display:none!important}
-  .slogi-search-page .slogi-account-panel{top:118px!important}
 }
 
 /* v55 search: remove any legacy space above the fixed desktop header. */

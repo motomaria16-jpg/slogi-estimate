@@ -26,22 +26,20 @@ const pageTitles={
   'finance.html':['Финансы по всем объектам','Бюджеты, обязательства и оплаты по сети'],
   'contractors.html':['Подрядчики и поставщики','Контрагенты, договоры и предложения'],
   'analytics.html':['Аналитика сети','Сводные показатели и контроль отклонений'],
-  'available-spaces.html':['Анализ доступных помещений','Поиск новых объявлений ЦИАН и Авито по заданным критериям'],
+  'available-spaces.html':['Предложения ЦИАН','Сохранённые предложения коммерческой аренды за последние 30 суток'],
   'catalog.html':['Справочники','Цены, шаблоны и нормативные данные'],
-  'team.html':['Команда и доступ','Сотрудники, роли и права'],
-  'settings.html':['Настройки системы','Рабочие процессы, безопасность и резервные копии']
 };
 const productLinks=[
   ['search','index.html','Поиск помещений','Поиск'],
   ['estimate','workspace.html?section=estimate','Смета и КП','Смета'],
   ['repair','workspace.html?section=repair','Ремонт','Ремонт'],
-  ['available','available-spaces.html','Анализ доступных помещений','Анализ']
+  ['available','available-spaces.html','Предложения ЦИАН','ЦИАН']
 ];
 const toolGroups=[
   {label:'Работа',links:[['tasks.html','Задачи'],['documents.html','Документы'],['approvals.html','Согласования']]},
   {label:'Экономика',links:[['finance.html','Финансы'],['contractors.html','Подрядчики']]},
-  {label:'Анализ',links:[['available-spaces.html','Анализ доступных помещений'],['analytics.html','Аналитика']]},
-  {label:'Управление',links:[['team.html','Команда'],['catalog.html','Справочники'],['settings.html','Настройки']]}
+  {label:'Анализ',links:[['available-spaces.html','Предложения ЦИАН'],['analytics.html','Аналитика']]},
+  {label:'Управление',links:[['catalog.html','Справочники']]}
 ];
 const toolLinks=toolGroups.flatMap(group=>group.links);
 const searchIcon='<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
@@ -69,12 +67,10 @@ function productSection(){
 function normalizeHeader(){
   let header=document.querySelector('.site-header');
   if(!header){header=document.createElement('header');header.className='site-header';document.body.insertBefore(header,document.body.firstChild)}
-  const account=document.getElementById('slogi-account-nav');
   let configured=pageTitles[page]||[(document.querySelector('.site-header h1')?.textContent||'СЛОГИ'),(document.querySelector('.site-header .subtitle')?.textContent||'')];
   if(page==='workspace.html')configured=productSection()==='repair'?['Ремонт','Объекты на стадии ремонта']:['Смета и КП','Подготовка сметы и коммерческого предложения'];
   const searchUtility=page==='index.html'?'':`<div class="pro-global-search-wrap"><input class="pro-global-search" id="pro-global-search" type="search" placeholder="Поиск по системе…" aria-label="Глобальный поиск"><button type="button" id="pro-global-search-btn" aria-label="Найти">${searchIcon}</button></div>`;
-  header.innerHTML=`<div class="top"><div class="brand"><a class="logo-link" href="index.html" aria-label="СЛОГИ — главная"><div class="logo-word" aria-hidden="true"><span>С</span><span>Л</span><span>О</span><span>Г</span><span>И</span></div></a></div><div class="pro-header-utilities">${searchUtility}<button type="button" class="pro-notification-btn" id="pro-notification-btn" aria-label="Уведомления">${bellIcon}</button></div></div>`;
-  if(account)header.querySelector('.top').appendChild(account);
+  header.innerHTML=`<div class="top"><div class="brand"><a class="logo-link" href="index.html" aria-label="СЛОГИ — главная"><div class="logo-word" aria-hidden="true"><span>С</span><span>Л</span><span>О</span><span>Г</span><span>И</span></div></a><span class="slogi-specialist-label">Пространство специалиста</span></div><div class="pro-header-utilities">${searchUtility}<button type="button" class="pro-notification-btn" id="pro-notification-btn" aria-label="Уведомления">${bellIcon}</button></div></div>`;
   document.title='СЛОГИ — '+configured[0];
 }
 function isPage(file){return page===file}

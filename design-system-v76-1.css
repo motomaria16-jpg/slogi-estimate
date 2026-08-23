@@ -1,0 +1,47 @@
+:root{
+  --site-layout-max:1500px;
+  --site-layout-gutter:28px;
+  --site-header-height:56px;
+  --app-bg:#f2ede8;
+  --app-card:#fffdfa;
+  --app-ink:#3c3c3c;
+  --app-muted:#69635d;
+  --app-teal:#4d7b78;
+  --app-teal-dark:#285b58;
+  --app-teal-soft:#dce9e6;
+  --app-sand:#e7d4b4;
+  --app-gold:#e39b2f;
+  --app-line:#ecdcc5;
+}
+html,body,button,input,select,textarea{font-family:"Ubuntu Sans",Arial,sans-serif}
+body{background:#f2ede8!important;color:#3c3c3c!important}
+.site-header{
+  top:14px!important;width:calc(100% - 28px)!important;max-width:1500px!important;
+  margin:14px auto 28px!important;padding:10px 14px 10px 24px!important;
+  border:1px solid #ecdcc5!important;border-radius:40px!important;
+  background:#fcf5eb!important;box-shadow:0 15px 40px rgba(67,53,40,.09)!important;
+  overflow:visible!important;
+}
+.site-header .top{height:50px!important;min-height:50px!important;max-height:50px!important;padding:0!important}
+.site-header .brand{gap:14px!important}
+.slogi-specialist-label{padding-left:14px;border-left:1px solid #ddcdb6;color:#514d48;font-size:14px;font-weight:700;white-space:nowrap}
+.site-header>.pro-nav,.pro-nav{width:auto!important;border:0!important;background:transparent!important}
+.pro-nav-inner{min-height:38px!important;padding:2px 0 0!important;gap:5px!important}
+.pro-nav a,.pro-nav button{min-height:36px!important;padding:10px 13px!important;border-radius:18px!important;color:#5c5a56!important;font:750 12px/1.1 "Ubuntu Sans",Arial,sans-serif!important}
+.pro-nav a:hover,.pro-nav a.active,.pro-management-trigger.active,.pro-management-trigger:hover{background:#dce9e6!important;color:#285b58!important}
+.pro-management-menu{border-color:#ecdcc5!important;border-radius:20px!important;background:#fffdfa!important}
+.pro-notification-btn{min-width:44px!important;min-height:44px!important;border-radius:50%!important}
+.pro-page,.portfolio-shell{padding-top:18px!important}
+.pro-card,.pro-kpi,.portfolio-card,.dashboard-card,.kpi-card{border-color:#ecdcc5!important;border-radius:24px!important;background:#fffdfa!important;box-shadow:0 16px 42px rgba(67,53,40,.07)!important}
+button,a,input,select,textarea{accent-color:#4d7b78}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #285b58!important;outline-offset:3px!important}
+@media(max-width:760px){
+  :root{--site-layout-gutter:14px;--site-header-height:52px}
+  .site-header{top:8px!important;width:calc(100% - 16px)!important;margin:8px auto 18px!important;padding:8px 10px 8px 14px!important;border-radius:28px!important}
+  .site-header .top{height:46px!important;min-height:46px!important;max-height:46px!important}
+  .slogi-specialist-label{font-size:12px;padding-left:9px}
+  .pro-nav-inner{min-height:42px!important}
+  .pro-nav a,.pro-nav button{min-height:40px!important}
+}
+@media(max-width:430px){.slogi-specialist-label{max-width:120px;white-space:normal;line-height:1.1}.site-header{padding-left:11px!important}.pro-notification-btn{display:none!important}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
