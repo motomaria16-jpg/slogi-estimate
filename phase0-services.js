@@ -52,7 +52,7 @@ function normalizeUrl(value){
   const raw=String(value||'').trim();if(!raw)return'';
   try{const u=new URL(raw);u.hash='';['utm_source','utm_medium','utm_campaign','utm_term','utm_content','yclid','gclid'].forEach(k=>u.searchParams.delete(k));return u.toString().replace(/\/$/,'').toLowerCase()}catch(_){return raw.toLowerCase().replace(/\/$/,'')}
 }
-function detectListingSource(url){try{const host=new URL(String(url||'').trim()).hostname.toLowerCase();if(host==='cian.ru'||host.endsWith('.cian.ru'))return'cian';if(host==='avito.ru'||host.endsWith('.avito.ru'))return'avito'}catch(_){}return''}
+function detectListingSource(url){try{const host=new URL(String(url||'').trim()).hostname.toLowerCase();if(host==='cian.ru'||host.endsWith('.cian.ru'))return'cian'}catch(_){}return''}
 function normalizeRentPeriod(value){const period=String(value||'').toLowerCase();if(['month','monthly','месяц','в месяц'].includes(period))return'month';if(['day','daily','день','в день'].includes(period))return'day';if(['year','yearly','annual','год','в год'].includes(period))return'year';return period||'month'}
 function distanceMeters(a,b){
   if(!a||!b)return Infinity;const rad=x=>x*Math.PI/180,R=6371000;
@@ -73,7 +73,7 @@ function defaultPhase0(){
     createdAt:stamp,updatedAt:stamp
   };
 }
-function sourceLabel(source){return source==='cian'?'ЦИАН':source==='avito'?'Авито':'Ручной ввод'}
+function sourceLabel(source){return source==='cian'?'ЦИАН':'Ручной ввод'}
 
 class ProjectRepository{
   listAll(){return P.readLocations().filter(x=>x&&x.id&&!x.deletedAt)}
@@ -218,86 +218,23 @@ function structuredFromHtml(html){
   out.text=cleanReaderText([title,description,doc.body&&doc.body.innerText||doc.body&&doc.body.textContent||''].join('\n'));
   return out;
 }
-function canonicalListingFetchUrl(url){try{const u=new URL(String(url||'').trim());u.hash='';if(/(^|\.)avito\.ru$/i.test(u.hostname)||/(^|\.)cian\.ru$/i.test(u.hostname))u.search='';return u.toString()}catch(_){return String(url||'').trim()}}
-function urlListingHints(url,provider){const clean=canonicalListingFetchUrl(url),out={address:'',area:null,rent:null,ceiling:null,windows:null,geo:null};try{const u=new URL(clean),slug=decodeURIComponent(u.pathname);if(provider==='avito'){const area=firstMatch(slug,[/(?:^|_)(\d+(?:[.,]\d+)?)_m(?:_|\/|$)/i,/pomeschenie_(\d+(?:[.,]\d+)?)/i]);if(area)out.area=numberFromText(area)}if(provider==='cian'){/* ID in URL is useful diagnostically, fields come from page */}}catch(_){}return out}
-function cianAddressFromText(joined){const clean=stripMarkdown(joined);let address=firstMatch(clean,[
-  /(Москва\s*,\s*(?:[А-ЯA-Z]{2,5}\s*,\s*)?(?:р-н\s+[^,\n]+\s*,\s*)?(?:м\.\s*[^,\n]+\s*,\s*)?(?:ул\.|улица|ш\.|шоссе|проспект|пр-т|пер\.|переулок|наб\.|набережная)[^\n]{3,130}?\d+[А-Яа-яA-Za-z0-9/\-]*)/i,
-  /(Москва\s*,\s*[^\n]{3,160}?\d+[А-Яа-яA-Za-z0-9/\-]*)/i
-]);return normalizeAddressText(address)}
-function parseReaderListing(payload,provider,url,kind='text'){
-  const htmlData=kind==='html'?structuredFromHtml(payload):{},urlHints=urlListingHints(url,provider),src=cleanReaderText(kind==='html'?(htmlData.text||payload):payload),plain=stripMarkdown(src),lines=src.split('\n').map(x=>x.trim()).filter(Boolean),joined=lines.join('\n');
-  const genericAddress=firstMatch(joined,[
-    /(?:^|\n)(?:Адрес|Расположение|Местоположение)\s*[:—-]?\s*([^\n]{5,180})/i,
-    /(?:^|\n)Адрес\s*\n([^\n]{5,180})/i,
-    /((?:г\.?\s*)?Москва\s*,\s*[^\n]{4,170})/i,
-    /((?:Московская область|МО)\s*,\s*[^\n]{4,180})/i
-  ]);
-  let address=htmlData.address||(provider==='cian'?cianAddressFromText(joined):'')||genericAddress||urlHints.address||'';address=normalizeAddressText(address);
-  let area=htmlData.area??urlHints.area;
-  if(area==null){const areaLabel=firstMatch(joined,[
-    /(?:Офис|Помещение|ПСН|Торговое помещение)\s*,?\s*([0-9]+(?:[.,][0-9]+)?)\s*(?:м²|м2|кв\.?\s*м)/i,
-    /(?:Сдается|Сдаётся)[^\n]{0,60}?([0-9]+(?:[.,][0-9]+)?)\s*(?:м²|м2|кв\.?\s*м)/i,
-    /(?:Площадь|Общая площадь|Площадь помещения)\s*[:—-]?\s*([0-9]+(?:[.,][0-9]+)?)\s*(?:м²|м2|кв\.?\s*м)/i,
-    /([0-9]+(?:[.,][0-9]+)?)\s*(?:м²|м2|кв\.?\s*м)(?:\s|[,;|]|$)/i
-  ]);if(areaLabel)area=numberFromText(areaLabel)}
-  let rentAmount=htmlData.rent??urlHints.rent;
-  if(rentAmount==null){const rentLabel=firstMatch(joined,[
-    /(?:Арендная плата|Стоимость аренды|Аренда|Цена)\s*[:—-]?\s*([0-9][0-9\s\u00a0]*)\s*(?:₽|руб(?:\.|лей)?)\s*(?:\/\s*мес(?:\.|яц)?|в месяц|за месяц)/i,
-    /([0-9][0-9\s\u00a0]*)\s*(?:₽|руб(?:\.|лей)?)\s*(?:\/\s*мес(?:\.|яц)?|в месяц|за месяц)/i,
-    /(?:^|\n)([0-9][0-9\s\u00a0]{3,})\s*₽\s*\/\s*мес\.?/im,
-    /(?:^|\n)([0-9][0-9\s\u00a0]{3,})\s*₽(?:\s|$)/im
-  ]);if(rentLabel)rentAmount=moneyFromText(rentLabel)}
-  const ceilingLabel=firstMatch(joined,[/(?:Высота потолк(?:а|ов))\s*[:—-]?\s*([0-9]+(?:[.,][0-9]+)?)\s*м/i,/потолк(?:и|ов|а)[^\n]{0,40}?([0-9]+(?:[.,][0-9]+)?)\s*м/i]);
-  const windowsLabel=firstMatch(joined,[/(?:Количество окон|Окон)\s*[:—-]?\s*([0-9]+)/i,/([0-9]+)\s+окон(?:а|о)?(?:\s|,|\.|$)/i]);
-  let geo=htmlData.geo||urlHints.geo;
-  if(!geo){const raw=String(payload||''),lat=firstMatch(raw,[/["'](?:lat|latitude)["']\s*:\s*["']?([0-9]{2}\.[0-9]+)["']?/i]),lng=firstMatch(raw,[/["'](?:lng|lon|longitude)["']\s*:\s*["']?([0-9]{2}\.[0-9]+)["']?/i]);if(lat&&lng)geo={lat:Number(lat),lng:Number(lng)}}
-  // CIAN often exposes the address only as a breadcrumb-like line. Remove administrative noise for geocoding while preserving street+house.
-  if(provider==='cian'&&address){address=normalizeAddressText(address.replace(/,\s*(?:ЦАО|САО|СВАО|ВАО|ЮВАО|ЮАО|ЮЗАО|ЗАО|СЗАО|ЗелАО|ТАО|НАО)\s*,?/gi,', ').replace(/,\s*р-н\s+[^,]+,?/gi,', ').replace(/,\s*м\.\s*[^,]+,?/gi,', '))}
-  return{source:provider,listingUrl:url,address,geo,area:nullableNumber(area),windowsCount:numberFromText(windowsLabel)||htmlData.windows,ceilingHeight:numberFromText(ceilingLabel)||htmlData.ceiling,rent:{amount:nullableNumber(rentAmount),currency:'RUB',period:'month'},rawSource:kind,debug:{canonicalUrl:canonicalListingFetchUrl(url)}};
-}
-
-function parseJinaStructuredListing(payload,provider,url){
-  try{const obj=JSON.parse(String(payload||''));const data=obj&&obj.data&&typeof obj.data==='object'?obj.data:obj;if(data&&typeof data==='object'){return{source:provider,listingUrl:url,address:normalizeAddressText(data.address||''),geo:normalizeGeo({lat:data.latitude??data.lat,lng:data.longitude??data.lng}),area:nullableNumber(data.area),windowsCount:nullableNumber(data.windowsCount),ceilingHeight:nullableNumber(data.ceilingHeight),rent:{amount:nullableNumber(data.rentMonthly??data.rentAmount),currency:'RUB',period:'month'},rawSource:'jina-json',debug:{canonicalUrl:canonicalListingFetchUrl(url)}}}}catch(_){}return parseReaderListing(payload,provider,url,'text')
-}
-function listingProxyTargets(url){
-  const cfg=CONFIG.listingImport||{},targets=[],canonical=canonicalListingFetchUrl(url),base=String(cfg.readerBaseUrl||'https://r.jina.ai/').replace(/\/+$/,'/');
-  if(base){const schema=JSON.stringify({type:'object',properties:{address:{type:'string'},area:{type:['number','null']},rentMonthly:{type:['number','null']},ceilingHeight:{type:['number','null']},windowsCount:{type:['number','null']},latitude:{type:['number','null']},longitude:{type:['number','null']}},required:['address','area','rentMonthly']});targets.push({name:'reader-json',kind:'jina-json',url:base+canonical,headers:{Accept:'application/json','X-Respond-With':'readerlm-v2','X-Json-Schema':schema,'X-Instruction':'Extract the commercial rental listing address, area in square metres, monthly rent in RUB, ceiling height in metres, number of windows if explicitly stated, latitude and longitude if present. Do not guess missing values.','X-No-Cache':'true'}});targets.push({name:'reader-https',kind:'text',url:base+canonical,headers:{Accept:'text/plain','X-Return-Format':'text','X-No-Cache':'true'}});try{const u=new URL(canonical);if(u.protocol==='https:'){u.protocol='http:';targets.push({name:'reader-http-target',kind:'text',url:base+u.toString(),headers:{Accept:'text/plain','X-Return-Format':'text','X-No-Cache':'true'}})}}catch(_){}}
-  targets.push({name:'allorigins',kind:'html',url:'https://api.allorigins.win/raw?url='+encodeURIComponent(canonical),headers:{Accept:'text/html,application/xhtml+xml'}});
-  targets.push({name:'corsproxy',kind:'html',url:'https://corsproxy.io/?url='+encodeURIComponent(canonical),headers:{Accept:'text/html,application/xhtml+xml'}});
-  return targets;
-}
-async function fetchReaderListing(url,provider){
-  const cfg=CONFIG.listingImport||{};if(cfg.readerFallback===false)throw new IntegrationUnavailableError(`Автоматический импорт ${sourceLabel(provider)} не настроен. Заполните поля вручную.`,provider);
-  const errors=[];let best=null,bestScore=-1;
-  for(const target of listingProxyTargets(url)){
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),Math.max(9000,Number(cfg.timeoutMs)||18000));
-    try{
-      const response=await fetch(target.url,{method:'GET',headers:target.headers||{},signal:controller.signal,cache:'no-store'});if(!response.ok)throw new Error(`HTTP ${response.status}`);
-      const text=await response.text();if(!text||text.length<80)throw new Error('пустой ответ');
-      const data=target.kind==='jina-json'?parseJinaStructuredListing(text,provider,url):parseReaderListing(text,provider,url,target.kind),score=[data.address,data.geo,data.area,data.rent&&data.rent.amount,data.ceilingHeight,data.windowsCount].filter(v=>v!==null&&v!==undefined&&v!=='').length;
-      if(score>bestScore){best=data;bestScore=score}if(score>=2)return data;errors.push(`${target.name}: распознано полей ${score}`)
-    }catch(error){errors.push(`${target.name}: ${error&&error.name==='AbortError'?'таймаут':error.message||String(error)}`)}finally{clearTimeout(timer)}
-  }
-  // URL itself can carry reliable hints (e.g. area in Avito slug). Return them as a partial import rather than pretending the full page was read.
-  const hints=parseReaderListing('',provider,url,'text'),hintScore=[hints.address,hints.geo,hints.area,hints.rent&&hints.rent.amount,hints.ceilingHeight,hints.windowsCount].filter(v=>v!==null&&v!==undefined&&v!=='').length;if(hintScore>bestScore){best=hints;bestScore=hintScore}
-  if(best&&bestScore>0){best.importWarning=`Страница ${sourceLabel(provider)} ограничила внешнее чтение. Автоматически получена только доступная часть данных.`;best.debug=Object.assign({},best.debug||{},{attempts:errors});return best}
-  throw new Phase0Error(`Не удалось автоматически прочитать объявление ${sourceLabel(provider)}. Для стабильного получения всех полей нужен серверный импорт; страницу можно продолжить заполнять вручную.`,`LISTING_READER_FAILED`,{attempts:errors,canonicalUrl:canonicalListingFetchUrl(url)});
-}
+function canonicalListingFetchUrl(url){try{const u=new URL(String(url||'').trim());u.hash='';if(/(^|\.)cian\.ru$/i.test(u.hostname))u.search='';return u.toString()}catch(_){return String(url||'').trim()}}
 
 class BaseListingProvider{
   constructor(provider){this.provider=provider;this.endpoint=String(CONFIG.listingImport&&CONFIG.listingImport.endpoint||'')}
   async import(url){
-    if(!this.endpoint)return fetchReaderListing(url,this.provider);
+    if(!this.endpoint)throw new IntegrationUnavailableError('Серверный импорт ЦИАН не настроен.',this.provider);
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),Number(CONFIG.listingImport.timeoutMs)||15000);
     try{
-      const response=await fetch(this.endpoint,{method:'POST',headers:{'Content-Type':'application/json','X-Slogi-Client':'phase0'},body:JSON.stringify({provider:this.provider,url}),signal:controller.signal});
+      const token=window.SlogiCloud&&typeof window.SlogiCloud.getAccessToken==='function'?await window.SlogiCloud.getAccessToken():'';
+      if(!token)throw new Phase0Error('Техническая сессия ещё не готова. Повторите позже.','ANONYMOUS_SESSION_REQUIRED');
+      const response=await fetch(this.endpoint,{method:'POST',headers:{'Content-Type':'application/json','X-Slogi-Client':'phase0','Authorization':'Bearer '+token},body:JSON.stringify({provider:this.provider,url}),signal:controller.signal});
       if(!response.ok)throw new Phase0Error(`Сервис импорта вернул HTTP ${response.status}.`,'LISTING_HTTP_ERROR',{status:response.status});
       const payload=await response.json(),data=payload&&payload.data||payload;
       if(!data||typeof data!=='object')throw new Phase0Error('Сервис импорта не вернул данные объявления.','LISTING_EMPTY');
       return this.normalize(data,url);
     }catch(error){
       if(error&&error.name==='AbortError')throw new Phase0Error('Сервис импорта не ответил вовремя. Заполните данные вручную.','LISTING_TIMEOUT');
-      if(CONFIG.listingImport&&CONFIG.listingImport.readerFallback!==false){try{return await fetchReaderListing(url,this.provider)}catch(readerError){readerError.details=Object.assign({},readerError.details||{},{primaryError:error.message||String(error)});throw readerError}}
       throw error;
     }finally{clearTimeout(timer)}
   }
@@ -312,12 +249,11 @@ class BaseListingProvider{
   }
 }
 class CianListingProvider extends BaseListingProvider{constructor(){super('cian')}}
-class AvitoListingProvider extends BaseListingProvider{constructor(){super('avito')}}
 class ListingImportService{
-  constructor(){this.providers={cian:new CianListingProvider(),avito:new AvitoListingProvider()}}
+  constructor(){this.providers={cian:new CianListingProvider()}}
   detect(url){return detectListingSource(url)}
   async import(url){
-    const source=this.detect(url);if(!source)throw new Phase0Error('Поддерживаются ссылки на объявления ЦИАН и Авито. Можно продолжить без ссылки и заполнить объект вручную.','LISTING_SOURCE_UNSUPPORTED');
+    const source=this.detect(url);if(!source)throw new Phase0Error('Поддерживаются только ссылки на объявления ЦИАН. Можно продолжить без ссылки и заполнить объект вручную.','LISTING_SOURCE_UNSUPPORTED');
     const data=await this.providers[source].import(url);const fields=[data.address,data.geo,data.area,data.rent&&data.rent.amount,data.windowsCount,data.ceilingHeight],received=fields.filter(v=>v!==null&&v!==undefined&&v!=='').length;
     return{source,data,state:received>=4?'success':'partial',received};
   }
@@ -675,7 +611,7 @@ class Phase0Service{
     const phase=candidate.phase0;
     if(phase.status===STATUS.REJECTED&&!(phase.rejection&&phase.rejection.reason))errors.rejectionReason='Для статуса «Не подошло» укажите причину отказа.';
     if(['Запланирован','Выполнен'].includes(phase.measurement.status)&&!phase.measurement.date)errors.measurementDate='Укажите дату замера.';
-    if(phase.listingUrl&&!['cian','avito'].includes(phase.source))errors.listingUrl='Ссылка должна вести на объявление ЦИАН или Авито либо оставьте поле пустым.';
+    if(phase.listingUrl&&phase.source!=='cian')errors.listingUrl='Ссылка должна вести на объявление ЦИАН либо оставьте поле пустым.';
     return errors;
   }
   prepare(draft,existing){const candidate=this.buildCandidate(draft,existing);return{candidate,errors:this.validate(candidate),duplicates:this.projects.findDuplicates(candidate,existing&&existing.id||'')}}
@@ -810,8 +746,8 @@ const phase0Service=new Phase0Service({projectRepository,competitiveRepository,f
 
 window.SlogiPhase0={
   STATUS,STATUSES,MEASUREMENT_STATUSES,CRITERIA_KEYS,CRITERIA_LABELS,
-  ProjectRepository,Phase0Service,ListingImportService,CianListingProvider,AvitoListingProvider,ClusterService,CompetitiveAnalysisRepository,MapService,GeocodingService,FileService,AuditService,
+  ProjectRepository,Phase0Service,ListingImportService,CianListingProvider,ClusterService,CompetitiveAnalysisRepository,MapService,GeocodingService,FileService,AuditService,
   projectRepository,competitiveRepository,clusterService,auditService,fileService,listingImportService,geocodingService,phase0Service,
-  defaultPhase0,normalizeGeo,nullableNumber,rentPerSqm,deviationPercent,metricForProject,viewModel,transitionRequirements,sourceLabel,detectListingSource,normalizeRentPeriod,canonicalListingFetchUrl,parseReaderListing,esc,norm,round,clone
+  defaultPhase0,normalizeGeo,nullableNumber,rentPerSqm,deviationPercent,metricForProject,viewModel,transitionRequirements,sourceLabel,detectListingSource,normalizeRentPeriod,canonicalListingFetchUrl,esc,norm,round,clone
 };
 })();

@@ -6,25 +6,42 @@ const existingListing=existing.listingImport||{};
 const existingCompetitive=existing.competitiveAnalysis||{};
 const existingGeocoding=existing.geocoding||{};
 const existingListingSearch=existing.listingSearch||{};
+const existingSupabase=existing.supabase||{};
+const existingWorkspace=existing.sharedWorkspace||{};
+
+// Release candidates are inert until a deployment-specific runtime override is
+// supplied. Publishing static files must not contact or mutate production.
+const defaultSupabaseUrl='';
+const defaultPublishableKey='';
+const functionEndpoint=(configured,name)=>String(configured||(defaultSupabaseUrl?defaultSupabaseUrl+'/functions/v1/'+name:''));
 
 window.SLOGI_PHASE0_CONFIG={
   listingImport:{
-    endpoint:String(existingListing.endpoint||'https://badyvlegwumldciibxfe.supabase.co/functions/v1/import-listing'),
+    endpoint:functionEndpoint(existingListing.endpoint,'import-listing'),
     timeoutMs:Number(existingListing.timeoutMs)||30000,
-    readerFallback:existingListing.readerFallback!==false,
-    readerBaseUrl:String(existingListing.readerBaseUrl||'https://r.jina.ai/')
+    source:'cian'
   },
   listingSearch:{
-    endpoint:String(existingListingSearch.endpoint||'https://badyvlegwumldciibxfe.supabase.co/functions/v1/search-listings'),
-    timeoutMs:Number(existingListingSearch.timeoutMs)||90000,
-    pages:Number(existingListingSearch.pages)||2,
-    limitPerSource:Number(existingListingSearch.limitPerSource)||25
+    endpoint:functionEndpoint(existingListingSearch.endpoint,'search-listings'),
+    timeoutMs:Number(existingListingSearch.timeoutMs)||30000,
+    limit:Number(existingListingSearch.limit)||50,
+    source:'cian'
+  },
+  supabase:{
+    url:String(existingSupabase.url||defaultSupabaseUrl),
+    publishableKey:String(existingSupabase.publishableKey||defaultPublishableKey)
+  },
+  sharedWorkspace:{
+    joinEndpoint:functionEndpoint(existingWorkspace.joinEndpoint,'join-workspace'),
+    sessionStorageKey:'slogi_anonymous_session_v1',
+    connectionStorageKey:'slogi_shared_workspace_connection_v1',
+    stateCacheKey:'slogi_shared_workspace_cache_v1'
   },
   geocoding:{
     provider:String(existingGeocoding.provider||'yandexHttp'),
     directBaseUrl:String(existingGeocoding.directBaseUrl||'https://geocode-maps.yandex.ru/v1/'),
     // Резервный серверный маршрут на случай, если браузер блокирует CORS к HTTP Геокодеру.
-    endpoint:String(existingGeocoding.endpoint||'https://badyvlegwumldciibxfe.supabase.co/functions/v1/geocode-address'),
+    endpoint:functionEndpoint(existingGeocoding.endpoint,'geocode-address'),
     timeoutMs:Number(existingGeocoding.timeoutMs)||12000,
     useServerFallback:existingGeocoding.useServerFallback!==false,
     searchCenter:String(existingGeocoding.searchCenter||'37.6176,55.7558'),
