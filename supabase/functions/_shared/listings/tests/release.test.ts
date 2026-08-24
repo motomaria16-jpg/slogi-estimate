@@ -207,6 +207,18 @@ test('legacy personal account client and UI references are removed',()=>{
   assert.equal(/Личный кабинет|Войти|Регистрац|Восстановлен|logout|signout|slogi-account/i.test(shell+shared),false);assert.match(shared,/\/auth\/v1\/signup/);assert.match(shared,/is_anonymous/);assert.match(shared,/p_expected_revision/);
 });
 
+test('permanent purge removes only trash-authorized locations from shared state',()=>{
+  const core=readFileSync(join(repositoryDirectory,'professional-core.js'),'utf8');
+  const pages=readFileSync(join(repositoryDirectory,'professional-pages.js'),'utf8');
+  assert.match(core,/function purgeProjects\(ids\)/);
+  assert.match(core,/trashIds=new Set/);
+  assert.match(core,/allowed=new Set\(\[\.\.\.requested\]\.filter\(id=>trashIds\.has\(id\)\)\)/);
+  assert.match(core,/remaining=locations\.filter\(x=>!allowed\.has/);
+  assert.match(core,/writeLocations\(remaining,'project-purge'\)/);
+  assert.match(core,/function purgeAllProjects\(\)/);
+  assert.match(pages,/P\.purgeProject\(b\.dataset\.purge\)/);
+});
+
 test('Edge configuration enforces JWT on all release functions',()=>{
   const config=readFileSync(join(repositoryDirectory,'supabase','config.toml'),'utf8');
   for(const name of ['import-listing','search-listings','refresh-listings','hydrate-listings','join-workspace'])assert.match(config,new RegExp(`\\[functions\\.${name.replace('-','\\-')}\\][\\s\\S]{0,50}verify_jwt = true`));
