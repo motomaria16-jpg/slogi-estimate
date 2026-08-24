@@ -1,11 +1,11 @@
 {
   "app": "SLOGI",
-  "version": "76.1.0",
-  "releaseName": "Cian Shared Workspace",
-  "releaseType": "feature",
-  "releaseDate": "2026-08-23",
-  "status": "released",
-  "baseTag": "v76.0.1",
+  "version": "76.1.1",
+  "releaseName": "Layout and Premises Hotfix",
+  "releaseType": "hotfix",
+  "releaseDate": "2026-08-24",
+  "status": "candidate",
+  "baseTag": "v76.1.0",
   "databaseBaseline": {
     "migrationPath": "supabase/migrations/20260814_7601_baseline.sql",
     "recordedV7601WorkingTreeSha256": "a4ab16221f6c76c21b6f541c7780111afcbcc72b8726cdac75c0d0adea656bc3",
@@ -58,13 +58,13 @@
     "sharedListingsModuleSha256": "ff4ddd2a6b20b61182b6e8f308a1973722662b1c5702f4abc6333b6ac3cb7ac0"
   },
   "releaseGate": {
-    "canonicalGitCommit": "88372f4b194d028192482ddf99598fc39ba301de",
-    "metadataGitCommit": "eeb23056788290dc1087637c6f2021779662b1ed",
-    "gitTag": "v76.1.0",
+    "canonicalGitCommit": "d6623129f81722df6394e935b0a91b98b71d2a9a",
+    "metadataGitCommit": null,
+    "gitTag": null,
     "cleanEnvironmentApplyTested": true,
     "catalogAuditPassed": true,
     "unitFixtureTests": {
-      "passed": 30,
+      "passed": 34,
       "failed": 0
     },
     "edgeFunctionsLoaded": 6,
@@ -96,8 +96,25 @@
       "browserUiReadPassed": true,
       "browserConsoleErrors": 0
     },
-    "publicationAllowed": true,
-    "testEnvironment": "isolated-local-supabase-postgresql-17"
+    "publicationAllowed": false,
+    "testEnvironment": "isolated-local-supabase-postgresql-17",
+    "hotfixLocalGate": {
+      "headerPagesChecked": 16,
+      "headerDesktopPx": 72,
+      "headerTabletMobilePx": 60,
+      "responsiveViewports": 4,
+      "canonicalClusterPolygons": 58,
+      "addListingDeduplicated": true,
+      "reloadPersistencePassed": true,
+      "crossDevicePersistencePassed": true,
+      "revisionConflictUiPassed": true,
+      "consoleErrors": 0,
+      "consoleWarnings": 0,
+      "directCianAvitoOzonRequests": 0,
+      "externalBrowserlessCalls": 0,
+      "secretFindings": 0,
+      "existingMigrationsChanged": false
+    }
   },
-  "nextTarget": "production deployment requires separate owner authorization"
+  "nextTarget": "owner confirmation required before merge, v76.1.1 tag, GitHub Release or Pages update"
 }
