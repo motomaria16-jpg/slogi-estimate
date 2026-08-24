@@ -11,8 +11,8 @@ const existingWorkspace=existing.sharedWorkspace||{};
 
 // Release candidates are inert until a deployment-specific runtime override is
 // supplied. Publishing static files must not contact or mutate production.
-const defaultSupabaseUrl='';
-const defaultPublishableKey='';
+const defaultSupabaseUrl='https://badyvlegwumldciibxfe.supabase.co';
+const defaultPublishableKey='sb_publishable_Pe0ZW2FANEERMm62k53mvw_4i0s5-nb';
 const functionEndpoint=(configured,name)=>String(configured||(defaultSupabaseUrl?defaultSupabaseUrl+'/functions/v1/'+name:''));
 
 window.SLOGI_PHASE0_CONFIG={
