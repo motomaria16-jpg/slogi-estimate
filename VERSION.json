@@ -1,11 +1,11 @@
 {
   "app": "SLOGI",
-  "version": "76.1.1",
-  "releaseName": "Layout and Premises Hotfix",
+  "version": "76.1.2",
+  "releaseName": "Workspace CAS Conflict Hotfix",
   "releaseType": "hotfix",
   "releaseDate": "2026-08-24",
-  "status": "released",
-  "baseTag": "v76.1.0",
+  "status": "candidate",
+  "baseTag": "v76.1.1",
   "databaseBaseline": {
     "migrationPath": "supabase/migrations/20260814_7601_baseline.sql",
     "recordedV7601WorkingTreeSha256": "a4ab16221f6c76c21b6f541c7780111afcbcc72b8726cdac75c0d0adea656bc3",
@@ -22,6 +22,10 @@
     "sharedWorkspace": {
       "path": "supabase/migrations/20260823_7611_shared_workspace.sql",
       "sourceSha256": "c4097cd4ae74b138d62d7858fcee7efb991ca83406ef843d187ce00fff7b5eda"
+    },
+    "workspaceCasConflict": {
+      "path": "supabase/migrations/20260824_7612_workspace_cas_conflict.sql",
+      "sourceSha256": "f7d0a5b5fc2eccc448245039e989f693e4e537375ef18c308aca9c89f674cfe3"
     }
   },
   "edgeFunctions": {
@@ -58,14 +62,15 @@
     "sharedListingsModuleSha256": "ff4ddd2a6b20b61182b6e8f308a1973722662b1c5702f4abc6333b6ac3cb7ac0"
   },
   "releaseGate": {
-    "canonicalGitCommit": "d6623129f81722df6394e935b0a91b98b71d2a9a",
-    "metadataGitCommit": "0a81982d007bd0348cfdb11c05e62b5a53e9c28d",
-    "gitTag": "v76.1.1",
+    "canonicalGitCommit": null,
+    "metadataGitCommit": null,
+    "gitTag": null,
     "cleanEnvironmentApplyTested": true,
     "catalogAuditPassed": true,
     "unitFixtureTests": {
       "passed": 34,
-      "failed": 0
+      "failed": 0,
+      "inheritedFromBaseTag": true
     },
     "edgeFunctionsLoaded": 6,
     "frontendJavaScriptParsed": 24,
@@ -96,7 +101,7 @@
       "browserUiReadPassed": true,
       "browserConsoleErrors": 0
     },
-    "publicationAllowed": true,
+    "publicationAllowed": false,
     "testEnvironment": "isolated-local-supabase-postgresql-17",
     "hotfixLocalGate": {
       "headerPagesChecked": 16,
@@ -114,7 +119,19 @@
       "externalBrowserlessCalls": 0,
       "secretFindings": 0,
       "existingMigrationsChanged": false
+    },
+    "workspaceCasConflictHotfix": {
+      "sourceGuardPassed": 7,
+      "sourceGuardFailed": 0,
+      "cleanApplyPassed": true,
+      "catalogAuditPassed": true,
+      "httpConflictStatus": 409,
+      "httpConflictCode": "PT409",
+      "httpConflictDurationMs": 11,
+      "winnerStatePreserved": true,
+      "retryFloodAbsent": true,
+      "productionDeployed": false
     }
   },
-  "nextTarget": "production Supabase activation requires separate owner confirmation"
+  "nextTarget": "production forward migration requires separate owner confirmation"
 }
