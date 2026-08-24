@@ -4,7 +4,7 @@
   "releaseName": "Workspace CAS Conflict Hotfix",
   "releaseType": "hotfix",
   "releaseDate": "2026-08-24",
-  "status": "candidate",
+  "status": "released",
   "baseTag": "v76.1.1",
   "databaseBaseline": {
     "migrationPath": "supabase/migrations/20260814_7601_baseline.sql",
@@ -62,9 +62,9 @@
     "sharedListingsModuleSha256": "ff4ddd2a6b20b61182b6e8f308a1973722662b1c5702f4abc6333b6ac3cb7ac0"
   },
   "releaseGate": {
-    "canonicalGitCommit": null,
-    "metadataGitCommit": null,
-    "gitTag": null,
+    "canonicalGitCommit": "fcdbaa42e31ff6b76150c09509f05ed08c2ed75f",
+    "metadataGitCommit": "48f2ab43d7b84c515255a495722adb69031c4ebd",
+    "gitTag": "v76.1.2",
     "cleanEnvironmentApplyTested": true,
     "catalogAuditPassed": true,
     "unitFixtureTests": {
@@ -101,7 +101,7 @@
       "browserUiReadPassed": true,
       "browserConsoleErrors": 0
     },
-    "publicationAllowed": false,
+    "publicationAllowed": true,
     "testEnvironment": "isolated-local-supabase-postgresql-17",
     "hotfixLocalGate": {
       "headerPagesChecked": 16,
