@@ -25,4 +25,8 @@ Supabase — источник истины; LocalStorage остаётся cache/
 
 Запись выполняется compare-and-swap по revision. Устаревшая ревизия отклоняется; локальный вариант сохраняется как conflict draft, загружается актуальная remote-версия и пользователь получает видимое уведомление. Автоматическое полевое слияние не выполняется, потому что существующая JSON-модель не содержит надёжных per-field clocks.
 
+### v76.1.2 forward-only CAS hotfix
+
+Production evidence showed that SQLSTATE `40001` is unsafe for an expected stale-revision result: infrastructure treated the serialization failure as retriable and emitted a large error burst before returning. The immutable v76.1.1 migration is not edited. Forward migration `20260824_7612_workspace_cas_conflict.sql` returns the same `workspace_revision_conflict` as explicit PostgREST HTTP `409` (`PT409`). The browser conflict workflow already recognizes status `409`; workspace data, RLS and product behavior are unchanged.
+
 Production workspace code создаётся и передаётся только отдельным безопасным шагом после разрешения владельца.

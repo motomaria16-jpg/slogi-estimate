@@ -1,6 +1,6 @@
-# SLOGI v76.1.1 — Layout hotfix
+# SLOGI v76.1.2 — Workspace CAS Conflict Hotfix
 
-Hotfix-релиз на базе immutable tag `v76.1.0`. Production Supabase не активирован и существующие migrations не изменялись.
+Candidate hotfix на базе immutable tag `v76.1.1`. Существующие migrations не изменялись; новая forward migration ещё не применялась в production.
 
 ## Что входит в релиз
 
@@ -35,7 +35,8 @@ Hotfix-релиз на базе immutable tag `v76.1.0`. Production Supabase н�
 
 1. `20260814_7601_baseline.sql` — frozen baseline, не редактировать;
 2. `20260821_7610_listing_refresh.sql` — Cian queue и refresh state;
-3. `20260823_7611_shared_workspace.sql` — shared workspace, membership RLS и CAS.
+3. `20260823_7611_shared_workspace.sql` — shared workspace, membership RLS и исходный CAS snapshot;
+4. `20260824_7612_workspace_cas_conflict.sql` — explicit HTTP 409 для stale revision без serialization retry-flood.
 
 Внешний Cian live smoke не запускается автоматически. После offline/local gate требуется отдельное разрешение владельца на ограниченный Browserless smoke.
 
@@ -46,6 +47,7 @@ Hotfix-релиз на базе immutable tag `v76.1.0`. Production Supabase н�
 - [Общее рабочее пространство](docs/SHARED_WORKSPACE_V76_1.md)
 - [Дизайн-система](docs/DESIGN_SYSTEM_V76_1.md)
 - [Smoke test v76.1.1](docs/SMOKE_TEST_V76_1_1.md)
+- [CAS hotfix smoke v76.1.2](docs/SMOKE_TEST_V76_1_2.md)
 - [Deployment](docs/DEPLOYMENT_V76_1.md)
 
 Публикация файлов на GitHub не применяет миграции, не развёртывает Edge Functions, не включает anonymous Auth и не активирует cron. Все production-действия требуют отдельного разрешения владельца.
