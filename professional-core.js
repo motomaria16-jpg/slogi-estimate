@@ -39,7 +39,20 @@ function remove(collection,id){const s=read();s[collection]=(s[collection]||[]).
 function updateProject(id,patch,reason){const l=readLocations(),i=l.findIndex(x=>String(x.id)===String(id));if(i<0)return null;const before=l[i],next=Object.assign({},before,patch,{updatedAt:now()});l[i]=next;writeLocations(l,'project-update');const changed=Object.keys(patch).filter(k=>before[k]!==patch[k]);if(changed.length)activity(id,'project',reason||('Изменены параметры объекта: '+changed.join(', ')),{changes:changed});return next}
 function softDeleteProject(p){if(!p||!p.id)return;const s=read();if(!s.trash.projects.some(x=>String(x.id)===String(p.id)))s.trash.projects.unshift(Object.assign({},p,{deletedAt:now()}));write(s,'project-soft-delete');activity(p.id,'delete','Объект перемещён в корзину')}
 function restoreProject(id){const s=read(),p=s.trash.projects.find(x=>String(x.id)===String(id));if(!p)return false;const copy=Object.assign({},p);delete copy.deletedAt;copy.updatedAt=now();const l=readLocations();if(!l.some(x=>String(x.id)===String(copy.id)))l.unshift(copy);writeLocations(l,'project-restore');s.trash.projects=s.trash.projects.filter(x=>String(x.id)!==String(id));write(s,'project-restore');activity(id,'restore','Объект восстановлен из корзины');return true}
-function purgeProject(id){const s=read();s.trash.projects=s.trash.projects.filter(x=>String(x.id)!==String(id));write(s,'project-purge')}
+function purgeProjects(ids){
+  const requested=new Set((Array.isArray(ids)?ids:[ids]).map(id=>String(id||'')).filter(Boolean));
+  if(!requested.size)return 0;
+  const s=read(),trashIds=new Set(s.trash.projects.map(x=>String(x&&x.id||'')).filter(Boolean));
+  const allowed=new Set([...requested].filter(id=>trashIds.has(id)));
+  if(!allowed.size)return 0;
+  const locations=readLocations(),remaining=locations.filter(x=>!allowed.has(String(x&&x.id||'')));
+  s.trash.projects=s.trash.projects.filter(x=>!allowed.has(String(x&&x.id||'')));
+  write(s,'project-purge');
+  if(remaining.length!==locations.length)writeLocations(remaining,'project-purge');
+  return allowed.size;
+}
+function purgeProject(id){return purgeProjects([id])===1}
+function purgeAllProjects(){return purgeProjects(read().trash.projects.map(x=>x&&x.id))}
 function notify(title,text,link,level){const s=read();s.notifications.unshift({id:uid('note'),title,text,link:link||'',level:level||'info',read:false,createdAt:now()});s.notifications=s.notifications.slice(0,100);write(s,'notification')}
 const formatMoney=v=>Math.round(Number(v)||0).toLocaleString('ru-RU')+' ₽';
 function formatDate(v,withTime){if(!v)return'—';const d=new Date(v);if(Number.isNaN(d.getTime()))return'—';return d.toLocaleDateString('ru-RU',withTime?{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}:{day:'2-digit',month:'2-digit',year:'numeric'})}
@@ -48,5 +61,5 @@ function currentRole(){const u=window.SlogiCloud&&window.SlogiCloud.user,m=u&&u.
 function can(area,action){const role=currentRole(),admin=role==='Администратор',pm=role==='Руководитель проекта';if(admin)return true;if(action==='write'&&['Наблюдатель','Внешний пользователь'].includes(role))return false;if(['team.html','settings.html'].includes(area))return false;if(area==='finance.html')return pm||role==='Финансы';if(area==='contractors.html')return pm||['Финансы','Сметчик'].includes(role);if(area==='catalog.html')return pm||['Финансы','Сметчик','Проектировщик'].includes(role);if(area==='analytics.html')return role!=='Внешний пользователь';if(area==='approvals.html')return role!=='Внешний пользователь'||action!=='write';return true}
 function exportData(){return{professional:read(),locations:readLocations()}}
 function importData(payload){if(payload&&Array.isArray(payload.locations))writeLocations(payload.locations,'import');if(payload&&payload.professional)write(payload.professional,'import');return true}
-window.SlogiPro={KEY,read,write,readLocations,writeLocations,ensureProject,ensureAllProjects,getProjectMeta,upsert,remove,updateProject,softDeleteProject,restoreProject,purgeProject,activity,notify,projectName,actor,currentRole,can,uid,now,formatMoney,formatDate,statusClass,exportData,importData};
+window.SlogiPro={KEY,read,write,readLocations,writeLocations,ensureProject,ensureAllProjects,getProjectMeta,upsert,remove,updateProject,softDeleteProject,restoreProject,purgeProject,purgeAllProjects,activity,notify,projectName,actor,currentRole,can,uid,now,formatMoney,formatDate,statusClass,exportData,importData};
 })();
