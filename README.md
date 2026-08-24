@@ -1,6 +1,6 @@
-# SLOGI v76.1.2 — Workspace CAS Conflict Hotfix
+# SLOGI v76.1.3 — Shared Workspace Purge Hotfix
 
-Candidate hotfix на базе immutable tag `v76.1.1`. Существующие migrations не изменялись; новая forward migration ещё не применялась в production.
+Candidate hotfix на базе released `v76.1.2`. Существующие migrations, Edge Functions и production Supabase contract не изменяются.
 
 ## Что входит в релиз
 
@@ -16,6 +16,7 @@ Candidate hotfix на базе immutable tag `v76.1.1`. Существующие
 - добавление сохранённого объявления ЦИАН в существующую доменную модель «Моих помещений» без повторного парсинга;
 - дедупликация по `source + externalId` и canonical URL;
 - cross-device workspace sync с явной обработкой PostgreSQL revision conflict.
+- permanent purge физически удаляет только уже помещённые в корзину объекты из общего `locations` state и не допускает их восстановления после reload.
 
 Авито в runtime v76.1.0 отсутствует. В интерфейсе есть только неактивная информационная карточка «Авито — подключение готовится», без кнопки, URL и сетевого вызова. Ozon, Apify и Inpars не входят в релиз.
 
@@ -27,7 +28,7 @@ Candidate hotfix на базе immutable tag `v76.1.1`. Существующие
 - workspace code не хранится в Git, HTML, JavaScript, URL, логах или открытом виде в БД;
 - `anon` не получает прямой доступ к workspace-таблицам;
 - service-role key никогда не попадает в браузер;
-- release artifacts не содержат production Supabase endpoint по умолчанию: deployment-specific runtime config включается отдельным шагом.
+- публичный runtime содержит только production Supabase URL и publishable/anon-class key; service-role и остальные секреты отсутствуют.
 
 ## Локальная проверка
 
@@ -48,6 +49,7 @@ Candidate hotfix на базе immutable tag `v76.1.1`. Существующие
 - [Дизайн-система](docs/DESIGN_SYSTEM_V76_1.md)
 - [Smoke test v76.1.1](docs/SMOKE_TEST_V76_1_1.md)
 - [CAS hotfix smoke v76.1.2](docs/SMOKE_TEST_V76_1_2.md)
+- [Shared purge hotfix smoke v76.1.3](docs/SMOKE_TEST_V76_1_3.md)
 - [Deployment](docs/DEPLOYMENT_V76_1.md)
 
 Публикация файлов на GitHub не применяет миграции, не развёртывает Edge Functions, не включает anonymous Auth и не активирует cron. Все production-действия требуют отдельного разрешения владельца.

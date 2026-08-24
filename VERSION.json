@@ -1,11 +1,11 @@
 {
   "app": "SLOGI",
-  "version": "76.1.2",
-  "releaseName": "Workspace CAS Conflict Hotfix",
+  "version": "76.1.3",
+  "releaseName": "Shared Workspace Purge Hotfix",
   "releaseType": "hotfix",
   "releaseDate": "2026-08-24",
-  "status": "released",
-  "baseTag": "v76.1.1",
+  "status": "candidate",
+  "baseTag": "v76.1.2",
   "databaseBaseline": {
     "migrationPath": "supabase/migrations/20260814_7601_baseline.sql",
     "recordedV7601WorkingTreeSha256": "a4ab16221f6c76c21b6f541c7780111afcbcc72b8726cdac75c0d0adea656bc3",
@@ -62,15 +62,15 @@
     "sharedListingsModuleSha256": "ff4ddd2a6b20b61182b6e8f308a1973722662b1c5702f4abc6333b6ac3cb7ac0"
   },
   "releaseGate": {
-    "canonicalGitCommit": "fcdbaa42e31ff6b76150c09509f05ed08c2ed75f",
-    "metadataGitCommit": "48f2ab43d7b84c515255a495722adb69031c4ebd",
-    "gitTag": "v76.1.2",
+    "canonicalGitCommit": null,
+    "metadataGitCommit": null,
+    "gitTag": null,
     "cleanEnvironmentApplyTested": true,
     "catalogAuditPassed": true,
     "unitFixtureTests": {
-      "passed": 34,
+      "passed": 40,
       "failed": 0,
-      "inheritedFromBaseTag": true
+      "inheritedFromBaseTag": false
     },
     "edgeFunctionsLoaded": 6,
     "frontendJavaScriptParsed": 24,
@@ -101,7 +101,7 @@
       "browserUiReadPassed": true,
       "browserConsoleErrors": 0
     },
-    "publicationAllowed": true,
+    "publicationAllowed": false,
     "testEnvironment": "isolated-local-supabase-postgresql-17",
     "hotfixLocalGate": {
       "headerPagesChecked": 16,
@@ -131,7 +131,23 @@
       "winnerStatePreserved": true,
       "retryFloodAbsent": true,
       "productionDeployed": false
+    },
+    "sharedWorkspacePurgeHotfix": {
+      "softDeleteToTrashPassed": true,
+      "purgeOnePhysicalRemovalPassed": true,
+      "purgeAllPassed": true,
+      "activeObjectProtected": true,
+      "sharedCasPersistencePassed": true,
+      "crossSessionSourceOfTruthPassed": true,
+      "pt409WinnerPreserved": true,
+      "retryFloodAbsent": true,
+      "testsPassed": 5,
+      "testsFailed": 0,
+      "professionalCoreCanonicalLfSha256": "62489ba5a812872fe5ccb0b9543941e20c26a75a5c70dece078df1fc5c92acae",
+      "settingsHtmlCanonicalLfSha256": "bdc019b18b1995ccad23bdab45b86ec191a2c45b5f59022752b2ebeda4c622a7",
+      "regressionTestCanonicalLfSha256": "33d182d4c9e6989d1b8cc292a155ae8f9ad9d046cd0fe386a376ec94290c380f",
+      "productionDeployed": false
     }
   },
-  "nextTarget": "production forward migration requires separate owner confirmation"
+  "nextTarget": "v76.1.3 review gate and publication"
 }

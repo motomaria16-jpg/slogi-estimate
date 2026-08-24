@@ -29,4 +29,12 @@ Supabase — источник истины; LocalStorage остаётся cache/
 
 Production evidence showed that SQLSTATE `40001` is unsafe for an expected stale-revision result: infrastructure treated the serialization failure as retriable and emitted a large error burst before returning. The immutable v76.1.1 migration is not edited. Forward migration `20260824_7612_workspace_cas_conflict.sql` returns the same `workspace_revision_conflict` as explicit PostgREST HTTP `409` (`PT409`). The browser conflict workflow already recognizes status `409`; workspace data, RLS and product behavior are unchanged.
 
+### v76.1.3 permanent purge hotfix
+
+Обычное удаление остаётся recoverable soft-delete: объект получает `deletedAt` и помещается в `workspace.trash.projects`. Permanent purge разрешён только для ID, уже находящегося в корзине. Он удаляет этот ID одновременно из `workspace.trash.projects` и `locations`; обе записи объединяются существующим debounce и сохраняются одним shared-workspace CAS snapshot.
+
+Активный объект, отсутствующий в корзине, purge удалить не может. При `PT409` проигравший snapshot сохраняется как conflict draft, загружается победившее remote-состояние и автоматический retry не выполняется. После успешного purge remote state становится источником истины для reload и второго браузера, поэтому удалённая запись не воскресает.
+
+Hotfix не добавляет migration, RPC, grants или Edge Function. Production Supabase, Auth, Vault и cron этим релизом не изменяются.
+
 Production workspace code создаётся и передаётся только отдельным безопасным шагом после разрешения владельца.
