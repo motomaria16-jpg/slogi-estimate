@@ -4,7 +4,7 @@
   "releaseName": "Shared Workspace Purge Hotfix",
   "releaseType": "hotfix",
   "releaseDate": "2026-08-24",
-  "status": "candidate",
+  "status": "released",
   "baseTag": "v76.1.2",
   "databaseBaseline": {
     "migrationPath": "supabase/migrations/20260814_7601_baseline.sql",
@@ -62,9 +62,9 @@
     "sharedListingsModuleSha256": "ff4ddd2a6b20b61182b6e8f308a1973722662b1c5702f4abc6333b6ac3cb7ac0"
   },
   "releaseGate": {
-    "canonicalGitCommit": null,
-    "metadataGitCommit": null,
-    "gitTag": null,
+    "canonicalGitCommit": "a9887aed87cb8ae357f7e189c015fc80cef3f86a",
+    "metadataGitCommit": "8fa73ae2f6b80f54bc8c2fd6ba68cfb3abb5f3b8",
+    "gitTag": "v76.1.3",
     "cleanEnvironmentApplyTested": true,
     "catalogAuditPassed": true,
     "unitFixtureTests": {
@@ -101,7 +101,7 @@
       "browserUiReadPassed": true,
       "browserConsoleErrors": 0
     },
-    "publicationAllowed": false,
+    "publicationAllowed": true,
     "testEnvironment": "isolated-local-supabase-postgresql-17",
     "hotfixLocalGate": {
       "headerPagesChecked": 16,
@@ -149,5 +149,5 @@
       "productionDeployed": false
     }
   },
-  "nextTarget": "v76.1.3 review gate and publication"
+  "nextTarget": "production two-profile shared-workspace E2E requires a separate owner-authorized gate"
 }

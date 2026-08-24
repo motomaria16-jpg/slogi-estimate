@@ -1,6 +1,6 @@
 # SLOGI v76.1.3 — Shared Workspace Purge Hotfix
 
-Candidate hotfix на базе released `v76.1.2`. Существующие migrations, Edge Functions и production Supabase contract не изменяются.
+Released hotfix на базе `v76.1.2`. Существующие migrations, Edge Functions и production Supabase contract не изменяются.
 
 ## Что входит в релиз
 

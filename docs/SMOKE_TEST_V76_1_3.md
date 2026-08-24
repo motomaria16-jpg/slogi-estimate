@@ -1,6 +1,6 @@
 # SLOGI v76.1.3 — Shared Workspace Purge Hotfix
 
-Status: local candidate evidence. Production Supabase deployment is not part of this hotfix.
+Status: release gate PASS. Production Supabase deployment is not part of this hotfix.
 
 ## Defect and scope
 
@@ -46,4 +46,4 @@ Canonical-LF evidence for the hotfix surface:
 
 ## Release gate
 
-All local checks listed above were executed on the candidate worktree. Pages post-publish evidence is recorded after publication. A production two-profile workspace E2E remains a separate owner-authorized gate and is not replaced by these local tests.
+All local checks listed above were executed before release. Pages post-publish evidence is recorded in the GitHub Release audit. A production two-profile workspace E2E remains a separate owner-authorized gate and is not replaced by these local tests.
