@@ -1,6 +1,6 @@
 # Smoke test v76.1.1
 
-Дата local gate: 2026-08-23. Статус: `candidate`.
+Дата local gate: 2026-08-23. Статус: `released`.
 
 Одноразовая среда: `C:\Users\User\AppData\Local\Temp\slogi-v7611-layout-a9a47bace98946a69e61662c076904ba`. Использовались только localhost/127.0.0.1, synthetic users/workspace и synthetic market rows. Production Supabase, Browserless, Cian, cron, deploy и production credentials не использовались.
 

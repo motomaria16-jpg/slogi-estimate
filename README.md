@@ -1,6 +1,6 @@
 # SLOGI v76.1.1 — Layout hotfix
 
-Кандидат hotfix-релиза на базе immutable tag `v76.1.0`. Production Supabase не активирован и существующие migrations не изменялись.
+Hotfix-релиз на базе immutable tag `v76.1.0`. Production Supabase не активирован и существующие migrations не изменялись.
 
 ## Что входит в релиз
 
@@ -27,7 +27,7 @@
 - workspace code не хранится в Git, HTML, JavaScript, URL, логах или открытом виде в БД;
 - `anon` не получает прямой доступ к workspace-таблицам;
 - service-role key никогда не попадает в браузер;
-- release candidate не содержит production Supabase endpoint по умолчанию: deployment-specific runtime config включается отдельным шагом.
+- release artifacts не содержат production Supabase endpoint по умолчанию: deployment-specific runtime config включается отдельным шагом.
 
 ## Локальная проверка
 

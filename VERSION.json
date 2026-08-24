@@ -4,7 +4,7 @@
   "releaseName": "Layout and Premises Hotfix",
   "releaseType": "hotfix",
   "releaseDate": "2026-08-24",
-  "status": "candidate",
+  "status": "released",
   "baseTag": "v76.1.0",
   "databaseBaseline": {
     "migrationPath": "supabase/migrations/20260814_7601_baseline.sql",
@@ -59,8 +59,8 @@
   },
   "releaseGate": {
     "canonicalGitCommit": "d6623129f81722df6394e935b0a91b98b71d2a9a",
-    "metadataGitCommit": null,
-    "gitTag": null,
+    "metadataGitCommit": "0a81982d007bd0348cfdb11c05e62b5a53e9c28d",
+    "gitTag": "v76.1.1",
     "cleanEnvironmentApplyTested": true,
     "catalogAuditPassed": true,
     "unitFixtureTests": {
@@ -96,7 +96,7 @@
       "browserUiReadPassed": true,
       "browserConsoleErrors": 0
     },
-    "publicationAllowed": false,
+    "publicationAllowed": true,
     "testEnvironment": "isolated-local-supabase-postgresql-17",
     "hotfixLocalGate": {
       "headerPagesChecked": 16,
@@ -116,5 +116,5 @@
       "existingMigrationsChanged": false
     }
   },
-  "nextTarget": "owner confirmation required before merge, v76.1.1 tag, GitHub Release or Pages update"
+  "nextTarget": "production Supabase activation requires separate owner confirmation"
 }
