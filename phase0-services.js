@@ -64,7 +64,7 @@ function defaultCriteria(existing){const src=existing&&typeof existing==='object
 function defaultPhase0(){
   const stamp=now();
   return{
-    schemaVersion:1,revision:0,source:'manual',listingUrl:'',
+    schemaVersion:1,revision:0,source:'manual',listingUrl:'',canonicalUrl:'',externalId:'',listingTitle:'',listingPublishedAt:'',listingUpdatedAt:'',listingAddedAt:'',parserWarnings:[],floor:null,totalFloors:null,
     rent:{amount:null,period:'month',currency:'RUB'},windowsCount:null,roomsCount:null,
     status:STATUS.NO_ANSWER,rejection:null,selectionCriteria:defaultCriteria(),comments:'',
     layout:{received:false,fileName:'',mime:'',size:null,updatedAt:'',updatedBy:null},
@@ -79,6 +79,10 @@ class ProjectRepository{
   listAll(){return P.readLocations().filter(x=>x&&x.id&&!x.deletedAt)}
   listPhase0(){return this.listAll().filter(x=>x.phase0&&typeof x.phase0==='object')}
   get(id){return this.listAll().find(x=>String(x.id)===String(id))||null}
+  findByListing(source,externalId,listingUrl){
+    const sourceKey=norm(source),idKey=String(externalId||'').trim(),urlKey=normalizeUrl(listingUrl);
+    return this.listAll().find(project=>{const phase=project.phase0||{},projectSource=norm(phase.source||project.source),projectId=String(phase.externalId||project.externalId||'').trim(),projectUrl=normalizeUrl(phase.canonicalUrl||phase.listingUrl||project.listingUrl);return Boolean((sourceKey&&idKey&&projectSource===sourceKey&&projectId===idKey)||(urlKey&&projectUrl===urlKey));})||null;
+  }
   write(items,reason){P.writeLocations(items,reason);if(window.SlogiCloud&&typeof window.SlogiCloud.schedulePush==='function')window.SlogiCloud.schedulePush()}
   create(project){
     const all=P.readLocations(),id=project.id||P.uid('project');
@@ -115,11 +119,12 @@ class ProjectRepository{
     return clone(all[index]);
   }
   findDuplicates(candidate,excludeId=''){
-    const targetUrl=normalizeUrl(candidate.phase0&&candidate.phase0.listingUrl),targetAddress=norm(candidate.address),targetGeo=projectGeo(candidate);
+    const targetUrl=normalizeUrl(candidate.phase0&&candidate.phase0.listingUrl),targetExternalId=String(candidate.phase0&&candidate.phase0.externalId||''),targetSource=norm(candidate.phase0&&candidate.phase0.source),targetAddress=norm(candidate.address),targetGeo=projectGeo(candidate);
     return this.listAll().filter(x=>String(x.id)!==String(excludeId)).map(project=>{
-      const reasons=[];
+      const reasons=[],phase=project.phase0||{};
+      if(targetExternalId&&targetSource===norm(phase.source)&&targetExternalId===String(phase.externalId||''))reasons.push('совпадает источник и ID объявления');
       if(targetUrl&&normalizeUrl(project.phase0&&project.phase0.listingUrl)===targetUrl)reasons.push('совпадает ссылка на объявление');
-      if(targetAddress&&norm(project.address)===targetAddress)reasons.push('совпадает нормализованный адрес');
+      if(!targetExternalId&&!targetUrl&&targetAddress&&norm(project.address)===targetAddress)reasons.push('совпадает нормализованный адрес');
       if(targetGeo&&distanceMeters(targetGeo,projectGeo(project))<=50)reasons.push('координаты находятся ближе 50 м');
       return reasons.length?{project:clone(project),reasons}:null;
     }).filter(Boolean);
@@ -591,9 +596,10 @@ class Phase0Service{
     const interest=confirmed===wasConfirmed?Object.assign({confirmed:false,confirmedAt:'',updatedAt:'',updatedBy:null},base.interest||{}):{confirmed,confirmedAt:confirmed?stamp:'',updatedAt:stamp,updatedBy:actor};
     const clusterId=String(draft.clusterId||''),geo=normalizeGeo({lat:draft.latitude,lng:draft.longitude});
     const clusterApi=window.SlogiPhase0&&window.SlogiPhase0.clusterService;let cluster=clusterApi?clusterApi.find(clusterId||draft.clusterName):null;
-    if(!cluster&&geo&&clusterApi)cluster=clusterApi.findByCoordinates(geo.lat,geo.lng)||(clusterApi.findNearestByCoordinates&&clusterApi.findNearestByCoordinates(geo.lat,geo.lng,6000));
+    if(!cluster&&geo&&clusterApi)cluster=clusterApi.findByCoordinates(geo.lat,geo.lng);
+    if(!cluster&&geo&&clusterApi&&source!=='cian'&&clusterApi.findNearestByCoordinates)cluster=clusterApi.findNearestByCoordinates(geo.lat,geo.lng,6000);
     const phase0=Object.assign(defaultPhase0(),base,{
-      source,listingUrl,
+      source,listingUrl,canonicalUrl:normalizeUrl(draft.canonicalUrl||listingUrl),externalId:String(draft.externalId||base.externalId||''),listingTitle:String(draft.listingTitle||base.listingTitle||''),listingPublishedAt:String(draft.publishedAt||base.listingPublishedAt||''),listingUpdatedAt:String(draft.sourceUpdatedAt||base.listingUpdatedAt||''),listingAddedAt:String(base.listingAddedAt||draft.addedAt||stamp),parserWarnings:Array.isArray(draft.parserWarnings)?draft.parserWarnings.map(String).slice(0,20):Array.isArray(base.parserWarnings)?base.parserWarnings:[],floor:nullableNumber(draft.floor??base.floor),totalFloors:nullableNumber(draft.totalFloors??base.totalFloors),
       rent:{amount:nullableNumber(draft.rentMonthly),period:normalizeRentPeriod(draft.rentPeriod),currency:String(draft.rentCurrency||'RUB')},
       windowsCount:nullableNumber(draft.windowsCount),roomsCount:nullableNumber(draft.roomsCount),status,rejection,
       selectionCriteria:defaultCriteria(draft.selectionCriteria),interest,
@@ -602,7 +608,7 @@ class Phase0Service{
     });
     const shared={
       address:String(draft.address||'').trim(),geo,clusterId:cluster?cluster.id:clusterId,clusterName:cluster?cluster.name:String(draft.clusterName||''),
-      area:nullableNumber(draft.area),ceilingHeight:nullableNumber(draft.ceilingHeight),status:globalStatus,projectStatus:globalStatus,lifecyclePhase:existing&&existing.lifecyclePhase!=null?existing.lifecyclePhase:0
+      area:nullableNumber(draft.area),floor:nullableNumber(draft.floor??(existing&&existing.floor)),ceilingHeight:nullableNumber(draft.ceilingHeight),status:globalStatus,projectStatus:globalStatus,lifecyclePhase:existing&&existing.lifecyclePhase!=null?existing.lifecyclePhase:0
     };
     return Object.assign({},existing||{},shared,{phase0});
   }
@@ -619,7 +625,7 @@ class Phase0Service{
     const before=projectId?this.projects.get(projectId):null,{candidate,errors,duplicates}=this.prepare(draft,before);
     if(Object.keys(errors).length)throw new Phase0Error('Проверьте поля формы.','VALIDATION_ERROR',{errors});
     if(duplicates.length)throw new Phase0Error('Похожий объект уже существует.','POTENTIAL_DUPLICATE',{duplicates});
-    const shared={address:candidate.address,geo:candidate.geo,clusterId:candidate.clusterId,clusterName:candidate.clusterName,area:candidate.area,ceilingHeight:candidate.ceilingHeight,status:candidate.status,projectStatus:candidate.projectStatus,lifecyclePhase:candidate.lifecyclePhase};
+    const shared={address:candidate.address,geo:candidate.geo,clusterId:candidate.clusterId,clusterName:candidate.clusterName,area:candidate.area,floor:candidate.floor,ceilingHeight:candidate.ceilingHeight,status:candidate.status,projectStatus:candidate.projectStatus,lifecyclePhase:candidate.lifecyclePhase};
     let saved=before?this.projects.update(before.id,shared,candidate.phase0,expectedRevision):this.projects.create(candidate);
     this.audit.recordSave(before,saved);
     if(layoutFile){
@@ -631,6 +637,21 @@ class Phase0Service{
     }
     const comp=this.competitive.snapshot();if(comp.rows&&comp.rows.length){this.applyCompetitiveRows(comp);saved=this.projects.get(saved.id)||saved}
     return saved;
+  }
+  findListingProject(listing){return this.projects.findByListing('cian',listing&&listing.externalId,listing&&listing.listingUrl)}
+  async addMarketListing(listing){
+    const existing=this.findListingProject(listing);if(existing)return{project:existing,created:false};
+    const url=normalizeUrl(listing&&listing.listingUrl);if(!url||detectListingSource(url)!=='cian')throw new Phase0Error('Поддерживаются только сохранённые объявления ЦИАН.','LISTING_SOURCE_NOT_ALLOWED');
+    let geo=normalizeGeo({lat:listing.latitude,lng:listing.longitude}),cluster=geo?clusterService.findByCoordinates(geo.lat,geo.lng):null;
+    if(!cluster&&listing.clusterName)cluster=clusterService.find(listing.clusterName);
+    if(!geo&&listing.address){
+      const cacheKey='slogi_cian_geocode_cache_v1',id=String(listing.externalId||url),cache=(()=>{try{const value=JSON.parse(localStorage.getItem(cacheKey)||'{}');return value&&typeof value==='object'?value:{}}catch(_){return{}}})();
+      const cached=cache[id];if(cached&&cached.geo)geo=normalizeGeo(cached.geo);
+      if(!geo){try{const result=await geocodingService.geocode(listing.address);if(result&&result.geo){geo=normalizeGeo(result.geo);cache[id]={geo,updatedAt:now()};const entries=Object.entries(cache).slice(-50);localStorage.setItem(cacheKey,JSON.stringify(Object.fromEntries(entries)));}}catch(_){geo=null;}}
+      if(geo)cluster=clusterService.findByCoordinates(geo.lat,geo.lng);
+    }
+    const result=await this.save({listingUrl:url,canonicalUrl:url,externalId:String(listing.externalId||''),listingTitle:String(listing.title||''),address:String(listing.address||''),latitude:geo&&geo.lat,longitude:geo&&geo.lng,clusterId:cluster&&cluster.id||'',clusterName:cluster&&cluster.name||'',area:listing.area,rentMonthly:listing.rentMonthly,rentPeriod:'month',rentCurrency:'RUB',floor:listing.floor,totalFloors:listing.totalFloors,ceilingHeight:listing.ceilingHeight,publishedAt:listing.publishedAt,sourceUpdatedAt:listing.sourceUpdatedAt,addedAt:now(),parserWarnings:listing.parseWarnings,status:STATUS.NO_ANSWER,selectionCriteria:defaultCriteria(),interestConfirmed:false,measurementStatus:'Не назначен'});
+    return{project:result,created:true};
   }
   updateStatus(projectId,status,rejectionReason=''){
     if(!STATUSES.includes(status))throw new Phase0Error('Неизвестный статус объекта.','INVALID_STATUS');

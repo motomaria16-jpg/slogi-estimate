@@ -1,6 +1,6 @@
-# SLOGI v76.1.0 — Cian Shared Workspace
+# SLOGI v76.1.1 — Layout hotfix
 
-Кандидат feature-релиза профессионального пространства для специалистов по коммерческой недвижимости.
+Hotfix-релиз на базе immutable tag `v76.1.0`. Production Supabase не активирован и существующие migrations не изменялись.
 
 ## Что входит в релиз
 
@@ -10,7 +10,12 @@
 - техническая anonymous Auth session без формы аккаунта;
 - общее защищённое workspace-состояние по длинному high-entropy коду;
 - revision-based защита от незаметной перезаписи между компьютерами;
-- тёплый SLOGI shell, карточки, фильтры, карта и кластеры.
+- единый компактный shell высотой 72 px на desktop и 60 px на tablet/mobile;
+- навигация в порядке «Поиск помещений» → «Мои помещения» → «Смета и КП» → «Ремонт»;
+- канонический фильтр кластеров и 58 polygon overlays из `clusters.geojson`;
+- добавление сохранённого объявления ЦИАН в существующую доменную модель «Моих помещений» без повторного парсинга;
+- дедупликация по `source + externalId` и canonical URL;
+- cross-device workspace sync с явной обработкой PostgreSQL revision conflict.
 
 Авито в runtime v76.1.0 отсутствует. В интерфейсе есть только неактивная информационная карточка «Авито — подключение готовится», без кнопки, URL и сетевого вызова. Ozon, Apify и Inpars не входят в релиз.
 
@@ -22,7 +27,7 @@
 - workspace code не хранится в Git, HTML, JavaScript, URL, логах или открытом виде в БД;
 - `anon` не получает прямой доступ к workspace-таблицам;
 - service-role key никогда не попадает в браузер;
-- release candidate не содержит production Supabase endpoint по умолчанию: deployment-specific runtime config включается отдельным шагом.
+- release artifacts не содержат production Supabase endpoint по умолчанию: deployment-specific runtime config включается отдельным шагом.
 
 ## Локальная проверка
 
@@ -40,7 +45,7 @@
 - [Daily refresh и очередь](docs/LISTING_REFRESH_V76_1.md)
 - [Общее рабочее пространство](docs/SHARED_WORKSPACE_V76_1.md)
 - [Дизайн-система](docs/DESIGN_SYSTEM_V76_1.md)
-- [Smoke test](docs/SMOKE_TEST_V76_1.md)
+- [Smoke test v76.1.1](docs/SMOKE_TEST_V76_1_1.md)
 - [Deployment](docs/DEPLOYMENT_V76_1.md)
 
 Публикация файлов на GitHub не применяет миграции, не развёртывает Edge Functions, не включает anonymous Auth и не активирует cron. Все production-действия требуют отдельного разрешения владельца.

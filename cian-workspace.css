@@ -103,3 +103,19 @@ body.available-spaces-page{background:var(--slogi-bg)!important;color:var(--slog
 @media(max-width:800px){.cian-main{padding:28px 18px 64px}.cian-hero{align-items:flex-start;flex-direction:column;padding:28px}.cian-hero h1{font-size:44px}.cian-source-grid,.cian-metrics{grid-template-columns:1fr}.cian-source-card{grid-template-columns:50px 1fr}.cian-source-mark{width:50px;height:50px}.cian-source-card .cian-status{grid-column:2}.cian-filters{grid-template-columns:1fr 1fr}.cian-filters .wide{grid-column:1/-1}.cian-results,.cian-map-card,.cian-filter-card{padding:22px}.cian-listing-card{grid-template-columns:1fr}.cian-card-price{text-align:left}.cian-map{height:400px}.cian-map-overlay{height:400px;margin-top:-400px}}
 @media(max-width:520px){.cian-main{padding:20px 10px 52px}.cian-hero{padding:24px 20px;border-radius:25px}.cian-hero h1{font-size:39px}.cian-hero .cian-button{width:100%}.cian-source-card{padding:20px}.cian-metrics article{padding:18px 20px}.cian-metrics strong{font-size:20px}.cian-filters{grid-template-columns:1fr}.cian-filters .wide{grid-column:auto}.cian-filter-card,.cian-results,.cian-map-card{padding:18px;border-radius:25px}.cian-listing-card{padding:17px}.cian-dialog-grid{grid-template-columns:1fr}.cian-map{height:340px}.cian-map-overlay{height:340px;margin-top:-340px}.cian-dialog-body{padding:22px}}
 @media(prefers-reduced-motion:reduce){.cian-loading>span{animation:none}.cian-listing-card{transition:none}.cian-listing-card:hover{transform:none}}
+
+/* v76.1.1 — cluster workspace and add-to-premises actions. */
+.cian-hero h1{font-size:clamp(36px,4.2vw,56px)}
+.cian-listing-card{display:block;min-height:0;padding:0;overflow:hidden;cursor:default}
+.cian-listing-card.selected{border-color:var(--slogi-teal);box-shadow:0 0 0 2px rgba(79,133,128,.16)!important}
+.cian-card-open{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;width:100%;padding:20px;border:0;background:transparent;text-align:left;color:inherit;cursor:pointer}
+.cian-card-open:hover{background:#fffaf3}.cian-badge.cluster{background:#eef3ef;color:#45635f}
+.cian-card-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:12px 20px 16px;border-top:1px solid #eee1d0;background:#fffaf3}
+.cian-card-actions .cian-button{min-height:44px}.cian-card-actions a{display:inline-flex;min-height:44px;align-items:center;color:var(--slogi-teal-dark);font-weight:750;text-decoration:none}
+.cian-card-actions a:hover{text-decoration:underline;text-underline-offset:4px}.cian-add-object:disabled{cursor:default;background:#dce9e6!important;color:#285b58!important;opacity:1}
+.cian-map-toolbar{display:flex;justify-content:flex-end;margin:14px 0 -8px}.cian-map-toggle{min-height:44px;padding:0 16px;border:1px solid #c9d9d4;border-radius:16px;background:#eef5f0;color:var(--slogi-teal-dark);font-weight:750;cursor:pointer}
+.cian-map-toggle[aria-pressed="false"]{background:#fffaf3;color:var(--slogi-muted)}
+.cian-dialog-actions{align-items:center;flex-wrap:wrap;gap:10px}.cian-dialog-actions .cian-button:disabled{cursor:default;background:#dce9e6;color:#285b58;opacity:1}.phase0-toast[data-error="true"]{background:#9d3d32!important}
+.cian-loading[hidden],.cian-empty[hidden],.cian-map-loading[hidden]{display:none!important}
+@media(max-width:800px){.cian-hero h1{font-size:clamp(34px,8vw,44px)}.cian-card-open{grid-template-columns:1fr}.cian-card-price{text-align:left}.cian-card-actions{align-items:stretch;flex-direction:column}.cian-card-actions>*{width:100%;justify-content:center}.cian-map{touch-action:pan-y}}
+@media(max-width:520px){.cian-hero h1{font-size:36px}.cian-card-open{padding:17px}.cian-card-actions{padding:12px 17px 17px}.cian-dialog-actions>*{width:100%;justify-content:center}}

@@ -174,6 +174,34 @@ test('frontend search sends Auth, reads only, and exposes disabled future source
   assert.match(js,/Authorization/);assert.match(js,/getAccessToken/);assert.equal(/persist|update-clusters|refresh-listings|hydrate-listings/.test(js),false);assert.match(html,/Авито — подключение готовится/);assert.equal(/data-source="avito"|available-source/.test(html),false);
 });
 
+test('hotfix navigation exposes the four product sections in the approved order',()=>{
+  const shell=readFileSync(join(repositoryDirectory,'professional-shell.js'),'utf8');
+  const block=shell.match(/const productLinks=\[([\s\S]*?)\];/)?.[1]||'';
+  const labels=[...block.matchAll(/\['(?:search|premises|estimate|repair)','[^']+','([^']+)'/g)].map(match=>match[1]);
+  assert.deepEqual(labels.slice(0,4),['Поиск помещений','Мои помещения','Смета и КП','Ремонт']);
+  assert.equal(/Пространство специалиста|Предложения ЦИАН/.test(shell),false);
+});
+
+test('Cian workspace uses canonical clusters and renders measurable map polygons',()=>{
+  const js=readFileSync(join(repositoryDirectory,'cian-workspace.js'),'utf8');const html=readFileSync(join(repositoryDirectory,'available-spaces.html'),'utf8');
+  assert.match(html,/id="available-cluster"/);assert.match(html,/Все кластеры/);assert.match(html,/Кластер не определён/);
+  assert.match(js,/service\.findByCoordinates/);assert.match(js,/new window\.ymaps\.Polygon/);assert.match(js,/dataset\.clusterPolygons/);
+  assert.equal(/fetch\([^)]*cian\.ru/i.test(js),false);
+});
+
+test('adding a Cian listing follows the existing project domain path and deduplicates',()=>{
+  const services=readFileSync(join(repositoryDirectory,'phase0-services.js'),'utf8');const workspace=readFileSync(join(repositoryDirectory,'cian-workspace.js'),'utf8');
+  assert.match(services,/findByListing\('cian'/);assert.match(services,/async addMarketListing\(listing\)/);assert.match(services,/this\.save\(\{listingUrl:url/);
+  assert.match(services,/source!=='cian'&&clusterApi\.findNearestByCoordinates/);
+  assert.match(workspace,/service\.addMarketListing\(item\)/);assert.match(workspace,/SlogiCloud\.sync\(\)/);
+  assert.equal(/localStorage\.setItem\([^,]+,\s*JSON\.stringify\(item\)/.test(workspace),false);
+});
+
+test('shared workspace recognizes PostgreSQL revision conflict returned as HTTP 500',()=>{
+  const shared=readFileSync(join(repositoryDirectory,'shared-workspace.js'),'utf8');
+  assert.match(shared,/response\.status!==500/);assert.match(shared,/payload\.code==='40001'/);assert.match(shared,/payload\.message==='workspace_revision_conflict'/);assert.match(shared,/await isRevisionConflict\(response\)/);
+});
+
 test('legacy personal account client and UI references are removed',()=>{
   const shell=readFileSync(join(repositoryDirectory,'professional-shell.js'),'utf8');const shared=readFileSync(join(repositoryDirectory,'shared-workspace.js'),'utf8');
   assert.equal(/Личный кабинет|Войти|Регистрац|Восстановлен|logout|signout|slogi-account/i.test(shell+shared),false);assert.match(shared,/\/auth\/v1\/signup/);assert.match(shared,/is_anonymous/);assert.match(shared,/p_expected_revision/);
