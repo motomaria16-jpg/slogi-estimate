@@ -1,11 +1,11 @@
 {
   "app": "SLOGI",
-  "version": "76.1.3",
-  "releaseName": "Shared Workspace Purge Hotfix",
+  "version": "76.1.4",
+  "releaseName": "Shared Workspace Soft-Delete CAS Hotfix",
   "releaseType": "hotfix",
-  "releaseDate": "2026-08-24",
-  "status": "released",
-  "baseTag": "v76.1.2",
+  "releaseDate": "2026-08-25",
+  "status": "candidate",
+  "baseTag": "v76.1.3",
   "databaseBaseline": {
     "migrationPath": "supabase/migrations/20260814_7601_baseline.sql",
     "recordedV7601WorkingTreeSha256": "a4ab16221f6c76c21b6f541c7780111afcbcc72b8726cdac75c0d0adea656bc3",
@@ -62,13 +62,13 @@
     "sharedListingsModuleSha256": "ff4ddd2a6b20b61182b6e8f308a1973722662b1c5702f4abc6333b6ac3cb7ac0"
   },
   "releaseGate": {
-    "canonicalGitCommit": "a9887aed87cb8ae357f7e189c015fc80cef3f86a",
-    "metadataGitCommit": "8fa73ae2f6b80f54bc8c2fd6ba68cfb3abb5f3b8",
-    "gitTag": "v76.1.3",
+    "canonicalGitCommit": "b00cf83b5569212e33dcddc7c3645dccc0ddad44",
+    "metadataGitCommit": null,
+    "gitTag": null,
     "cleanEnvironmentApplyTested": true,
     "catalogAuditPassed": true,
     "unitFixtureTests": {
-      "passed": 40,
+      "passed": 43,
       "failed": 0,
       "inheritedFromBaseTag": false
     },
@@ -83,7 +83,7 @@
     "secretScanPassed": true,
     "avitoRuntimeAbsent": true,
     "ozonRuntimeAbsent": true,
-    "externalBrowserlessCalls": 2,
+    "externalBrowserlessCalls": 0,
     "cianLiveEvidencePassed": true,
     "cianLiveEvidenceStatus": "passed",
     "cianLiveEvidence": {
@@ -99,9 +99,10 @@
       "authenticatedSearchPassed": true,
       "unauthenticatedSearchRejected": true,
       "browserUiReadPassed": true,
-      "browserConsoleErrors": 0
+      "browserConsoleErrors": 0,
+      "inheritedFromBaseTag": true
     },
-    "publicationAllowed": true,
+    "publicationAllowed": false,
     "testEnvironment": "isolated-local-supabase-postgresql-17",
     "hotfixLocalGate": {
       "headerPagesChecked": 16,
@@ -147,7 +148,32 @@
       "settingsHtmlCanonicalLfSha256": "bdc019b18b1995ccad23bdab45b86ec191a2c45b5f59022752b2ebeda4c622a7",
       "regressionTestCanonicalLfSha256": "33d182d4c9e6989d1b8cc292a155ae8f9ad9d046cd0fe386a376ec94290c380f",
       "productionDeployed": false
+    },
+    "sharedWorkspaceInitializationHotfix": {
+      "rootCauseReproduced": true,
+      "preFixCasCallsAfterSoftDelete": 0,
+      "postFixCasCallsAfterSoftDelete": 1,
+      "matchingBaseReconciliationPassed": true,
+      "divergentRemoteWinnerProtected": true,
+      "conflictDraftPreserved": true,
+      "pt409Count": 1,
+      "retryFloodAbsent": true,
+      "testsPassed": 7,
+      "testsFailed": 0,
+      "fullSuitePassed": 43,
+      "cleanApplyResetsPassed": 2,
+      "browserCheckpointsPassed": 13,
+      "browserCheckpointsFailed": 0,
+      "browserDesktopPassed": true,
+      "browserMobilePassed": true,
+      "crossDevicePassed": true,
+      "unexpectedConsoleErrors": 0,
+      "consoleWarnings": 0,
+      "forbiddenRuntimeCalls": 0,
+      "sharedWorkspaceCanonicalLfSha256": "788bc398472c2ab74b204d5125295095812dd02a9ebaeb2cdd55006b1a515614",
+      "regressionTestCanonicalLfSha256": "9fadeff538c51937faddfdd29ddb8e3b6a9bbf0ea4f92ac14c3ec44eb432222b",
+      "productionDeployed": false
     }
   },
-  "nextTarget": "production two-profile shared-workspace E2E requires a separate owner-authorized gate"
+  "nextTarget": "owner review and PR approval; merge, publication and production E2E require separate gates"
 }

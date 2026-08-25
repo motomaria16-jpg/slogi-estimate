@@ -1,6 +1,6 @@
-# SLOGI v76.1.3 — Shared Workspace Purge Hotfix
+# SLOGI v76.1.4 candidate — Shared Workspace Soft-Delete CAS Hotfix
 
-Released hotfix на базе `v76.1.2`. Существующие migrations, Edge Functions и production Supabase contract не изменяются.
+Локально проверенный hotfix-candidate на базе immutable/public `v76.1.3`. Существующие migrations, Edge Functions и production Supabase contract не изменяются. Публикация, merge и production E2E требуют отдельных gates.
 
 ## Что входит в релиз
 
@@ -17,6 +17,7 @@ Released hotfix на базе `v76.1.2`. Существующие migrations, Ed
 - дедупликация по `source + externalId` и canonical URL;
 - cross-device workspace sync с явной обработкой PostgreSQL revision conflict.
 - permanent purge физически удаляет только уже помещённые в корзину объекты из общего `locations` state и не допускает их восстановления после reload.
+- локальная мутация, сделанная во время начального чтения workspace после reconciliation, не теряется: при неизменившейся remote-базе выполняется один CAS, а при новом remote winner сохраняется conflict draft без автоматической перезаписи.
 
 Авито в runtime v76.1.0 отсутствует. В интерфейсе есть только неактивная информационная карточка «Авито — подключение готовится», без кнопки, URL и сетевого вызова. Ozon, Apify и Inpars не входят в релиз.
 
@@ -50,6 +51,7 @@ Released hotfix на базе `v76.1.2`. Существующие migrations, Ed
 - [Smoke test v76.1.1](docs/SMOKE_TEST_V76_1_1.md)
 - [CAS hotfix smoke v76.1.2](docs/SMOKE_TEST_V76_1_2.md)
 - [Shared purge hotfix smoke v76.1.3](docs/SMOKE_TEST_V76_1_3.md)
+- [Soft-delete after CAS smoke v76.1.4](docs/SMOKE_TEST_V76_1_4.md)
 - [Deployment](docs/DEPLOYMENT_V76_1.md)
 
 Публикация файлов на GitHub не применяет миграции, не развёртывает Edge Functions, не включает anonymous Auth и не активирует cron. Все production-действия требуют отдельного разрешения владельца.

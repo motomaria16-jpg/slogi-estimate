@@ -89,6 +89,47 @@ async function sharedHarness({remoteState,revision=7,rpc='ok',winnerState={locat
   return{P:window.SlogiPro,cloud:window.SlogiCloud,localStorage,events,get rpcCalls(){return rpcCalls;},get capturedState(){return capturedState;}};
 }
 
+async function initializationRaceHarness({seed,remoteState,revision,mutate}){
+  const Storage=storageClass();
+  const localStorage=new Storage(seed);
+  const documentHarness=fakeDocument();
+  let releaseState,markStateReadStarted,markReady;
+  const stateReadStarted=new Promise(resolve=>{markStateReadStarted=resolve;});
+  const stateRelease=new Promise(resolve=>{releaseState=resolve;});
+  const readyObserved=new Promise(resolve=>{markReady=resolve;});
+  let rpcCalls=0,captured=null;
+  const events=[];
+  const fetch=async(input,init={})=>{
+    const url=String(input);
+    if(url.endsWith('/auth/v1/user'))return jsonResponse({id:'fixture-user',is_anonymous:true});
+    if(url.includes('/slogi_shared_workspace_members?'))return jsonResponse([{workspace_id:'fixture-workspace'}]);
+    if(url.includes('/slogi_shared_workspace_state?')){
+      markStateReadStarted();
+      await stateRelease;
+      return jsonResponse([{state:remoteState,revision,updated_at:'2026-08-24T19:03:00.000Z'}]);
+    }
+    if(url.endsWith('/rest/v1/rpc/slogi_update_shared_workspace_state')){
+      rpcCalls++;
+      captured=JSON.parse(String(init.body||'{}'));
+      return jsonResponse([{workspace_id:'fixture-workspace',state:captured.p_state,revision:revision+1,updated_at:'2026-08-24T19:04:00.000Z'}]);
+    }
+    throw new Error(`unexpected fetch ${new URL(url).pathname}`);
+  };
+  const window={
+    SLOGI_PHASE0_CONFIG:{supabase:{url:'https://fixture.supabase.co',publishableKey:'fixture-publishable-key-with-safe-length'},sharedWorkspace:{joinEndpoint:'https://fixture.supabase.co/functions/v1/join-workspace'}},
+    dispatchEvent:event=>{events.push(event);if(event.type==='slogi:shared-workspace-ready')markReady();},
+  };
+  const context=vm.createContext({window,document:documentHarness.document,localStorage,Storage,CustomEvent:class{constructor(type,options={}){this.type=type;this.detail=options.detail;}},fetch,Response,URL,Date,Math,JSON,Set,String,Number,Array,Object,Boolean,RegExp,encodeURIComponent,setTimeout,clearTimeout});
+  vm.runInContext(coreSource,context,{filename:'professional-core.js'});
+  vm.runInContext(sharedSource,context,{filename:'shared-workspace.js'});
+  documentHarness.fireReady();
+  await stateReadStarted;
+  await mutate(window.SlogiPro);
+  releaseState();
+  await readyObserved;
+  return{localStorage,events,get rpcCalls(){return rpcCalls;},get captured(){return captured;}};
+}
+
 test('soft delete keeps the object recoverable in trash',()=>{
   const item=project('one',{deleted:false});
   const harness=coreHarness({locations:[item]});
@@ -145,4 +186,69 @@ test('PT409 preserves winner state, keeps a conflict draft and does not retry fl
   assert.equal(harness.events.filter(event=>event.type==='slogi:workspace-conflict').length,1);
   await wait(800);
   assert.equal(harness.rpcCalls,1,'revision conflict must not cause an automatic retry flood');
+});
+
+test('soft delete after one PT409 reconciliation is not lost during reload initialization',async()=>{
+  const stale=project('stale',{deleted:false});
+  const winner=project('winner',{deleted:false});
+  const winnerState={locations:[winner],workspace:workflowState()};
+  const conflicted=await sharedHarness({
+    remoteState:{locations:[stale],workspace:workflowState()},
+    revision:7,
+    rpc:'conflict',
+    winnerState,
+  });
+  const changed=conflicted.P.read();
+  changed.notifications.push({id:'stale-change'});
+  conflicted.P.write(changed,'controlled-stale-writer');
+  assert.equal(await conflicted.cloud.sync(),false);
+  assert.equal(conflicted.rpcCalls,1,'the controlled stale writer must receive exactly one PT409');
+  assert.deepEqual(JSON.parse(conflicted.localStorage.getItem(LOCATIONS_KEY)).map(value=>value.id),['winner']);
+  assert.ok(conflicted.localStorage.getItem(CONFLICT_KEY),'the PT409 loser must retain a conflict draft');
+
+  const seed={};
+  for(const key of [SESSION_KEY,LOCATIONS_KEY,WORKFLOW_KEY,'slogi_shared_workspace_cache_v1',CONFLICT_KEY]){
+    const value=conflicted.localStorage.getItem(key);
+    if(value!==null)seed[key]=value;
+  }
+  const race=await initializationRaceHarness({seed,remoteState:winnerState,revision:8,mutate:async P=>{
+    P.softDeleteProject(winner);
+    const locations=P.readLocations();
+    locations[0]={...locations[0],deletedAt:'2026-08-24T19:05:00.000Z'};
+    P.writeLocations(locations,'phase0-project-soft-delete');
+  }});
+
+  assert.equal(race.rpcCalls,1,'the reconciled soft delete must issue one CAS write after initialization');
+  assert.equal(race.captured.p_expected_revision,8);
+  assert.equal(race.captured.p_state.locations.length,1);
+  assert.ok(race.captured.p_state.locations[0].deletedAt);
+  assert.deepEqual(race.captured.p_state.workspace.trash.projects.map(value=>value.id),['winner']);
+  assert.equal(race.events.filter(event=>event.type==='slogi:workspace-conflict').length,0,'a matching cached base must not create a second conflict');
+});
+
+test('initialization never rebases a local delete over a divergent remote winner',async()=>{
+  const base=project('base',{deleted:false});
+  const winner=project('remote-winner',{deleted:false});
+  const baseState={locations:[base],workspace:workflowState()};
+  const remoteState={locations:[winner],workspace:workflowState()};
+  const session={access_token:'fixture-access',refresh_token:'fixture-refresh',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'fixture-user',is_anonymous:true}};
+  const seed={
+    [SESSION_KEY]:JSON.stringify(session),
+    [LOCATIONS_KEY]:JSON.stringify(baseState.locations),
+    [WORKFLOW_KEY]:JSON.stringify(baseState.workspace),
+    slogi_shared_workspace_cache_v1:JSON.stringify({workspaceId:'fixture-workspace',revision:7,state:baseState}),
+  };
+  const harness=await initializationRaceHarness({seed,remoteState,revision:8,mutate:async P=>{
+    P.softDeleteProject(base);
+    const locations=P.readLocations();
+    locations[0]={...locations[0],deletedAt:'2026-08-24T19:05:00.000Z'};
+    P.writeLocations(locations,'phase0-project-soft-delete');
+  }});
+  assert.equal(harness.rpcCalls,0,'a divergent remote winner must never be overwritten automatically');
+  assert.deepEqual(JSON.parse(harness.localStorage.getItem(LOCATIONS_KEY)).map(value=>value.id),['remote-winner']);
+  const draft=JSON.parse(harness.localStorage.getItem(CONFLICT_KEY));
+  assert.equal(draft.state.locations[0].id,'base');
+  assert.ok(draft.state.locations[0].deletedAt);
+  assert.deepEqual(draft.state.workspace.trash.projects.map(value=>value.id),['base']);
+  assert.equal(harness.events.filter(event=>event.type==='slogi:workspace-conflict').length,1);
 });

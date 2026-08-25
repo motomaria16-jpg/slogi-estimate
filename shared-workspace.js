@@ -26,6 +26,7 @@
   let pendingPush=false;
   let lastUploaded='';
   let sessionTask=null;
+  let localMutationVersion=0;
 
   function validConfig(){
     try{
@@ -171,7 +172,13 @@
   }
   function schedulePush(delay){
     clearTimeout(pushTimer);
-    pushTimer=setTimeout(()=>{pushState().catch(()=>announce('Не удалось синхронизировать изменения. Локальная копия сохранена.',true));},Number(delay)||650);
+    pushTimer=setTimeout(()=>{pushTimer=null;pushState().catch(()=>announce('Не удалось синхронизировать изменения. Локальная копия сохранена.',true));},Number(delay)||650);
+  }
+
+  function preserveInitializationConflict(local){
+    nativeSet(CONFLICT_KEY,JSON.stringify({workspaceId:membership&&membership.workspace_id||'',state:normalizedState(local),savedAt:new Date().toISOString()}));
+    announce('Данные изменились на другом компьютере. Локальная версия сохранена как черновик; загружена актуальная версия.',true);
+    window.dispatchEvent(new CustomEvent('slogi:workspace-conflict'));
   }
 
   function announce(message,isError){
@@ -284,25 +291,50 @@
 
   async function initialize(){
     ensureUiStyles();
+    const mutationVersionAtStart=localMutationVersion;
+    const localAtStart=localState();
+    const cacheAtStart=safeJson(localStorage.getItem(CACHE_KEY),null);
     try{
       await ensureSession();
       await readMembership();
       if(!membership){ready=false;ensureConnectButton();showWorkspaceDialog();return;}
       const remote=await readRemoteState();
-      if(remote)applyRemoteState(remote);
-      ready=true;
+      const mutatedWhileLoading=localMutationVersion!==mutationVersionAtStart;
+      if(remote&&mutatedWhileLoading){
+        // The cached UI can change while the initial remote read is in flight.
+        // Rebase that change only when the cached base is still the remote base.
+        const local=localState();
+        const cachedForWorkspace=cacheAtStart&&cacheAtStart.workspaceId===membership.workspace_id&&cacheAtStart.state;
+        const base=cachedForWorkspace?normalizedState(cacheAtStart.state):normalizedState(localAtStart);
+        const revisionMatches=!cachedForWorkspace||Number(cacheAtStart.revision)===revision;
+        if(revisionMatches&&serialized(base)===serialized(remote)){
+          clearTimeout(pushTimer);pushTimer=null;pendingPush=false;
+          lastUploaded=serialized(remote);
+          ready=true;
+          try{await pushState();}catch(_err){pendingPush=true;announce('Не удалось синхронизировать изменения. Локальная копия сохранена.',true);}
+        }else{
+          clearTimeout(pushTimer);pushTimer=null;pendingPush=false;
+          preserveInitializationConflict(local);
+          applyRemoteState(remote);
+          ready=true;
+        }
+      }else{
+        if(remote)applyRemoteState(remote);
+        ready=true;
+      }
       window.dispatchEvent(new CustomEvent('slogi:shared-workspace-ready'));
     }catch(_err){
       ready=false;
       const cache=safeJson(localStorage.getItem(CACHE_KEY),null);
-      if(cache&&cache.state)applyRemoteState(cache.state);
+      if(localMutationVersion===mutationVersionAtStart&&cache&&cache.state)applyRemoteState(cache.state);
+      else pendingPush=true;
       announce('Облачная синхронизация временно недоступна. Работа продолжается с локальной копией.',true);
     }
   }
 
   Storage.prototype.setItem=function(key,value){
     originalSetItem.apply(this,arguments);
-    if(this===localStorage&&!internalWrite&&(key===LOCATIONS_KEY||key===WORKFLOW_KEY))schedulePush();
+    if(this===localStorage&&!internalWrite&&(key===LOCATIONS_KEY||key===WORKFLOW_KEY)){localMutationVersion++;schedulePush();}
   };
   const api={
     enabled:true,
