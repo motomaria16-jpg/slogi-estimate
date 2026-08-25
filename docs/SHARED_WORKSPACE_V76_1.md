@@ -37,4 +37,17 @@ Production evidence showed that SQLSTATE `40001` is unsafe for an expected stale
 
 Hotfix не добавляет migration, RPC, grants или Edge Function. Production Supabase, Auth, Vault и cron этим релизом не изменяются.
 
+### v76.1.4 initialization reconciliation hotfix
+
+После `PT409` проигравшая вкладка загружает remote winner и сохраняет локальный вариант как conflict draft. Если сразу после этого страница перезагружалась, UI мог стать интерактивным по локальному cache до завершения начального REST-чтения. Soft-delete, выполненный в этом окне, ставил отложенную синхронизацию, но прежний `initialize()` затем безусловно применял remote snapshot и терял локальную мутацию до CAS-запроса.
+
+Hotfix ведёт локальную версию мутаций во время initialization и сравнивает прочитанный remote snapshot с cache/base:
+
+- если revision и base совпадают с remote, локальная мутация сохраняется ровно одним CAS после завершения чтения;
+- если remote уже изменился, он остаётся победителем, а локальный вариант сохраняется в conflict draft;
+- автоматического retry после `PT409` нет;
+- ошибочное начальное чтение не откатывает уже выполненную локальную мутацию к старому cache.
+
+Изменяется только browser sync orchestration в `shared-workspace.js`. Схема данных, migrations, RPC, RLS, Storage, Auth/JWT, Edge Functions, parser, Browserless и Cian transport не изменяются.
+
 Production workspace code создаётся и передаётся только отдельным безопасным шагом после разрешения владельца.
