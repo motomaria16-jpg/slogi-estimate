@@ -1,6 +1,6 @@
-# SLOGI v76.1.4 candidate — Soft-Delete after CAS Smoke
+# SLOGI v76.1.4 — Soft-Delete after CAS Smoke
 
-Status: LOCAL RELEASE GATE PASS. Production, Browserless, Cian/Avito endpoints, GitHub Pages, Edge deployment, Auth settings, secrets, Vault and cron were not accessed or changed.
+Status: RELEASE GATE PASS. Production, Browserless, Cian/Avito endpoints, Edge deployment, Auth settings, secrets, Vault and cron were not accessed or changed.
 
 ## Root cause and regression proof
 
@@ -77,6 +77,6 @@ The expected stale CAS response was classified by route and HTTP status; it is n
 - `shared-workspace.js`: `788bc398472c2ab74b204d5125295095812dd02a9ebaeb2cdd55006b1a515614`;
 - `tests/shared-workspace-purge.test.mjs`: `9fadeff538c51937faddfdd29ddb8e3b6a9bbf0ea4f92ac14c3ec44eb432222b`.
 
-## Candidate boundary
+## Release boundary
 
-The local gate permits preparation of a review branch and PR candidate only. Merge, tag `v76.1.4`, GitHub Release, Pages publication and any new production E2E require explicit later approval.
+All local checks listed above were executed before release. GitHub publication does not change production Supabase. Any new production E2E, Edge deployment, Auth/secrets, Vault or cron operation requires explicit later approval.

@@ -4,7 +4,7 @@
   "releaseName": "Shared Workspace Soft-Delete CAS Hotfix",
   "releaseType": "hotfix",
   "releaseDate": "2026-08-25",
-  "status": "candidate",
+  "status": "released",
   "baseTag": "v76.1.3",
   "databaseBaseline": {
     "migrationPath": "supabase/migrations/20260814_7601_baseline.sql",
@@ -63,8 +63,8 @@
   },
   "releaseGate": {
     "canonicalGitCommit": "b00cf83b5569212e33dcddc7c3645dccc0ddad44",
-    "metadataGitCommit": null,
-    "gitTag": null,
+    "metadataGitCommit": "2e9c1ef598a72cde0fda830a8517dd09a5a050cb",
+    "gitTag": "v76.1.4",
     "cleanEnvironmentApplyTested": true,
     "catalogAuditPassed": true,
     "unitFixtureTests": {
@@ -102,7 +102,7 @@
       "browserConsoleErrors": 0,
       "inheritedFromBaseTag": true
     },
-    "publicationAllowed": false,
+    "publicationAllowed": true,
     "testEnvironment": "isolated-local-supabase-postgresql-17",
     "hotfixLocalGate": {
       "headerPagesChecked": 16,
@@ -175,5 +175,5 @@
       "productionDeployed": false
     }
   },
-  "nextTarget": "owner review and PR approval; merge, publication and production E2E require separate gates"
+  "nextTarget": "production two-profile shared-workspace E2E requires a separate owner-authorized gate"
 }

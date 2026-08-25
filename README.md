@@ -1,6 +1,6 @@
-# SLOGI v76.1.4 candidate — Shared Workspace Soft-Delete CAS Hotfix
+# SLOGI v76.1.4 — Shared Workspace Soft-Delete CAS Hotfix
 
-Локально проверенный hotfix-candidate на базе immutable/public `v76.1.3`. Существующие migrations, Edge Functions и production Supabase contract не изменяются. Публикация, merge и production E2E требуют отдельных gates.
+Released hotfix на базе immutable/public `v76.1.3`. Существующие migrations, Edge Functions и production Supabase contract не изменяются. Production E2E остаётся отдельным owner-authorized gate.
 
 ## Что входит в релиз
 
