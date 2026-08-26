@@ -1,0 +1,745 @@
+/* SLOGI v76.1.5 — School SLOGI visual language for the specialist workspace. */
+:root{
+  --slogi-bg:#f2ede8;
+  --slogi-surface:#fcf5eb;
+  --slogi-surface-strong:#fffaf3;
+  --slogi-text:#3c3c3c;
+  --slogi-muted:#716d67;
+  --slogi-gold:#e39b2f;
+  --slogi-sand:#d8b889;
+  --slogi-teal:#4f8580;
+  --slogi-teal-deep:#285b58;
+  --slogi-teal-soft:#dce9e6;
+  --slogi-line:#e7d7c2;
+  --slogi-radius-control:14px;
+  --slogi-radius-card:24px;
+  --slogi-radius-hero:30px;
+  --slogi-shadow-soft:0 14px 38px rgba(73,61,47,.07);
+  --slogi-shadow-float:0 24px 64px rgba(73,61,47,.17);
+  --site-layout-max:1500px;
+  --site-layout-gutter:clamp(14px,2.3vw,34px);
+  --site-header-height:76px;
+  --app-shell-height:76px;
+}
+
+html{background:var(--slogi-bg);scroll-padding-top:calc(var(--app-shell-height) + 24px);overflow-x:clip}
+body,
+body.slogi-search-page{
+  min-width:320px;
+  background:var(--slogi-bg)!important;
+  color:var(--slogi-text)!important;
+  font-family:"Ubuntu Sans",Ubuntu,Arial,sans-serif!important;
+  font-size:16px;
+  line-height:1.5;
+  overflow-x:clip!important;
+}
+body *{font-family:"Ubuntu Sans",Ubuntu,Arial,sans-serif!important}
+button,input,select,textarea{font:inherit}
+img,svg,canvas,video{max-width:100%}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible{
+  outline:3px solid rgba(40,91,88,.45)!important;
+  outline-offset:3px!important;
+}
+
+body>.site-header,
+body.slogi-search-page>.site-header,
+.site-header{
+  position:sticky!important;
+  top:12px!important;
+  z-index:2147482000!important;
+  width:calc(100% - 32px)!important;
+  max-width:var(--site-layout-max)!important;
+  height:var(--site-header-height)!important;
+  min-height:var(--site-header-height)!important;
+  max-height:var(--site-header-height)!important;
+  margin:12px auto 20px!important;
+  padding:0!important;
+  border:1px solid var(--slogi-line)!important;
+  border-radius:38px!important;
+  background:rgba(252,245,235,.97)!important;
+  box-shadow:var(--slogi-shadow-soft)!important;
+  backdrop-filter:blur(18px)!important;
+  overflow:visible!important;
+}
+.site-header .pro-shell-row{
+  display:flex!important;
+  width:100%!important;
+  height:100%!important;
+  min-height:100%!important;
+  max-height:100%!important;
+  align-items:center!important;
+  gap:clamp(16px,2vw,30px)!important;
+  padding:0 clamp(16px,2vw,28px)!important;
+}
+.site-header .brand{
+  display:flex!important;
+  flex:0 0 auto!important;
+  align-items:center!important;
+  gap:14px!important;
+  min-width:0!important;
+}
+.site-header .logo-link{display:inline-flex!important;min-height:44px!important;align-items:center!important}
+.site-header .logo-word{display:flex!important;align-items:center!important;gap:4px!important}
+.site-header .logo-word span,
+.slogi-search-page .site-header .logo-word span{
+  display:grid!important;
+  width:36px!important;
+  height:36px!important;
+  min-width:36px!important;
+  min-height:36px!important;
+  place-items:center!important;
+  border-radius:9px!important;
+  color:#fff!important;
+  font-size:20px!important;
+  font-weight:850!important;
+  line-height:1!important;
+  box-shadow:none!important;
+  transform:none!important;
+}
+.site-header .logo-word span:nth-child(1),
+.site-header .logo-word span:nth-child(2){background:var(--slogi-teal)!important}
+.site-header .logo-word span:nth-child(3),
+.site-header .logo-word span:nth-child(4){background:var(--slogi-sand)!important}
+.site-header .logo-word span:nth-child(5){background:var(--slogi-gold)!important}
+.slogi-specialist-label{
+  display:inline-flex!important;
+  align-items:center;
+  min-height:38px;
+  padding-left:14px;
+  border-left:1px solid #ddc8aa;
+  color:#514d48;
+  font-size:14px;
+  font-weight:750;
+  line-height:1.2;
+  white-space:nowrap;
+}
+
+.site-header .pro-nav,
+.slogi-search-page .site-header .pro-nav{
+  position:static!important;
+  display:flex!important;
+  flex:1 1 auto!important;
+  width:auto!important;
+  min-width:0!important;
+  height:100%!important;
+  margin:0!important;
+  border:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+.site-header .pro-nav-inner,
+.slogi-search-page .site-header .pro-nav .pro-nav-inner{
+  display:flex!important;
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  align-items:center!important;
+  padding:0!important;
+  overflow:visible!important;
+}
+.pro-product-nav{display:flex!important;align-items:center!important;gap:5px!important}
+.site-header .pro-product-nav a,
+.slogi-search-page .site-header .pro-product-nav a{
+  display:inline-flex!important;
+  min-height:44px!important;
+  height:44px!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:0 clamp(12px,1.35vw,20px)!important;
+  border:1px solid transparent!important;
+  border-radius:18px!important;
+  background:transparent!important;
+  color:#57534e!important;
+  font-size:15px!important;
+  font-weight:750!important;
+  line-height:1.15!important;
+  text-decoration:none!important;
+  white-space:nowrap!important;
+}
+.site-header .pro-product-nav a:hover{
+  border-color:#ddc8aa!important;
+  background:#fffaf3!important;
+  color:var(--slogi-teal-deep)!important;
+}
+.site-header .pro-product-nav a.active{
+  border-color:#e4c89e!important;
+  background:#f4e3c8!important;
+  color:#4d3b21!important;
+  box-shadow:inset 0 0 0 1px rgba(227,155,47,.08)!important;
+}
+.site-header .pro-product-nav a.active::after{display:none!important}
+.pro-nav-label-short{display:none!important}
+
+.pro-header-utilities,
+.slogi-search-page .pro-header-utilities{
+  display:flex!important;
+  flex:0 0 auto!important;
+  align-items:center!important;
+  gap:8px!important;
+  margin-left:auto!important;
+}
+.pro-header-utilities .pro-global-search-wrap{
+  display:flex!important;
+  height:44px!important;
+  min-width:190px!important;
+  max-width:270px!important;
+  border:1px solid #d8c7af!important;
+  border-radius:17px!important;
+  background:#fffaf3!important;
+}
+.pro-global-search{font-size:16px!important}
+.pro-header-utilities .pro-notification-btn,
+.slogi-search-page .pro-header-utilities .pro-notification-btn,
+.pro-mobile-menu-trigger{
+  width:44px!important;
+  height:44px!important;
+  min-width:44px!important;
+  min-height:44px!important;
+  place-items:center!important;
+  padding:0!important;
+  border:1px solid #d8c7af!important;
+  border-radius:50%!important;
+  background:#fffaf3!important;
+  color:#57534e!important;
+}
+.pro-header-utilities .pro-notification-btn:hover,
+.pro-mobile-menu-trigger:hover{background:#f4e3c8!important;color:var(--slogi-teal-deep)!important}
+.pro-notification-count{font-size:13px!important}
+
+.pro-mobile-menu{
+  top:calc(100% + 10px)!important;
+  right:0!important;
+  left:0!important;
+  max-height:calc(100dvh - 96px);
+  overflow:auto;
+  border-color:var(--slogi-line)!important;
+  border-radius:24px!important;
+  background:var(--slogi-surface-strong)!important;
+  box-shadow:var(--slogi-shadow-float)!important;
+}
+.pro-mobile-primary a{min-height:48px!important;font-size:16px!important}
+.pro-mobile-primary a.active{background:#f4e3c8!important;color:#4d3b21!important}
+
+.object-context-bar{
+  width:calc(100% - 32px)!important;
+  max-width:var(--site-layout-max)!important;
+  margin:-4px auto 22px!important;
+  border:1px solid var(--slogi-line)!important;
+  border-radius:24px!important;
+  background:rgba(252,245,235,.94)!important;
+  box-shadow:0 8px 24px rgba(73,61,47,.05)!important;
+}
+.object-context-inner{
+  min-height:58px!important;
+  padding:7px 16px!important;
+  gap:9px!important;
+}
+#active-object-select{
+  min-height:44px!important;
+  height:44px!important;
+  border-color:#d8c7af!important;
+  border-radius:14px!important;
+  background:#fffaf3!important;
+  color:var(--slogi-text)!important;
+  font-size:16px!important;
+}
+.object-context-scope,
+.object-stage-chip,
+.object-context-links a,
+.object-new-link{min-height:44px!important;font-size:14px!important}
+.object-context-links a,
+.object-new-link{border-radius:14px!important}
+
+body>main,
+.cian-main,
+.phase0-main,
+.stage-main,
+.passport-main,
+.workflow-main,
+.pro-page{
+  width:100%!important;
+  max-width:var(--site-layout-max)!important;
+  margin-inline:auto!important;
+  padding:24px var(--site-layout-gutter) 72px!important;
+}
+
+.cian-hero,
+.phase0-page-toolbar,
+.stage-toolbar,
+.workflow-hero,
+.pro-page-head,
+.passport-hero{
+  margin-bottom:24px!important;
+  padding:clamp(24px,3vw,38px)!important;
+  border:1px solid var(--slogi-line)!important;
+  border-radius:var(--slogi-radius-hero)!important;
+  background:linear-gradient(135deg,var(--slogi-surface),#eef5f0)!important;
+  box-shadow:var(--slogi-shadow-soft)!important;
+}
+.workflow-hero,
+.pro-page-head{align-items:center!important}
+.passport-scope-note,
+.pro-page-scope-note{
+  min-height:48px;
+  margin-bottom:18px!important;
+  padding:12px 16px!important;
+  border-color:var(--slogi-line)!important;
+  border-radius:18px!important;
+  background:rgba(252,245,235,.72)!important;
+  color:var(--slogi-muted)!important;
+  font-size:14px!important;
+}
+.passport-scope-note strong,
+.pro-page-scope-note strong{
+  padding:7px 10px!important;
+  border-radius:11px!important;
+  background:#f4e3c8!important;
+  color:#66481d!important;
+  font-size:13px!important;
+}
+
+:is(.cian-main,.phase0-main,.stage-main,.passport-main,.workflow-main,.pro-page) h1:not(.kp-page *){
+  color:var(--slogi-text)!important;
+  font-size:clamp(38px,4vw,56px)!important;
+  font-weight:800!important;
+  line-height:1.03!important;
+  letter-spacing:-.035em!important;
+}
+:is(.cian-main,.phase0-main,.stage-main,.passport-main,.workflow-main,.pro-page) h2:not(.kp-page *){
+  color:var(--slogi-text)!important;
+  font-size:28px!important;
+  font-weight:800!important;
+  line-height:1.15!important;
+}
+:is(.cian-main,.phase0-main,.stage-main,.passport-main,.workflow-main,.pro-page) h3:not(.kp-page *){
+  color:var(--slogi-text)!important;
+  font-size:22px!important;
+  font-weight:800!important;
+  line-height:1.25!important;
+}
+:is(.cian-main,.phase0-main,.stage-main,.passport-main,.workflow-main,.pro-page) h4:not(.kp-page *){
+  font-size:18px!important;
+  line-height:1.3!important;
+}
+:is(.cian-main,.phase0-main,.stage-main,.passport-main,.workflow-main,.pro-page) :is(p,li,td):not(.kp-page *){
+  font-size:16px!important;
+  line-height:1.55!important;
+}
+:is(.cian-main,.phase0-main,.stage-main,.passport-main,.workflow-main,.pro-page) :is(label,small,time,th):not(.kp-page *){
+  font-size:14px!important;
+  line-height:1.4!important;
+}
+
+:is(.cian-main,.phase0-main,.stage-main,.passport-main,.workflow-main,.pro-page)
+:is(button,input,select,textarea,.cian-button,.phase0-btn,.stage-primary-link,.pro-btn,.wf-btn,.passport-tab):not(.kp-page *){
+  min-height:44px!important;
+  font-size:16px!important;
+  line-height:1.25!important;
+}
+textarea{line-height:1.5!important}
+
+.cian-eyebrow,
+.cian-source-card span:first-child,
+.cian-status,
+.cian-metrics span,
+.cian-filters label>span,
+.cian-filters legend,
+.cian-badge,
+.cian-card-metrics span,
+.cian-card-price span,
+.cian-map-count,
+.cian-dialog-grid span,
+.phase0-kpi-label,
+.phase0-kpi-show,
+.phase0-card-origin,
+.phase0-card-main p,
+.phase0-cluster-link,
+.phase0-listing-link,
+.phase0-card-next small,
+.phase0-card-next .phase0-next-action,
+.phase0-card-progress,
+.stage-toolbar p,
+.stage-summary span,
+.stage-panel-head p,
+.stage-card-main>p,
+.stage-object-status,
+.stage-ready-note,
+.stage-blocked,
+.stage-empty p,
+.flow-step,
+.object-label,
+.workflow-status,
+.notice,
+.field label,
+.summary-chip .k,
+.spec-sub-head,
+.wf-table th,
+.param-box label,
+.chain-card p,
+.chain-state,
+.passport-address-wrap label,
+.passport-field label,
+.hero-label,
+.passport-status,
+.passport-tab,
+.passport-card-head,
+.stage-overview-head span,
+.stage-duration,
+.stage-overview-meta,
+.stage-result,
+.stage-ready-note,
+.next-step p,
+.overview-stat span,
+.chain-card p,
+.stage-table-note,
+.stage-intro,
+.stage-title span,
+.stage-tags span,
+.stage-card-grid h4,
+.stage-checks label,
+.stage-doc,
+.stage-result-text,
+.document-scope-help,
+.document-stage-head strong,
+.doc-card-status,
+.doc-card p,
+.doc-file,
+.calculation-card p,
+.calculation-info-card p,
+.proposal-workspace-body p,
+.calculation-state,
+.calculation-meta span,
+.gantt-bar,
+.object-finance-summary span,
+.payment-table th,
+.history-table th,
+.pro-kpi-label,
+.pro-kpi-note,
+.pro-chip,
+.pro-status,
+.pro-table th,
+.pro-field label,
+.pro-help,
+.pro-list-sub,
+.pro-note p,
+.pro-note time,
+.pro-phase-regulation span,
+.pro-phase-regulation small{
+  font-size:14px!important;
+  line-height:1.45!important;
+}
+
+.cian-source-card,
+.cian-metrics article,
+.cian-filter-card,
+.cian-results,
+.cian-map-card,
+.cian-listing-card,
+.phase0-kpis,
+.phase0-toolbar,
+.phase0-list-column,
+.phase0-map-column,
+.phase0-card,
+.stage-panel,
+.stage-card,
+.workflow-card,
+.object-cell,
+.spec-section,
+.summary-chip,
+.param-box,
+.passport-card,
+.overview-stat,
+.chain-card,
+.doc-card,
+.object-finance-summary>div,
+.pro-card,
+.pro-kpi,
+.pro-passport-card{
+  border-color:var(--slogi-line)!important;
+  border-radius:var(--slogi-radius-card)!important;
+  background:var(--slogi-surface-strong)!important;
+  box-shadow:none!important;
+}
+.cian-source-grid,
+.cian-metrics,
+.phase0-content-grid,
+.phase0-kpis,
+.stage-list,
+.workflow-grid,
+.object-strip,
+.summary-chips,
+.passport-overview-grid,
+.passport-overview-side,
+.document-stage-cards,
+.pro-grid,
+.pro-kpis{gap:20px!important}
+
+.stage-panel-head,
+.workflow-card-head,
+.passport-card-head,
+.pro-card-head{
+  min-height:58px!important;
+  padding:14px 20px!important;
+  border-color:var(--slogi-line)!important;
+}
+.workflow-card-head,
+.passport-card-head{
+  background:var(--slogi-teal-deep)!important;
+  color:#fff!important;
+}
+.stage-list,
+.workflow-card-body,
+.passport-card-body,
+.pro-card-body{padding:20px!important}
+
+.cian-button:not(.secondary),
+.phase0-btn.primary,
+.stage-primary-link,
+.pro-btn.primary,
+.wf-btn.primary,
+.wf-btn.accent{
+  border-color:var(--slogi-gold)!important;
+  background:var(--slogi-gold)!important;
+  color:#2f2b26!important;
+}
+.cian-button.secondary,
+.phase0-btn:not(.primary),
+.pro-btn:not(.primary),
+.wf-btn:not(.primary):not(.accent){
+  border-color:#d8c7af!important;
+  background:#fffaf3!important;
+  color:var(--slogi-teal-deep)!important;
+}
+
+.passport-address,
+.passport-hero select,
+.passport-field input,
+.passport-field select,
+.passport-field textarea,
+.wf-input,
+.wf-select,
+.wf-textarea,
+.stage-search input,
+.pro-input,
+.pro-select,
+.pro-textarea,
+.phase0-field input,
+.phase0-field select,
+.phase0-field textarea,
+.cian-filters input,
+.cian-filters select{
+  min-height:44px!important;
+  border-color:#d8c7af!important;
+  border-radius:var(--slogi-radius-control)!important;
+  background:#fffdf9!important;
+  color:var(--slogi-text)!important;
+  font-size:16px!important;
+}
+
+.pro-modal,
+.phase0-drawer,
+.phase0-competitive-drawer,
+.cian-dialog{
+  border:1px solid var(--slogi-line)!important;
+  border-radius:28px!important;
+  background:var(--slogi-surface)!important;
+  box-shadow:var(--slogi-shadow-float)!important;
+}
+.pro-modal-body,
+.phase0-drawer-body,
+.cian-dialog-body{font-size:16px!important}
+.pro-modal-close,
+.cian-dialog-close{width:44px!important;height:44px!important;min-width:44px!important;min-height:44px!important}
+
+.pro-table-wrap,
+.table-scroll,
+.payment-wrap,
+.proposal-preview,
+.phase0-competitive-table-wrap,
+.cian-results{max-width:100%;overflow-x:auto}
+.pro-table td,
+.wf-table td,
+.payment-table td,
+.history-table td{font-size:16px!important}
+.pro-table th,
+.wf-table th,
+.payment-table th,
+.history-table th{font-size:14px!important}
+
+.kp-page,
+.kp-page *{font-family:Arial,sans-serif!important}
+.kp-title,
+.kp-subtitle,
+.kp-number,
+.kp-heading h2,
+.kp-value{font-family:Georgia,"Times New Roman",serif!important}
+.kp-page{font-size:13px!important;line-height:1.48!important}
+.kp-page p{font-size:13px!important;line-height:1.48!important}
+.kp-page .schedule-table,
+.kp-page .schedule-table th,
+.kp-page .schedule-table td{font-size:10.5px!important}
+.kp-page .kp-label,
+.kp-page .kp-brand-subtitle,
+.kp-page .kp-footer{font-size:8px!important}
+.kp-page .kp-meta{font-size:9px!important}
+
+/* High-specificity readability guards for legacy compact selectors. */
+body.slogi-search-page .phase0-main .phase0-kpi-label{font-size:14px!important}
+body.slogi-search-page .phase0-main .phase0-kpi-show{font-size:13px!important}
+body.slogi-search-page .phase0-main .phase0-title-count{font-size:14px!important}
+body.slogi-search-page .phase0-main .phase0-list-table-head span{font-size:14px!important}
+body.slogi-search-page .phase0-main .phase0-rejection-note strong{font-size:14px!important}
+body.slogi-search-page .phase0-main .phase0-rent-cell strong,
+body.slogi-search-page .phase0-main .phase0-sqm-cell strong{font-size:16px!important}
+body.slogi-search-page .phase0-main .phase0-map-column>.phase0-section-head p{font-size:14px!important}
+body.slogi-search-page .phase0-main .phase0-map-marker-label{font-size:13px!important}
+body.slogi-search-page .phase0-main .phase0-map-loading span{font-size:14px!important}
+body .stage-main .stage-card-actions a{min-height:44px!important;font-size:16px!important}
+body .workflow-main .workflow-card-head{font-size:16px!important}
+body .workflow-main .workflow-card-head span:not(.kp-page *){font-size:16px!important}
+body .workflow-main #version-label{font-size:14px!important}
+body .pro-page .pro-phase-regulation strong{font-size:16px!important}
+.pro-header-utilities #pro-global-search-btn{width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important}
+
+@media(max-width:1180px){
+  :root{--site-header-height:70px;--app-shell-height:70px}
+  .site-header .pro-shell-row{gap:12px!important}
+  .slogi-specialist-label{display:none!important}
+  .pro-header-utilities .pro-global-search-wrap{display:none!important}
+  .site-header .pro-product-nav a,
+  .slogi-search-page .site-header .pro-product-nav a{padding-inline:10px!important;font-size:14px!important}
+  .passport-overview-grid{grid-template-columns:1fr!important}
+  .overview-main-card,.passport-overview-side,.overview-chain-card{grid-column:1!important;grid-row:auto!important}
+}
+
+@media(max-width:900px){
+  :root{--site-header-height:62px;--app-shell-height:62px;--site-layout-gutter:14px}
+  body>.site-header,
+  body.slogi-search-page>.site-header,
+  .site-header{
+    top:8px!important;
+    width:calc(100% - 20px)!important;
+    height:var(--site-header-height)!important;
+    min-height:var(--site-header-height)!important;
+    max-height:var(--site-header-height)!important;
+    margin:8px auto 16px!important;
+    border-radius:28px!important;
+  }
+  .site-header .pro-shell-row{padding:0 10px 0 14px!important;gap:8px!important}
+  .site-header .logo-word span,
+  .slogi-search-page .site-header .logo-word span{
+    width:28px!important;
+    height:28px!important;
+    min-width:28px!important;
+    min-height:28px!important;
+    border-radius:7px!important;
+    font-size:15px!important;
+  }
+  .site-header .pro-nav,
+  .slogi-search-page .site-header .pro-nav{display:none!important}
+  .pro-mobile-menu-trigger{display:grid!important}
+  .phase0-kpis{
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    overflow:visible!important;
+  }
+  .phase0-kpi{width:auto!important;min-width:0!important}
+  .object-context-bar{width:calc(100% - 20px)!important;margin:-2px auto 16px!important}
+  .object-context-inner{overflow-x:auto!important;overscroll-behavior-x:contain}
+  body>main,
+  .cian-main,
+  .phase0-main,
+  .stage-main,
+  .passport-main,
+  .workflow-main,
+  .pro-page{padding:18px var(--site-layout-gutter) 58px!important}
+  .cian-hero,
+  .phase0-page-toolbar,
+  .stage-toolbar,
+  .workflow-hero,
+  .pro-page-head,
+  .passport-hero{padding:24px!important;border-radius:26px!important}
+  :is(.cian-main,.phase0-main,.stage-main,.passport-main,.workflow-main,.pro-page) h1:not(.kp-page *){font-size:clamp(34px,7vw,44px)!important}
+  .workflow-hero,
+  .pro-page-head{align-items:flex-start!important;flex-direction:column!important}
+  .passport-hero{grid-template-columns:1fr 1fr!important}
+  .passport-address-wrap,.passport-actions{grid-column:1/-1!important}
+  .workflow-grid,.proposal-workspace{grid-template-columns:1fr!important}
+  .workflow-sidebar{position:static!important}
+}
+
+@media(max-width:600px){
+  .slogi-specialist-label{display:inline-flex!important;min-height:30px;padding-left:9px;font-size:12px!important}
+  .pro-header-utilities .pro-notification-btn,
+  .slogi-search-page .pro-header-utilities .pro-notification-btn{display:none!important}
+  .site-header .brand{gap:8px!important}
+  .site-header .logo-word{gap:3px!important}
+  .site-header .logo-word span,
+  .slogi-search-page .site-header .logo-word span{
+    width:24px!important;
+    height:24px!important;
+    min-width:24px!important;
+    min-height:24px!important;
+    font-size:13px!important;
+  }
+  .cian-hero,
+  .phase0-page-toolbar,
+  .stage-toolbar,
+  .workflow-hero,
+  .pro-page-head,
+  .passport-hero{padding:20px!important;border-radius:24px!important}
+  .phase0-page-toolbar{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    align-items:stretch!important;
+    gap:18px!important;
+  }
+  .phase0-page-heading,
+  .phase0-page-actions,
+  .phase0-competitive-action{width:100%!important;min-width:0!important}
+  .phase0-page-actions{display:grid!important;align-items:stretch!important;padding:0!important}
+  .phase0-competitive-action{justify-items:stretch!important}
+  .phase0-competitive-action .phase0-btn{width:100%!important}
+  .phase0-sync-strip{text-align:center!important}
+  :is(.cian-main,.phase0-main,.stage-main,.passport-main,.workflow-main,.pro-page) h1:not(.kp-page *){font-size:34px!important}
+  :is(.cian-main,.phase0-main,.stage-main,.passport-main,.workflow-main,.pro-page) h2:not(.kp-page *){font-size:25px!important}
+  :is(.cian-main,.phase0-main,.stage-main,.passport-main,.workflow-main,.pro-page) h3:not(.kp-page *){font-size:20px!important}
+  .passport-hero{grid-template-columns:1fr!important}
+  .passport-address-wrap,.passport-actions{grid-column:1!important}
+  .passport-form,
+  .passport-overview-side,
+  .document-stage-cards,
+  .object-strip,
+  .form-grid,
+  .form-grid.three,
+  .summary-chips,
+  .param-grid,
+  .pro-form-grid,
+  .pro-kpis{grid-template-columns:1fr!important}
+  .phase0-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .pro-card,.pro-card.span-4,.pro-card.span-8{grid-column:1/-1!important}
+  .stage-card,
+  .stage-card-top,
+  .stage-card-grid{grid-template-columns:1fr!important}
+  .stage-tags{justify-content:flex-start!important}
+  .stage-card-actions a,
+  .pro-page-actions .pro-btn,
+  .passport-actions .wf-btn{width:100%!important}
+  .pro-modal-backdrop{padding:8px!important}
+  .pro-modal{max-height:calc(100dvh - 16px)!important;border-radius:22px!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+    scroll-behavior:auto!important;
+    transition-duration:.01ms!important;
+  }
+}
