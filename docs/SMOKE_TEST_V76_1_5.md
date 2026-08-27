@@ -1,6 +1,6 @@
-# SLOGI v76.1.5 local gate
+# SLOGI v76.1.5 — Invite Links Hotfix Smoke
 
-Date: 2026-08-27. Status: candidate, local/offline only.
+Date: 2026-08-27. Status: RELEASE GATE PASS. GitHub publication only; production activation remains separately authorized.
 
 ## Evidence
 
@@ -18,4 +18,4 @@ Date: 2026-08-27. Status: candidate, local/offline only.
 - Browserless/direct Cian/provider calls and production calls: 0;
 - old migrations changed: 0.
 
-Production secret setup, migration, Edge deploy, Pages publication and production E2E remain separate owner-authorized activation gates.
+GitHub publication does not configure the production secret, apply the migration, deploy Edge Functions, enable the invite flow in production or authorize production E2E. Each remains a separate owner-authorized activation gate.

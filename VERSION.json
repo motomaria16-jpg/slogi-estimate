@@ -4,7 +4,7 @@
   "releaseName": "Workspace Invite Links Hotfix",
   "releaseType": "hotfix",
   "releaseDate": "2026-08-27",
-  "status": "candidate",
+  "status": "released",
   "baseTag": "v76.1.4",
   "databaseBaseline": {
     "migrationPath": "supabase/migrations/20260814_7601_baseline.sql",
@@ -78,8 +78,8 @@
   },
   "releaseGate": {
     "canonicalGitCommit": "0966642a335bdb98a73797aa3465aa5858049221",
-    "metadataGitCommit": null,
-    "gitTag": null,
+    "metadataGitCommit": "fe0c766b72f77d02fbf32704b3f953bd89263801",
+    "gitTag": "v76.1.5",
     "cleanEnvironmentApplyTested": true,
     "catalogAuditPassed": true,
     "unitFixtureTests": {
@@ -117,7 +117,7 @@
       "browserConsoleErrors": 0,
       "inheritedFromBaseTag": true
     },
-    "publicationAllowed": false,
+    "publicationAllowed": true,
     "testEnvironment": "isolated-local-supabase-postgresql-17",
     "hotfixLocalGate": {
       "headerPagesChecked": 16,
@@ -217,5 +217,5 @@
       "productionDeployed": false
     }
   },
-  "nextTarget": "owner-authorized staged invite-link production activation; candidate only"
+  "nextTarget": "owner-authorized staged invite-link production activation"
 }

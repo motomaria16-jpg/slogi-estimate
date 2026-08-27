@@ -1,6 +1,6 @@
 # SLOGI v76.1.5 — Invite Links Hotfix
 
-Status: local candidate. Production deployment is not authorized by this document.
+Status: released on GitHub. Production activation is not authorized by this document.
 
 ## Product change
 

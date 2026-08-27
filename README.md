@@ -1,6 +1,6 @@
 # SLOGI v76.1.5 — Workspace Invite Links Hotfix
 
-Local candidate на базе immutable/public `v76.1.4`. Добавляется только forward-only invite access layer; production deployment и E2E остаются отдельными owner-authorized gates.
+Released hotfix на базе immutable/public `v76.1.4`. Добавляется только forward-only invite access layer; production activation и E2E остаются отдельными owner-authorized gates.
 
 ## Что входит в релиз
 
