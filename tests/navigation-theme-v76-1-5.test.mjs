@@ -60,6 +60,17 @@ test('primary navigation has four product routes and no tools dropdown',()=>{
   assert.match(shell,/slogi-specialist-label/);
 });
 
+test('workspace invite action is integrated into desktop header and mobile menu',()=>{
+  const shell=read('professional-shell.js');
+  const css=read(themeName);
+  assert.match(shell,/function placeWorkspaceControl\(\)/);
+  assert.match(shell,/pro-mobile-workspace/);
+  assert.match(shell,/watchWorkspaceControl\(\)/);
+  assert.match(css,/\.pro-header-utilities>\.slogi-workspace-connect/);
+  assert.match(css,/\.pro-mobile-workspace>\.slogi-workspace-connect/);
+  assert.match(css,/\.phase0-kpi-copy,[\s\S]*font-size:14px!important/);
+});
+
 test('active application sources do not link to removed targets',()=>{
   const activeSources=[
     'professional-shell.js',
