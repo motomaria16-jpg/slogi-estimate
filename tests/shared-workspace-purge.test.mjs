@@ -77,7 +77,7 @@ async function sharedHarness({remoteState,revision=7,rpc='ok',winnerState={locat
     throw new Error(`unexpected fetch ${new URL(url).pathname}`);
   };
   const window={
-    SLOGI_PHASE0_CONFIG:{supabase:{url:'https://fixture.supabase.co',publishableKey:'fixture-publishable-key-with-safe-length'},sharedWorkspace:{joinEndpoint:'https://fixture.supabase.co/functions/v1/join-workspace'}},
+    SLOGI_PHASE0_CONFIG:{supabase:{url:'https://fixture.supabase.co',publishableKey:'fixture-publishable-key-with-safe-length'},sharedWorkspace:{inviteJoinEndpoint:'https://fixture.supabase.co/functions/v1/join-workspace-invite',inviteManageEndpoint:'https://fixture.supabase.co/functions/v1/workspace-invites'}},
     dispatchEvent:event=>events.push(event),
   };
   const context=vm.createContext({window,document:documentHarness.document,localStorage,Storage,CustomEvent:class{constructor(type,options={}){this.type=type;this.detail=options.detail;}},fetch,Response,URL,Date,Math,JSON,Set,String,Number,Array,Object,Boolean,RegExp,encodeURIComponent,setTimeout,clearTimeout});
@@ -116,7 +116,7 @@ async function initializationRaceHarness({seed,remoteState,revision,mutate}){
     throw new Error(`unexpected fetch ${new URL(url).pathname}`);
   };
   const window={
-    SLOGI_PHASE0_CONFIG:{supabase:{url:'https://fixture.supabase.co',publishableKey:'fixture-publishable-key-with-safe-length'},sharedWorkspace:{joinEndpoint:'https://fixture.supabase.co/functions/v1/join-workspace'}},
+    SLOGI_PHASE0_CONFIG:{supabase:{url:'https://fixture.supabase.co',publishableKey:'fixture-publishable-key-with-safe-length'},sharedWorkspace:{inviteJoinEndpoint:'https://fixture.supabase.co/functions/v1/join-workspace-invite',inviteManageEndpoint:'https://fixture.supabase.co/functions/v1/workspace-invites'}},
     dispatchEvent:event=>{events.push(event);if(event.type==='slogi:shared-workspace-ready')markReady();},
   };
   const context=vm.createContext({window,document:documentHarness.document,localStorage,Storage,CustomEvent:class{constructor(type,options={}){this.type=type;this.detail=options.detail;}},fetch,Response,URL,Date,Math,JSON,Set,String,Number,Array,Object,Boolean,RegExp,encodeURIComponent,setTimeout,clearTimeout});
