@@ -1,5 +1,9 @@
 # SLOGI Technical Debt Register
 
+## Workspace invite authorization
+
+В v76.1.5 у workspace membership нет ролей. Поэтому любой действующий anonymous member может создать invite, а revoke разрешён только creator-member. Это безопаснее публичного admin-флага, но будущая ролевая модель должна выделить owner/invite-manager без изменения текущих memberships. До её появления UI не обещает административные права.
+
 ## CRITICAL — baseline
 
 ### TD-C01 — Source-of-truth drift

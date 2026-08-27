@@ -4,20 +4,21 @@
 
 В интерфейсе нет личного кабинета, email/password login, регистрации, восстановления пароля, профиля, настроек аккаунта или logout. На новом браузере создаётся техническая anonymous Supabase Auth session.
 
-Первое подключение показывает брендированный dialog. Пользователь вводит длинный high-entropy workspace code; второй компьютер с тем же кодом получает ту же историю. Сессия и membership сохраняются локально, поэтому повторный ввод на этом браузере не нужен.
+Действующий участник входит автоматически по сохранённой anonymous Auth session и membership. Новый пользователь открывает защищённую ссылку-приглашение: token читается из URL fragment, fragment немедленно удаляется через `history.replaceState`, а join выполняется автоматически. Без membership и ссылки интерфейс показывает спокойное состояние «Нужна ссылка-приглашение» без ручного поля.
 
 ## Данные и границы доступа
 
-- `slogi_shared_workspaces` хранит только SHA-256 hash с server-side pepper;
+- `slogi_shared_workspaces` сохраняет исторический code hash только для совместимости существующего workspace; публичного code-join пути больше нет;
+- `slogi_shared_workspace_invites` хранит только HMAC-SHA-256 token digest, TTL, лимит использований и revoke metadata;
 - `slogi_shared_workspace_members` связывает `workspace_id` с anonymous `auth.uid()`;
 - `slogi_shared_workspace_state` хранит JSON state, revision и `updated_at`;
 - `slogi_shared_workspace_attachments` описывает файлы `workspace/<uuid>/...`;
 - `anon` не получает прямых table grants;
 - authenticated RLS разрешает чтение/изменение только участникам;
-- join выполняет JWT-protected Edge Function с service-role внутри функции;
+- create/revoke/join выполняют JWT-protected Edge Functions с service-role только внутри функции;
 - privileged RPC имеют `SECURITY DEFINER` и фиксированный `search_path = pg_catalog, public`.
 
-Неверный код всегда возвращает одинаковый `workspace_not_available` и не раскрывает существование пространства. Исходный код workspace не хранится в Git, HTML, JavaScript, URL, логах или БД.
+Недействительная, просроченная, отозванная или исчерпанная ссылка всегда возвращает одинаковый `invite_not_available` и не раскрывает существование пространства. Raw token не хранится в local/session storage, Git, логах, analytics или БД; ссылка показывается только один раз и копируется только по явному клику.
 
 ## Синхронизация и конфликты
 
@@ -50,4 +51,15 @@ Hotfix ведёт локальную версию мутаций во время
 
 Изменяется только browser sync orchestration в `shared-workspace.js`. Схема данных, migrations, RPC, RLS, Storage, Auth/JWT, Edge Functions, parser, Browserless и Cian transport не изменяются.
 
-Production workspace code создаётся и передаётся только отдельным безопасным шагом после разрешения владельца.
+### v76.1.5 invite-link hotfix
+
+- opaque token содержит 256 бит энтропии; в БД попадает только HMAC-SHA-256 с отдельным `SLOGI_WORKSPACE_INVITE_PEPPER`;
+- срок по умолчанию — 7 суток, максимум — 5 успешных новых membership;
+- принятие ссылки блокирует invite row `FOR UPDATE`, проверяет anonymous Auth user, expiry, revoke и use count и создаёт membership транзакционно;
+- повторное принятие тем же уже подключённым пользователем идемпотентно и не расходует use count;
+- создать invite может любой текущий member, а отозвать — его создатель, пока он остаётся member;
+- raw token исчезает из DOM/памяти после закрытия dialog; восстановить закрытую ссылку нельзя;
+- legacy `join-workspace` возвращает HTTP 410, а privileged legacy RPC теряет `service_role EXECUTE` в forward migration;
+- существующие memberships, shared state, CAS/PT409, Storage, manual/Cian objects не мигрируются и не меняются.
+
+В текущей схеме нет ролей owner/admin. Поэтому member-authorized invite creation — минимальный совместимый контракт, а выделение роли invite-manager остаётся техническим долгом.

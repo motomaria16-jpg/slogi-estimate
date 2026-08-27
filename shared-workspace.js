@@ -9,12 +9,30 @@
   const workspaceCfg=cfg.sharedWorkspace||{};
   const baseUrl=String(supabase.url||'').replace(/\/$/,'');
   const publishableKey=String(supabase.publishableKey||'');
-  const joinEndpoint=String(workspaceCfg.joinEndpoint||'');
+  const inviteJoinEndpoint=String(workspaceCfg.inviteJoinEndpoint||'');
+  const inviteManageEndpoint=String(workspaceCfg.inviteManageEndpoint||'');
   const SESSION_KEY=String(workspaceCfg.sessionStorageKey||'slogi_anonymous_session_v1');
   const CONNECTION_KEY=String(workspaceCfg.connectionStorageKey||'slogi_shared_workspace_connection_v1');
   const CACHE_KEY=String(workspaceCfg.stateCacheKey||'slogi_shared_workspace_cache_v1');
   const CONFLICT_KEY='slogi_shared_workspace_conflict_v1';
   const originalSetItem=Storage.prototype.setItem;
+
+  function takeInviteFromFragment(){
+    const currentLocation=window.location||{hash:'',pathname:'/',search:''};
+    const fragment=String(currentLocation.hash||'').replace(/^#/, '');
+    if(!fragment)return null;
+    const params=new URLSearchParams(fragment);
+    if(!params.has('invite'))return null;
+    const token=String(params.get('invite')||'');
+    params.delete('invite');
+    const remaining=params.toString();
+    const cleanUrl=String(currentLocation.pathname||'/')+String(currentLocation.search||'')+(remaining?'#'+remaining:'');
+    window.history.replaceState(window.history.state,'',cleanUrl);
+    return /^[A-Za-z0-9_-]{43}$/.test(token)?token:null;
+  }
+
+  let pendingInviteToken=takeInviteFromFragment();
+  let activeInvite=null;
 
   let session=null;
   let membership=null;
@@ -31,8 +49,9 @@
   function validConfig(){
     try{
       const parsed=new URL(baseUrl);
-      const join=new URL(joinEndpoint);
-      return /^https?:$/.test(parsed.protocol)&&join.protocol===parsed.protocol&&join.origin===parsed.origin&&publishableKey.length>20;
+      const join=new URL(inviteJoinEndpoint);
+      const manage=new URL(inviteManageEndpoint);
+      return /^https?:$/.test(parsed.protocol)&&join.protocol===parsed.protocol&&join.origin===parsed.origin&&manage.protocol===parsed.protocol&&manage.origin===parsed.origin&&publishableKey.length>20;
     }catch(_err){return false;}
   }
 
@@ -119,6 +138,11 @@
     return response;
   }
 
+  async function inviteFunctionFetch(endpoint,body){
+    await ensureSession();
+    return fetch(endpoint,{method:'POST',headers:{'apikey':publishableKey,'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  }
+
   async function readMembership(){
     const response=await authorizedFetch('/rest/v1/slogi_shared_workspace_members?select=workspace_id&limit=1');
     if(!response.ok)throw new Error('shared_workspace_membership_unavailable');
@@ -191,11 +215,11 @@
     if(document.getElementById('slogi-workspace-style'))return;
     const style=document.createElement('style');
     style.id='slogi-workspace-style';
-    style.textContent='.slogi-workspace-dialog{border:0;border-radius:32px;padding:0;width:min(520px,calc(100vw - 32px));color:#3c3c3c;background:#fcf5eb;box-shadow:0 28px 80px rgba(60,60,60,.22)}.slogi-workspace-dialog::backdrop{background:rgba(45,55,52,.55)}.slogi-workspace-card{padding:32px}.slogi-workspace-card h2{font:700 30px/1.15 Ubuntu Sans,Arial,sans-serif;margin:0 0 12px}.slogi-workspace-card p{line-height:1.55;margin:0 0 20px}.slogi-workspace-field{display:grid;gap:8px}.slogi-workspace-field label{font-weight:700}.slogi-workspace-field input{min-height:48px;border:1px solid #cdbfae;border-radius:16px;padding:0 16px;font:inherit;background:#fff}.slogi-workspace-field input:focus-visible,.slogi-workspace-submit:focus-visible,.slogi-workspace-connect:focus-visible{outline:3px solid #1c7773;outline-offset:3px}.slogi-workspace-submit{margin-top:18px;min-height:48px;width:100%;border:0;border-radius:24px;background:#e39b2f;color:#252525;font:700 16px Ubuntu Sans,Arial,sans-serif;cursor:pointer}.slogi-workspace-submit:disabled{opacity:.55;cursor:wait}.slogi-workspace-help{font-size:13px;color:#68645f}.slogi-workspace-error{min-height:22px;color:#8a2d24;margin-top:10px}.slogi-workspace-connect{position:fixed;right:18px;bottom:18px;z-index:10010;min-height:46px;padding:0 18px;border:1px solid #285b58;border-radius:23px;background:#fcf5eb;color:#285b58;font:800 13px Ubuntu Sans,Arial,sans-serif;cursor:pointer}.slogi-workspace-live{position:fixed;left:20px;bottom:20px;z-index:10020;max-width:min(480px,calc(100vw - 40px));padding:12px 16px;border-radius:16px;background:#275f5c;color:#fff;transform:translateY(150%);transition:transform .2s}.slogi-workspace-live:not(:empty){transform:none}.slogi-workspace-live[data-error=true]{background:#8a2d24}@media(prefers-reduced-motion:reduce){.slogi-workspace-live{transition:none}}';
+    style.textContent='.slogi-workspace-dialog{border:0;border-radius:32px;padding:0;width:min(560px,calc(100vw - 32px));color:#3c3c3c;background:#fcf5eb;box-shadow:0 28px 80px rgba(60,60,60,.22)}.slogi-workspace-dialog::backdrop{background:rgba(45,55,52,.55)}.slogi-workspace-card{padding:32px}.slogi-workspace-card h2{font:700 30px/1.15 Ubuntu Sans,Arial,sans-serif;margin:0 0 12px}.slogi-workspace-card p{line-height:1.55;margin:0 0 20px}.slogi-workspace-field{display:grid;gap:8px}.slogi-workspace-field label{font-weight:700}.slogi-workspace-field input{box-sizing:border-box;width:100%;min-height:48px;border:1px solid #cdbfae;border-radius:16px;padding:0 16px;font:inherit;background:#fff}.slogi-workspace-action:focus-visible,.slogi-workspace-connect:focus-visible,.slogi-workspace-field input:focus-visible{outline:3px solid #1c7773;outline-offset:3px}.slogi-workspace-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}.slogi-workspace-action{min-height:46px;padding:0 18px;border:1px solid #285b58;border-radius:23px;background:#fff;color:#285b58;font:700 15px Ubuntu Sans,Arial,sans-serif;cursor:pointer}.slogi-workspace-action[data-primary=true]{border-color:#e39b2f;background:#e39b2f;color:#252525}.slogi-workspace-action:disabled{opacity:.55;cursor:wait}.slogi-workspace-help{font-size:13px;color:#68645f}.slogi-workspace-error{min-height:22px;color:#8a2d24;margin-top:10px}.slogi-workspace-connect{position:fixed;right:18px;bottom:18px;z-index:10010;min-height:46px;padding:0 18px;border:1px solid #285b58;border-radius:23px;background:#fcf5eb;color:#285b58;font:800 13px Ubuntu Sans,Arial,sans-serif;cursor:pointer}.slogi-workspace-live{position:fixed;left:20px;bottom:20px;z-index:10020;max-width:min(480px,calc(100vw - 40px));padding:12px 16px;border-radius:16px;background:#275f5c;color:#fff;transform:translateY(150%);transition:transform .2s}.slogi-workspace-live:not(:empty){transform:none}.slogi-workspace-live[data-error=true]{background:#8a2d24}@media(max-width:520px){.slogi-workspace-card{padding:24px}.slogi-workspace-actions{display:grid}.slogi-workspace-action{width:100%}}@media(prefers-reduced-motion:reduce){.slogi-workspace-live{transition:none}}';
     document.head.appendChild(style);
   }
 
-  function workspaceDialog(){
+  function needInviteDialog(){
     ensureUiStyles();
     let dialog=document.getElementById('slogi-workspace-dialog');
     if(dialog)return dialog;
@@ -203,53 +227,87 @@
     dialog.id='slogi-workspace-dialog';
     dialog.className='slogi-workspace-dialog';
     dialog.setAttribute('aria-labelledby','slogi-workspace-title');
-    dialog.innerHTML='<form method="dialog" class="slogi-workspace-card" id="slogi-workspace-form"><h2 id="slogi-workspace-title">Подключить рабочее пространство</h2><p>Введите длинный код, полученный от владельца пространства. Код не сохраняется в браузере и не передаётся в адресной строке.</p><div class="slogi-workspace-field"><label for="slogi-workspace-code">Код рабочего пространства</label><input id="slogi-workspace-code" name="code" type="password" autocomplete="off" minlength="32" maxlength="256" spellcheck="false" required aria-describedby="slogi-workspace-help slogi-workspace-error"><span class="slogi-workspace-help" id="slogi-workspace-help">Код содержит не менее 32 символов.</span></div><div class="slogi-workspace-error" id="slogi-workspace-error" role="alert"></div><button class="slogi-workspace-submit" type="submit">Подключить</button></form>';
+    dialog.innerHTML='<form method="dialog" class="slogi-workspace-card"><h2 id="slogi-workspace-title">Нужна ссылка-приглашение</h2><p>Попросите действующего участника открыть SLOGI и выбрать «Пригласить коллегу». Откройте полученную ссылку на этом устройстве — подключение произойдёт автоматически.</p><p class="slogi-workspace-help">Личный кабинет и ручной ввод данных не требуются.</p><div class="slogi-workspace-actions"><button class="slogi-workspace-action" data-primary="true" type="submit">Понятно</button></div></form>';
     document.body.appendChild(dialog);
-    const form=dialog.querySelector('form');
-    const input=dialog.querySelector('input');
-    dialog.addEventListener('keydown',event=>{
-      if(event.key!=='Tab')return;
-      const focusable=[input,form.querySelector('button')];
-      const index=focusable.indexOf(document.activeElement);
-      if(event.shiftKey&&index===0){event.preventDefault();focusable[1].focus();}
-      else if(!event.shiftKey&&index===1){event.preventDefault();focusable[0].focus();}
-    });
-    form.addEventListener('submit',async event=>{
-      event.preventDefault();
-      const code=input.value.trim();
-      const error=dialog.querySelector('#slogi-workspace-error');
-      const button=form.querySelector('button');
-      error.textContent='';
-      if(code.length<32||code.length>256||!/^[A-Za-z0-9_-]+$/.test(code)){error.textContent='Не удалось подключить рабочее пространство.';return;}
-      button.disabled=true;
-      try{
-        await ensureSession();
-        const response=await fetch(joinEndpoint,{method:'POST',headers:{'apikey':publishableKey,'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json'},body:JSON.stringify({code})});
-        if(!response.ok)throw new Error('workspace_not_available');
-        const payload=await response.json();
-        if(!payload||!payload.workspaceId)throw new Error('workspace_not_available');
-        input.value='';
-        await readMembership();
-        const remote=await readRemoteState();
-        const local=localState();
-        const remoteEmpty=remote&&remote.locations.length===0&&Object.keys(remote.workspace).length===0;
-        if(remoteEmpty&&(local.locations.length>0||Object.keys(local.workspace).length>0)){lastUploaded='';ready=true;await pushState();}
-        else if(remote)applyRemoteState(remote);
-        ready=true;
-        dialog.close();
-        document.getElementById('slogi-workspace-connect')?.remove();
-        announce('Рабочее пространство подключено.',false);
-        window.dispatchEvent(new CustomEvent('slogi:shared-workspace-ready'));
-      }catch(_err){error.textContent='Не удалось подключить рабочее пространство.';}
-      finally{input.value='';button.disabled=false;}
-    });
     return dialog;
   }
-  function showWorkspaceDialog(){const dialog=workspaceDialog();if(!dialog.open){dialog.showModal();setTimeout(()=>dialog.querySelector('input').focus(),0);}}
+  function showNeedInviteDialog(){const dialog=needInviteDialog();if(!dialog.open){dialog.showModal();setTimeout(()=>dialog.querySelector('button').focus(),0);}}
   function ensureConnectButton(){
     let button=document.getElementById('slogi-workspace-connect');
     if(button)return button;
-    button=document.createElement('button');button.id='slogi-workspace-connect';button.className='slogi-workspace-connect';button.type='button';button.textContent='Подключить пространство';button.addEventListener('click',showWorkspaceDialog);document.body.appendChild(button);return button;
+    button=document.createElement('button');button.id='slogi-workspace-connect';button.className='slogi-workspace-connect';button.type='button';button.textContent='Нужна ссылка-приглашение';button.onclick=showNeedInviteDialog;document.body.appendChild(button);return button;
+  }
+
+  function inviteDialog(){
+    ensureUiStyles();
+    let dialog=document.getElementById('slogi-invite-dialog');
+    if(dialog)return dialog;
+    dialog=document.createElement('dialog');
+    dialog.id='slogi-invite-dialog';dialog.className='slogi-workspace-dialog';dialog.setAttribute('aria-labelledby','slogi-invite-title');
+    dialog.innerHTML='<div class="slogi-workspace-card"><h2 id="slogi-invite-title">Пригласить коллегу</h2><p>Ссылка действует 7 суток и позволяет подключить до 5 устройств. Передайте её только тем, кому доверяете доступ к общему пространству.</p><div class="slogi-workspace-field"><label for="slogi-invite-link">Ссылка-приглашение</label><input id="slogi-invite-link" type="text" readonly autocomplete="off" spellcheck="false"><span class="slogi-workspace-help" id="slogi-invite-expiry"></span></div><div class="slogi-workspace-error" id="slogi-invite-error" role="alert"></div><div class="slogi-workspace-actions"><button class="slogi-workspace-action" data-primary="true" id="slogi-invite-copy" type="button">Скопировать ссылку</button><button class="slogi-workspace-action" id="slogi-invite-revoke" type="button">Отозвать</button><button class="slogi-workspace-action" id="slogi-invite-close" type="button">Закрыть</button></div></div>';
+    document.body.appendChild(dialog);
+    const clearSecret=()=>{activeInvite=null;const input=dialog.querySelector('#slogi-invite-link');if(input)input.value='';};
+    dialog.addEventListener('close',clearSecret);
+    dialog.querySelector('#slogi-invite-close').addEventListener('click',()=>dialog.close());
+    dialog.querySelector('#slogi-invite-copy').addEventListener('click',async()=>{
+      const error=dialog.querySelector('#slogi-invite-error');error.textContent='';
+      if(!activeInvite)return;
+      try{await navigator.clipboard.writeText(activeInvite.link);announce('Ссылка-приглашение скопирована.',false);}
+      catch(_err){error.textContent='Не удалось скопировать ссылку. Разрешите доступ к буферу обмена и повторите.';}
+    });
+    dialog.querySelector('#slogi-invite-revoke').addEventListener('click',async event=>{
+      const button=event.currentTarget,error=dialog.querySelector('#slogi-invite-error');error.textContent='';
+      if(!activeInvite)return;button.disabled=true;
+      try{
+        const response=await inviteFunctionFetch(inviteManageEndpoint,{action:'revoke',inviteId:activeInvite.inviteId});
+        const payload=await response.json().catch(()=>null);
+        if(!response.ok||!payload||payload.status!=='revoked')throw new Error('invite_revoke_failed');
+        clearSecret();dialog.close();announce('Ссылка-приглашение отозвана.',false);
+      }catch(_err){error.textContent='Не удалось отозвать ссылку. Попробуйте позже.';}
+      finally{button.disabled=false;}
+    });
+    return dialog;
+  }
+
+  async function showInviteDialog(){
+    const trigger=document.getElementById('slogi-workspace-connect');
+    if(trigger)trigger.disabled=true;
+    try{
+      const response=await inviteFunctionFetch(inviteManageEndpoint,{action:'create'});
+      const payload=await response.json().catch(()=>null);
+      if(!response.ok||!payload||payload.status!=='created'||!/^[A-Za-z0-9_-]{43}$/.test(String(payload.inviteToken||''))||!/^[0-9a-f-]{36}$/i.test(String(payload.inviteId||'')))throw new Error('invite_create_failed');
+      const expiresAt=new Date(payload.expiresAt);
+      if(!Number.isFinite(expiresAt.getTime()))throw new Error('invite_create_failed');
+      const url=new URL('./index.html',window.location.href);url.hash='invite='+payload.inviteToken;
+      activeInvite={link:url.toString(),inviteId:String(payload.inviteId)};
+      const dialog=inviteDialog();
+      dialog.querySelector('#slogi-invite-link').value=activeInvite.link;
+      dialog.querySelector('#slogi-invite-expiry').textContent='Действует до '+new Intl.DateTimeFormat('ru-RU',{dateStyle:'long',timeStyle:'short'}).format(expiresAt)+'.';
+      dialog.querySelector('#slogi-invite-error').textContent='';
+      dialog.showModal();setTimeout(()=>dialog.querySelector('#slogi-invite-copy').focus(),0);
+    }catch(_err){activeInvite=null;announce('Не удалось создать ссылку-приглашение.',true);}
+    finally{if(trigger)trigger.disabled=false;}
+  }
+
+  function ensureInviteButton(){
+    let button=document.getElementById('slogi-workspace-connect');
+    if(button){button.textContent='Пригласить коллегу';button.onclick=showInviteDialog;return button;}
+    button=document.createElement('button');button.id='slogi-workspace-connect';button.className='slogi-workspace-connect';button.type='button';button.textContent='Пригласить коллегу';button.onclick=showInviteDialog;document.body.appendChild(button);return button;
+  }
+
+  async function acceptPendingInvite(){
+    if(!pendingInviteToken)return false;
+    const token=pendingInviteToken;
+    try{
+      const response=await inviteFunctionFetch(inviteJoinEndpoint,{token});
+      const payload=await response.json().catch(()=>null);
+      if(!response.ok||!payload||payload.status!=='connected')throw new Error('invite_not_available');
+      await readMembership();
+      if(!membership)throw new Error('invite_not_available');
+      return true;
+    }finally{
+      pendingInviteToken=null;
+    }
   }
 
   function encodeSegment(value){return encodeURIComponent(String(value||'').trim().slice(0,180)).replace(/%2F/gi,'_');}
@@ -297,7 +355,10 @@
     try{
       await ensureSession();
       await readMembership();
-      if(!membership){ready=false;ensureConnectButton();showWorkspaceDialog();return;}
+      let joinedFromInvite=false;
+      if(!membership&&pendingInviteToken)joinedFromInvite=await acceptPendingInvite();
+      else pendingInviteToken=null;
+      if(!membership){ready=false;ensureConnectButton();showNeedInviteDialog();return;}
       const remote=await readRemoteState();
       const mutatedWhileLoading=localMutationVersion!==mutationVersionAtStart;
       if(remote&&mutatedWhileLoading){
@@ -322,13 +383,16 @@
         if(remote)applyRemoteState(remote);
         ready=true;
       }
+      ensureInviteButton();
+      if(joinedFromInvite)announce('Рабочее пространство подключено по ссылке-приглашению.',false);
       window.dispatchEvent(new CustomEvent('slogi:shared-workspace-ready'));
     }catch(_err){
       ready=false;
       const cache=safeJson(localStorage.getItem(CACHE_KEY),null);
       if(localMutationVersion===mutationVersionAtStart&&cache&&cache.state)applyRemoteState(cache.state);
       else pendingPush=true;
-      announce('Облачная синхронизация временно недоступна. Работа продолжается с локальной копией.',true);
+      if(!membership){ensureConnectButton();showNeedInviteDialog();announce('Ссылка-приглашение недействительна или больше не доступна.',true);}
+      else announce('Облачная синхронизация временно недоступна. Работа продолжается с локальной копией.',true);
     }
   }
 
@@ -344,7 +408,7 @@
     async getAccessToken(){await ensureSession();return session.access_token;},
     schedulePush,
     async sync(){return pushState();},
-    showWorkspaceDialog,
+    showWorkspaceDialog:showNeedInviteDialog,
     saveAttachment,
     getAttachment,
     deleteAttachments,

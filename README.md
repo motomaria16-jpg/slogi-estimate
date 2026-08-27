@@ -1,6 +1,6 @@
-# SLOGI v76.1.4 — Shared Workspace Soft-Delete CAS Hotfix
+# SLOGI v76.1.5 — Workspace Invite Links Hotfix
 
-Released hotfix на базе immutable/public `v76.1.3`. Существующие migrations, Edge Functions и production Supabase contract не изменяются. Production E2E остаётся отдельным owner-authorized gate.
+Local candidate на базе immutable/public `v76.1.4`. Добавляется только forward-only invite access layer; production deployment и E2E остаются отдельными owner-authorized gates.
 
 ## Что входит в релиз
 
@@ -26,7 +26,7 @@ Released hotfix на базе immutable/public `v76.1.3`. Существующи
 - Browserless token хранится только в Edge secrets или ignored `.env.local`;
 - браузер и Edge Functions не выполняют прямой `fetch` к `cian.ru`;
 - пользовательская выдача не запускает Browserless;
-- workspace code не хранится в Git, HTML, JavaScript, URL, логах или открытом виде в БД;
+- invite token создаётся только сервером, передаётся в URL fragment и хранится в БД только как HMAC; ручного workspace-code join в UI нет;
 - `anon` не получает прямой доступ к workspace-таблицам;
 - service-role key никогда не попадает в браузер;
 - публичный runtime содержит только production Supabase URL и publishable/anon-class key; service-role и остальные секреты отсутствуют.
