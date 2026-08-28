@@ -43,10 +43,33 @@ function exactKeys(body: Record<string, unknown>, expected: string[]): boolean {
   return actual.length === keys.length && actual.every((key, index) => key === keys[index]);
 }
 
-function secureTransport(request: Request): boolean {
+const TRUSTED_SUPABASE_PROXY_HOST = 'edge-runtime.supabase.com';
+
+function transportHost(value: string | null): string | null {
+  const raw = String(value || '').trim();
+  if (!raw || raw.includes(',') || /[\s/@]/.test(raw)) return null;
+  try {
+    const url = new URL('https://' + raw);
+    if (url.username || url.password || url.pathname !== '/' || url.search || url.hash
+        || (url.port && url.port !== '443')) return null;
+    return url.hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+export function secureTransport(request: Request): boolean {
   try {
     const url = new URL(request.url);
-    return url.protocol === 'https:' || (url.protocol === 'http:' && (url.hostname === '127.0.0.1' || url.hostname === 'localhost'));
+    if (url.protocol === 'https:') return true;
+    if (url.protocol !== 'http:') return false;
+    if (url.hostname === '127.0.0.1' || url.hostname === 'localhost') return true;
+
+    const proto = String(request.headers.get('x-forwarded-proto') || '').trim().toLowerCase();
+    if (proto !== 'https') return false;
+    if (String(request.headers.get('x-forwarded-port') || '').trim() !== '443') return false;
+    return transportHost(request.headers.get('host')) === TRUSTED_SUPABASE_PROXY_HOST
+      && transportHost(request.headers.get('x-forwarded-host')) === TRUSTED_SUPABASE_PROXY_HOST;
   } catch {
     return false;
   }

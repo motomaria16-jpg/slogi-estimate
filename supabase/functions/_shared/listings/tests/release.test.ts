@@ -12,6 +12,7 @@ import type { ListingServerStore, QueueItem, ScanState } from '../server-store.t
 import type { BrowserlessPage, NormalizedListing } from '../types.ts';
 import { createHydrateListingsHandler, HYDRATION_LIMITS } from '../../../hydrate-listings/index.ts';
 import { createImportListingHandler } from '../../../import-listing/index.ts';
+import { secureTransport } from '../../../password-gate/index.ts';
 import { createRefreshListingsHandler, DISCOVERY_LIMITS } from '../../../refresh-listings/index.ts';
 import { createSearchListingsHandler, parseSearchRequest, SupabaseListingReadStore, type ListingReadStore } from '../../../search-listings/index.ts';
 
@@ -32,6 +33,15 @@ function inertStore(overrides:Partial<ListingServerStore>={}):ListingServerStore
 },overrides) as ListingServerStore;}
 function scanState(nextPage=2):ScanState{return{source:'cian',nextPage,discoveryFailures:0,hydrationFailures:0,lastDiscoveryStartedAt:null,lastDiscoverySucceededAt:null,lastDiscoveryErrorCode:null,lastHydrationStartedAt:null,lastHydrationSucceededAt:null,lastHydrationErrorCode:null,cooldownUntil:null};}
 function queueItem(id:number):QueueItem{return{id,source:'cian',listingUrl:`https://www.cian.ru/rent/commercial/${100000000+id}`,externalId:String(100000000+id),priority:'backfill',status:'pending',attemptCount:0,discoveredAt:observedAt,lastDiscoveredAt:observedAt,nextAttemptAt:observedAt,lockedAt:null,lockedBy:null,lastAttemptAt:null,completedAt:null,lastErrorCode:null};}
+
+test('password gate Edge transport accepts only direct HTTPS or the exact hosted proxy contract',()=>{
+  assert.equal(secureTransport(new Request('https://fixture.supabase.co/functions/v1/password-gate')),true);
+  const headers={host:'edge-runtime.supabase.com','x-forwarded-host':'edge-runtime.supabase.com','x-forwarded-port':'443','x-forwarded-proto':'https'};
+  assert.equal(secureTransport(new Request('http://edge-runtime.internal/functions/v1/password-gate',{headers})),true);
+  assert.equal(secureTransport(new Request('http://edge-runtime.internal/functions/v1/password-gate',{headers:{...headers,host:'untrusted.example'}})),false);
+  assert.equal(secureTransport(new Request('http://edge-runtime.internal/functions/v1/password-gate',{headers:{...headers,'x-forwarded-proto':'https,http'}})),false);
+  assert.equal(secureTransport(new Request('http://fixture.supabase.co/functions/v1/password-gate')),false);
+});
 
 test('Cian URL canonicalization strips tracking and rejects lookalikes',()=>{
   const provider=new CianListingProvider();

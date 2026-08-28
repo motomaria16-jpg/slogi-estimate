@@ -11,7 +11,7 @@ import {
   signGrant,
   verifyGrant,
 } from '../supabase/functions/_shared/password-gate.ts';
-import { createPasswordGateHandler } from '../supabase/functions/password-gate/index.ts';
+import { createPasswordGateHandler, secureTransport } from '../supabase/functions/password-gate/index.ts';
 
 const root=dirname(dirname(fileURLToPath(import.meta.url)));
 const baseUrl='https://example.supabase.co';
@@ -44,6 +44,70 @@ function request(body,grant=''){
   return new Request(baseUrl+'/functions/v1/password-gate',{method:'POST',headers,body:JSON.stringify(body)});
 }
 function rpcName(url){return String(url).split('/').pop();}
+
+function transportRequest(url,headers={}){
+  return new Request(url,{method:'POST',headers:{'Content-Type':'application/json',...headers},body:JSON.stringify({action:'challenge'})});
+}
+const trustedProxyHeaders={
+  host:'edge-runtime.supabase.com',
+  'x-forwarded-host':'edge-runtime.supabase.com',
+  'x-forwarded-port':'443',
+  'x-forwarded-proto':'https',
+};
+
+test('password gate accepts only direct HTTPS or the unambiguous trusted Supabase proxy contract',()=>{
+  assert.equal(secureTransport(transportRequest('https://fixture-project.supabase.co/functions/v1/password-gate')),true);
+  assert.equal(secureTransport(transportRequest('http://edge-runtime.internal/functions/v1/password-gate',trustedProxyHeaders)),true);
+  assert.equal(secureTransport(transportRequest('http://edge-runtime.internal/functions/v1/password-gate',{
+    host:'untrusted.example',
+    'x-forwarded-host':'untrusted.example',
+    'x-forwarded-port':'443',
+    'x-forwarded-proto':'https',
+  })),false);
+  assert.equal(secureTransport(transportRequest('http://example.supabase.co/functions/v1/password-gate')),false);
+  for(const proto of ['http','https,http','https, https','https://','']){
+    assert.equal(secureTransport(transportRequest('http://edge-runtime.internal/functions/v1/password-gate',{
+      ...trustedProxyHeaders,
+      'x-forwarded-proto':proto,
+    })),false);
+  }
+  assert.equal(secureTransport(transportRequest('http://edge-runtime.internal/functions/v1/password-gate',{
+    ...trustedProxyHeaders,
+    'x-forwarded-host':'untrusted.example',
+  })),false);
+  assert.equal(secureTransport(transportRequest('http://edge-runtime.internal/functions/v1/password-gate',{
+    ...trustedProxyHeaders,
+    host:'untrusted.example',
+  })),false);
+  for(const port of ['80','443, 80','https','']){
+    assert.equal(secureTransport(transportRequest('http://edge-runtime.internal/functions/v1/password-gate',{
+      ...trustedProxyHeaders,
+      'x-forwarded-port':port,
+    })),false);
+  }
+  assert.equal(secureTransport(transportRequest('http://localhost/functions/v1/password-gate')),true);
+});
+
+test('handler accepts trusted proxy HTTPS before auth, password, or database work',async()=>{
+  const reads=[];let fetchCalls=0;
+  const handler=createPasswordGateHandler({
+    environment:{get:name=>{reads.push(name);return undefined;}},
+    fetch:async()=>{fetchCalls+=1;throw new Error('unexpected_fetch');},
+  });
+  const proxyRequest=new Request('http://edge-runtime.internal/functions/v1/password-gate',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      ...trustedProxyHeaders,
+    },
+    body:JSON.stringify({action:'unsupported'}),
+  });
+  const proxyResponse=await handler(proxyRequest);
+  assert.equal(proxyResponse.status,400);
+  assert.deepEqual(await proxyResponse.json(),{status:'invalid_request'});
+  assert.deepEqual(reads,[]);
+  assert.equal(fetchCalls,0);
+});
 
 test('PBKDF2 password verification accepts only the matching synthetic runtime value',async()=>{
   const synthetic=crypto.randomUUID()+crypto.randomUUID();

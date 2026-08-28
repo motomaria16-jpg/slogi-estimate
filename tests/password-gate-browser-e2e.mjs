@@ -90,6 +90,9 @@ async function mockSupabase(route,identity){
   const record=grants.get(supplied);
   const valid=record&&record.userId===identity.id&&record.active&&new Date(record.expiresAt).getTime()>Date.now();
   if(path==='/functions/v1/password-gate'){
+    identity.transportChecks+=1;
+    assert.equal(url.protocol,'https:','browser password gate must use direct HTTPS');
+    assert.equal(url.host,new URL(apiUrl).host,'browser password gate must use the configured Supabase host');
     const body=request.postDataJSON();
     if(body.action==='challenge')return json(route,{status:'challenge',challenge:'c'.repeat(43),expiresAt:new Date(Date.now()+300000).toISOString()});
     if(body.action==='status')return valid
@@ -133,7 +136,7 @@ async function mockSupabase(route,identity){
 }
 
 async function openDevice(browser,origin,viewport,seedGrant){
-  const identity={id:randomUUID(),requests:[],unlockRequests:0,searchPages:[]};
+  const identity={id:randomUUID(),requests:[],unlockRequests:0,searchPages:[],transportChecks:0};
   const context=await browser.newContext({viewport,locale:'ru-RU'});
   await context.addInitScript(installMapFixture);
   if(seedGrant)await context.addInitScript(({key,value})=>localStorage.setItem(key,JSON.stringify(value)),{key:grantKey,value:seedGrant});
@@ -278,6 +281,7 @@ try{
     const metrics=await device.page.evaluate(()=>({overflow:Math.max(0,document.documentElement.scrollWidth-document.documentElement.clientWidth,document.body.scrollWidth-document.body.clientWidth),invites:[...document.querySelectorAll('button,a,dialog')].some(node=>/приглас/i.test(node.textContent||''))}));
     assert.equal(metrics.overflow,0);
     assert.equal(metrics.invites,false);
+    assert.ok(device.identity.transportChecks>0,'password gate transport was not exercised');
     assert.deepEqual(device.issues,[]);
   }
   console.log('password gate browser e2e: PASS');
