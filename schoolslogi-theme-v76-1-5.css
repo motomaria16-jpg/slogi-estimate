@@ -107,19 +107,6 @@ body.slogi-search-page>.site-header,
 .site-header .logo-word span:nth-child(3),
 .site-header .logo-word span:nth-child(4){background:var(--slogi-sand)!important}
 .site-header .logo-word span:nth-child(5){background:var(--slogi-gold)!important}
-.slogi-specialist-label{
-  display:inline-flex!important;
-  align-items:center;
-  min-height:38px;
-  padding-left:14px;
-  border-left:1px solid #ddc8aa;
-  color:#514d48;
-  font-size:14px;
-  font-weight:750;
-  line-height:1.2;
-  white-space:nowrap;
-}
-
 .site-header .pro-nav,
 .slogi-search-page .site-header .pro-nav{
   position:static!important;
@@ -652,10 +639,176 @@ body .workflow-main #version-label{font-size:14px!important}
 body .pro-page .pro-phase-regulation strong{font-size:16px!important}
 .pro-header-utilities #pro-global-search-btn{width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important}
 
+/* v76.1.6 — compact search workspace aligned with the My Premises list. */
+body.slogi-search-page .phase0-main,
+body.available-spaces-page .cian-main{
+  padding:10px var(--site-layout-gutter) 72px!important;
+}
+body.available-spaces-page .cian-hero{
+  align-items:flex-end!important;
+  gap:20px!important;
+  margin-bottom:14px!important;
+  padding:28px 32px!important;
+}
+body.available-spaces-page .cian-hero h1{
+  margin:2px 0 7px!important;
+  font-size:clamp(38px,3.4vw,48px)!important;
+  line-height:1.02!important;
+}
+body.available-spaces-page .cian-hero>div>p:last-child{
+  max-width:680px!important;
+  font-size:16px!important;
+  line-height:1.5!important;
+}
+body.available-spaces-page .cian-hero .cian-button{
+  min-height:44px!important;
+  padding-inline:20px!important;
+}
+body.available-spaces-page .cian-source-grid{
+  gap:14px!important;
+  margin-bottom:14px!important;
+}
+body.available-spaces-page .cian-source-card{
+  grid-template-columns:44px minmax(0,1fr) auto!important;
+  gap:14px!important;
+  min-height:0!important;
+  padding:16px 18px!important;
+  border-radius:18px!important;
+}
+body.available-spaces-page .cian-source-mark{
+  width:44px!important;
+  height:44px!important;
+  border-radius:14px!important;
+  font-size:20px!important;
+}
+body.available-spaces-page .cian-source-card span:first-child{
+  font-size:13px!important;
+  line-height:1.35!important;
+}
+body.available-spaces-page .cian-source-card h2{
+  margin:2px 0 3px!important;
+  font-size:19px!important;
+  line-height:1.2!important;
+  letter-spacing:-.01em!important;
+}
+body.available-spaces-page .cian-source-card p{
+  font-size:14px!important;
+  line-height:1.4!important;
+}
+body.available-spaces-page .cian-status{
+  min-height:28px!important;
+  padding:6px 9px!important;
+  font-size:13px!important;
+  line-height:1.25!important;
+}
+body.available-spaces-page .cian-metrics{
+  gap:14px!important;
+  margin-bottom:14px!important;
+}
+body.available-spaces-page .cian-metrics article{
+  padding:16px 18px!important;
+  border-radius:18px!important;
+}
+body.available-spaces-page .cian-metrics span{
+  margin-bottom:6px!important;
+  font-size:14px!important;
+  line-height:1.4!important;
+}
+body.available-spaces-page .cian-metrics strong{
+  font-size:22px!important;
+  line-height:1.15!important;
+}
+body.available-spaces-page .cian-filter-card{
+  margin-bottom:14px!important;
+  padding:20px 22px!important;
+  border-radius:20px!important;
+}
+body.available-spaces-page .cian-section-heading h2{
+  font-size:24px!important;
+}
+body.available-spaces-page .cian-filters{
+  gap:12px!important;
+  margin-top:16px!important;
+}
+body.available-spaces-page .cian-workspace{gap:14px!important}
+body.available-spaces-page .cian-results{
+  padding:0!important;
+  overflow:hidden!important;
+}
+body.available-spaces-page .cian-results>.cian-section-heading{
+  padding:20px 22px 16px!important;
+}
+body.available-spaces-page .cian-list{
+  display:block!important;
+  margin-top:0!important;
+}
+body.available-spaces-page .cian-listing-card{
+  border-width:1px 0 0!important;
+  border-radius:0!important;
+  background:#fffdf9!important;
+}
+body.available-spaces-page .cian-listing-card:hover{
+  border-color:var(--slogi-line)!important;
+  background:#fffaf3!important;
+  box-shadow:none!important;
+  transform:none!important;
+}
+body.available-spaces-page .cian-listing-card.selected{
+  border-color:var(--slogi-teal)!important;
+  box-shadow:inset 4px 0 0 var(--slogi-teal)!important;
+}
+body.available-spaces-page .cian-card-open{
+  grid-template-columns:minmax(0,1fr) minmax(150px,190px)!important;
+  gap:18px!important;
+  padding:18px 22px!important;
+}
+body.available-spaces-page .cian-card-top{
+  gap:7px!important;
+  margin-bottom:9px!important;
+}
+body.available-spaces-page .cian-badge{
+  min-height:26px!important;
+  padding:5px 8px!important;
+  font-size:13px!important;
+  line-height:1.2!important;
+}
+body.available-spaces-page .cian-listing-card h3{
+  margin-bottom:5px!important;
+  font-size:18px!important;
+  line-height:1.3!important;
+}
+body.available-spaces-page .cian-address{
+  font-size:14px!important;
+  line-height:1.4!important;
+}
+body.available-spaces-page .cian-card-metrics{
+  gap:7px!important;
+  margin-top:12px!important;
+}
+body.available-spaces-page .cian-card-metrics span{
+  padding:6px 8px!important;
+  border-radius:10px!important;
+  font-size:13px!important;
+  line-height:1.3!important;
+}
+body.available-spaces-page .cian-card-price{min-width:0!important}
+body.available-spaces-page .cian-card-price strong{
+  font-size:19px!important;
+  line-height:1.25!important;
+}
+body.available-spaces-page .cian-card-price span{
+  font-size:13px!important;
+  line-height:1.35!important;
+}
+body.available-spaces-page .cian-card-actions{
+  gap:10px!important;
+  padding:10px 22px 12px!important;
+}
+body.available-spaces-page .cian-map-card{padding:22px!important}
+
 @media(max-width:1180px){
   :root{--site-header-height:70px;--app-shell-height:70px}
   .site-header .pro-shell-row{gap:12px!important}
-  .slogi-specialist-label{display:none!important}
   .pro-header-utilities .pro-global-search-wrap{display:none!important}
   .site-header .pro-product-nav a,
   .slogi-search-page .site-header .pro-product-nav a{padding-inline:10px!important;font-size:14px!important}
@@ -717,10 +870,31 @@ body .pro-page .pro-phase-regulation strong{font-size:16px!important}
   .passport-address-wrap,.passport-actions{grid-column:1/-1!important}
   .workflow-grid,.proposal-workspace{grid-template-columns:1fr!important}
   .workflow-sidebar{position:static!important}
+  body.slogi-search-page .phase0-main,
+  body.available-spaces-page .cian-main{padding:4px var(--site-layout-gutter) 58px!important}
+  body.available-spaces-page .cian-hero{
+    align-items:flex-start!important;
+    flex-direction:column!important;
+    gap:18px!important;
+    padding:22px!important;
+  }
+  body.available-spaces-page .cian-hero h1{font-size:36px!important}
+  body.available-spaces-page .cian-source-card{
+    grid-template-columns:44px minmax(0,1fr)!important;
+    padding:15px 17px!important;
+  }
+  body.available-spaces-page .cian-source-card .cian-status{
+    grid-column:2!important;
+    justify-self:start!important;
+  }
+  body.available-spaces-page .cian-card-open{
+    grid-template-columns:1fr!important;
+    gap:12px!important;
+  }
+  body.available-spaces-page .cian-card-price{text-align:left!important}
 }
 
 @media(max-width:600px){
-  .slogi-specialist-label{display:inline-flex!important;min-height:30px;padding-left:9px;font-size:12px!important}
   .pro-header-utilities .pro-notification-btn,
   .slogi-search-page .pro-header-utilities .pro-notification-btn{display:none!important}
   .site-header .brand{gap:8px!important}
@@ -776,6 +950,19 @@ body .pro-page .pro-phase-regulation strong{font-size:16px!important}
   .stage-card-actions a,
   .pro-page-actions .pro-btn,
   .passport-actions .wf-btn{width:100%!important}
+  body.available-spaces-page .cian-hero{
+    gap:16px!important;
+    padding:18px!important;
+  }
+  body.available-spaces-page .cian-hero h1{font-size:32px!important}
+  body.available-spaces-page .cian-hero>div>p:last-child{font-size:14px!important}
+  body.available-spaces-page .cian-source-grid{gap:10px!important}
+  body.available-spaces-page .cian-source-card{padding:14px!important}
+  body.available-spaces-page .cian-filter-card,
+  body.available-spaces-page .cian-map-card{padding:18px!important}
+  body.available-spaces-page .cian-results>.cian-section-heading{padding:18px 16px 14px!important}
+  body.available-spaces-page .cian-card-open{padding:16px!important}
+  body.available-spaces-page .cian-card-actions{padding:10px 16px 14px!important}
   .pro-modal-backdrop{padding:8px!important}
   .pro-modal{max-height:calc(100dvh - 16px)!important;border-radius:22px!important}
 }
