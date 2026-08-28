@@ -16,7 +16,7 @@ import {
   type QueueItem,
   type RunFinish,
 } from '../_shared/listings/server-store.ts';
-import type { BrowserlessAttemptSummary, BrowserlessPage, ListingSource } from '../_shared/listings/types.ts';
+import type { BrowserlessAttemptSummary, BrowserlessPage, ListingSource, NormalizedListing } from '../_shared/listings/types.ts';
 
 const CRON_HEADER = 'x-slogi-listing-cron-secret';
 const SOURCES = new Set<ListingSource>(['cian']);
@@ -223,33 +223,32 @@ async function processItem(
       await finish(store, item, workerId, 'completed', finishedAt, null, 'listing_removed', { attemptCount: item.attemptCount, removed: true, attemptSummaries });
       return { status: 'completed', parsed: 1, partial: 0, blocked: 0, failed: 0, inserted: 0, updated: 0, skippedOld: 0, skippedUnknownDate: 0, errorCode: null, attemptSummaries };
     }
-    if (!isCompleteListing(listing)) {
-      const retry = item.attemptCount < HYDRATION_LIMITS.transientMaxAttempts;
-      const status: QueueFinish['status'] = retry ? 'retry' : 'failed';
-      const next = retry ? new Date(now.getTime() + retryDelayMs(item.attemptCount)).toISOString() : null;
-      await finish(store, item, workerId, status, finishedAt, next, 'partial_listing', { attemptCount: item.attemptCount, completeness: listing.parseCompleteness, attemptSummaries });
-      return { status, parsed: 0, partial: 1, blocked: 0, failed: retry ? 0 : 1, inserted: 0, updated: 0, skippedOld: 0, skippedUnknownDate: 0, errorCode: 'partial_listing', attemptSummaries };
-    }
-
     const freshness = listingFreshnessDecision(listing, now);
+    const complete = isCompleteListing(listing);
+    const partial = complete ? 0 : 1;
     if (freshness === 'old') {
-      await finish(store, item, workerId, 'discarded_old', finishedAt, null, 'listing_older_than_30_days', { attemptCount: item.attemptCount, attemptSummaries });
-      return { status: 'discarded_old', parsed: 1, partial: 0, blocked: 0, failed: 0, inserted: 0, updated: 0, skippedOld: 1, skippedUnknownDate: 0, errorCode: null, attemptSummaries };
+      await finish(store, item, workerId, 'discarded_old', finishedAt, null, 'listing_older_than_30_days', { attemptCount: item.attemptCount, completeness: listing.parseCompleteness, partial: !complete, attemptSummaries });
+      return { status: 'discarded_old', parsed: 1, partial, blocked: 0, failed: 0, inserted: 0, updated: 0, skippedOld: 1, skippedUnknownDate: 0, errorCode: null, attemptSummaries };
     }
     if (freshness !== 'recent') {
       const retry = item.attemptCount < HYDRATION_LIMITS.unknownDateMaxAttempts;
       const status: QueueFinish['status'] = retry ? 'retry' : 'discarded_unknown_date';
       const next = retry ? new Date(now.getTime() + 24 * 60 * 60_000).toISOString() : null;
-      await finish(store, item, workerId, status, finishedAt, next, 'missing_or_invalid_freshness_date', { attemptCount: item.attemptCount, retryScheduled: retry, attemptSummaries });
-      return { status, parsed: 1, partial: 0, blocked: 0, failed: 0, inserted: 0, updated: 0, skippedOld: 0, skippedUnknownDate: 1, errorCode: retry ? 'missing_or_invalid_freshness_date' : null, attemptSummaries };
+      await finish(store, item, workerId, status, finishedAt, next, 'missing_or_invalid_freshness_date', { attemptCount: item.attemptCount, completeness: listing.parseCompleteness, partial: !complete, retryScheduled: retry, attemptSummaries });
+      return { status, parsed: 1, partial, blocked: 0, failed: 0, inserted: 0, updated: 0, skippedOld: 0, skippedUnknownDate: 1, errorCode: retry ? 'missing_or_invalid_freshness_date' : null, attemptSummaries };
     }
 
     if (runtimeSignal.aborted) throw new HydrationRuntimeError();
-    const persisted = await store.persistRecent(source, [listing], finishedAt, runtimeSignal);
-    await finish(store, item, workerId, 'completed', finishedAt, null, null, {
-      attemptCount: item.attemptCount, completeness: listing.parseCompleteness, strategy: page.strategy || '', attemptSummaries,
+    const recentListing = complete ? listing : {
+      ...listing,
+      address: listing.address || null,
+    } as NormalizedListing;
+    const persisted = await store.persistRecent(source, [recentListing], finishedAt, runtimeSignal);
+    await finish(store, item, workerId, 'completed', finishedAt, null, complete ? null : 'partial_listing_persisted', {
+      attemptCount: item.attemptCount, completeness: listing.parseCompleteness, partial: !complete,
+      warningCount: listing.parseWarnings.length, strategy: page.strategy || '', attemptSummaries,
     });
-    return { status: 'completed', parsed: 1, partial: 0, blocked: 0, failed: 0, inserted: persisted.inserted, updated: persisted.updated, skippedOld: 0, skippedUnknownDate: 0, errorCode: null, attemptSummaries };
+    return { status: 'completed', parsed: 1, partial, blocked: 0, failed: 0, inserted: persisted.inserted, updated: persisted.updated, skippedOld: 0, skippedUnknownDate: 0, errorCode: null, attemptSummaries };
   } catch (error) {
     if (error instanceof HydrationRuntimeError || runtimeSignal.aborted) throw new HydrationRuntimeError();
     const code = safeCode(error instanceof Error ? error.message : error);
