@@ -12,7 +12,6 @@ import type { ListingServerStore, QueueItem, ScanState } from '../server-store.t
 import type { BrowserlessPage, NormalizedListing } from '../types.ts';
 import { createHydrateListingsHandler, HYDRATION_LIMITS } from '../../../hydrate-listings/index.ts';
 import { createImportListingHandler } from '../../../import-listing/index.ts';
-import { createJoinWorkspaceHandler } from '../../../join-workspace/index.ts';
 import { createRefreshListingsHandler, DISCOVERY_LIMITS } from '../../../refresh-listings/index.ts';
 import { createSearchListingsHandler, parseSearchRequest, SupabaseListingReadStore, type ListingReadStore } from '../../../search-listings/index.ts';
 
@@ -107,7 +106,7 @@ test('rolling ingestion budgets are bounded, sequential and cursor-capable',()=>
 
 test('manual import uses one Cian smart-scrape call without unblock or retry',async()=>{
   let captured:any=null;
-  const handler=createImportListingHandler({client:{async fetchPage(_url,options){captured=options;return page(fixture('cian-listing.html'));}},now:()=>new Date(observedAt)});
+  const handler=createImportListingHandler({authorize:async()=>true,client:{async fetchPage(_url,options){captured=options;return page(fixture('cian-listing.html'));}},now:()=>new Date(observedAt)});
   const result=await handler(new Request('http://local/import-listing',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:'https://www.cian.ru/rent/commercial/111111111'})}));
   assert.equal(result.status,200);assert.deepEqual(captured.strategies,['smart-scrape']);assert.equal(captured.allowUnblock,false);assert.equal(captured.directUnblock,false);assert.equal(captured.retryCount,0);
 });
@@ -127,14 +126,14 @@ test('search reads saved rows only and applies recent/removed filter',async()=>{
   const old=listing({listingUrl:'https://www.cian.ru/rent/commercial/222222222',freshnessAt:new Date(dateReference.getTime()-31*86400000).toISOString()});
   const removed=listing({listingUrl:'https://www.cian.ru/rent/commercial/333333333',marketStatus:'removed'});
   let reads=0;const store:ListingReadStore={async readRecent(){reads++;return{items:[old,removed,recent],total:1};},async readScanStates(){reads++;return[];}};
-  const response=await createSearchListingsHandler({store,now:()=>dateReference})(new Request('http://local/search',{method:'POST',headers:{Authorization:'Bearer fixture','Content-Type':'application/json'},body:'{}'}));
+  const response=await createSearchListingsHandler({store,authorize:async()=>true,now:()=>dateReference})(new Request('http://local/search',{method:'POST',headers:{Authorization:'Bearer fixture','Content-Type':'application/json'},body:'{}'}));
   const body=await response.json();assert.equal(reads,2);assert.deepEqual(body.items.map((entry:NormalizedListing)=>entry.listingUrl),[recent.listingUrl]);assert.equal(body.meta.total,1);assert.equal(body.meta.snapshotAt,dateReference.toISOString());
 });
 
 test('search returns stable pagination metadata without triggering writes',async()=>{
   let captured:any=null;const rows=Array.from({length:5},(_,index)=>listing({externalId:String(index+1),listingUrl:`https://www.cian.ru/rent/commercial/${100000000+index}`,freshnessAt:new Date(dateReference.getTime()-index*1000).toISOString()}));
   const store:ListingReadStore={async readRecent(request){captured=request;return{items:rows.slice(2,4),total:5};},async readScanStates(){return[];}};
-  const response=await createSearchListingsHandler({store,now:()=>dateReference})(new Request('http://local/search',{method:'POST',headers:{Authorization:'Bearer fixture','Content-Type':'application/json'},body:JSON.stringify({sources:['cian'],page:2,limit:2,snapshotAt:dateReference.toISOString()})}));
+  const response=await createSearchListingsHandler({store,authorize:async()=>true,now:()=>dateReference})(new Request('http://local/search',{method:'POST',headers:{Authorization:'Bearer fixture','Content-Type':'application/json'},body:JSON.stringify({sources:['cian'],page:2,limit:2,snapshotAt:dateReference.toISOString()})}));
   const body=await response.json();assert.equal(response.status,200);assert.equal(captured.page,2);assert.equal(captured.limit,2);assert.equal(body.items.length,2);assert.equal(body.meta.total,5);assert.equal(body.meta.hasMore,true);assert.equal(body.meta.nextPage,3);
 });
 
@@ -231,20 +230,6 @@ test('queue SQL recovers stale processing rows without loss and claims determini
   assert.match(sql,/unique \(source, listing_url\)/);
   assert.match(sql,/least\(2, coalesce\(p_batch_limit, 1\)\)/);
 });
-
-test('invalid workspace code is generic and does not call provider',async()=>{
-  let calls=0;const handler=createJoinWorkspaceHandler({fetch:async()=>{calls++;return new Response();}});
-  const response=await handler(new Request('http://local/join',{method:'POST',headers:{Authorization:'Bearer fixture','Content-Type':'application/json'},body:'{"code":"short"}'}));
-  assert.equal(response.status,404);assert.equal(calls,0);assert.equal((await response.json()).error,'Рабочее пространство недоступно.');
-});
-
-test('workspace join sends only a hash to the privileged RPC',async()=>{
-  const rawCode='SyntheticWorkspaceCode_0123456789_ABCDEF';let rpcBody='';let calls=0;
-  const handler=createJoinWorkspaceHandler({environment:environment({SUPABASE_URL:'http://127.0.0.1:54321',SUPABASE_ANON_KEY:'fixture-anon',SUPABASE_SERVICE_ROLE_KEY:'fixture-service',SLOGI_WORKSPACE_CODE_PEPPER:'fixture-pepper-value-with-at-least-32-characters'}),fetch:async(input,init)=>{calls++;const url=String(input);if(url.endsWith('/auth/v1/user'))return new Response(JSON.stringify({id:'11111111-1111-4111-8111-111111111111',is_anonymous:true}),{status:200});rpcBody=String(init&&init.body||'');return new Response(JSON.stringify('22222222-2222-4222-8222-222222222222'),{status:200});}});
-  const response=await handler(new Request('http://local/join',{method:'POST',headers:{Authorization:'Bearer fixture','Content-Type':'application/json'},body:JSON.stringify({code:rawCode})}));
-  assert.equal(response.status,200);assert.equal(calls,2);assert.equal(rpcBody.includes(rawCode),false);assert.match(rpcBody,/[0-9a-f]{64}/);
-});
-
 test('listing migration is Cian-only, durable and server-only',()=>{
   const sql=readFileSync(join(repositoryDirectory,'supabase','migrations','20260821_7610_listing_refresh.sql'),'utf8');
   assert.match(sql,/create table public\.slogi_listing_fetch_queue/);assert.match(sql,/for update skip locked/i);assert.match(sql,/unique \(source, phase, run_slot\)/);assert.match(sql,/check \(source = 'cian'\)/);assert.match(sql,/security definer[\s\S]*set search_path = pg_catalog, public/i);assert.match(sql,/revoke all on public\.slogi_listing_fetch_queue from public, anon, authenticated, service_role/i);assert.equal(/avito|apify|inpars|ozon/i.test(sql),false);
@@ -325,5 +310,5 @@ test('permanent purge removes only trash-authorized locations from shared state'
 
 test('Edge configuration enforces JWT on all release functions',()=>{
   const config=readFileSync(join(repositoryDirectory,'supabase','config.toml'),'utf8');
-  for(const name of ['import-listing','search-listings','refresh-listings','hydrate-listings','join-workspace'])assert.match(config,new RegExp(`\\[functions\\.${name.replace('-','\\-')}\\][\\s\\S]{0,50}verify_jwt = true`));
+  for(const name of ['import-listing','search-listings','refresh-listings','hydrate-listings','password-gate'])assert.match(config,new RegExp(`\\[functions\\.${name.replace('-','\\-')}\\][\\s\\S]{0,50}verify_jwt = true`));
 });

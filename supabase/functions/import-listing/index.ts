@@ -6,10 +6,11 @@ import {
 } from '../_shared/listings/browserless.ts';
 import { isCompleteListing, uniqueWarnings } from '../_shared/listings/parsing.ts';
 import { providerForUrl } from '../_shared/listings/providers/index.ts';
+import { authorizeDeviceGrant, runtimeEnvironment, type EnvironmentReader } from '../_shared/password-gate.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-slogi-client',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-slogi-client, x-slogi-device-grant',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Content-Type': 'application/json; charset=utf-8',
 };
@@ -17,6 +18,9 @@ const corsHeaders = {
 interface ImportListingDependencies {
   client?: BrowserlessPageClient;
   now?: () => Date;
+  environment?: EnvironmentReader;
+  fetch?: typeof fetch;
+  authorize?: (request: Request) => Promise<boolean>;
 }
 
 function response(body: unknown, status = 200): Response {
@@ -33,6 +37,14 @@ export function createImportListingHandler(dependencies: ImportListingDependenci
   return async (request: Request): Promise<Response> => {
     if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
     if (request.method !== 'POST') return response({ status: 'provider_error', error: 'Method not allowed' }, 405);
+    const authorized = dependencies.authorize
+      ? await dependencies.authorize(request).catch(() => false)
+      : (await authorizeDeviceGrant(
+        request,
+        dependencies.environment || runtimeEnvironment(),
+        dependencies.fetch || fetch,
+      )).ok;
+    if (!authorized) return response({ status: 'access_denied', error: 'Access denied', data: null }, 401);
 
     const started = Date.now();
     try {

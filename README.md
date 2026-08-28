@@ -1,61 +1,42 @@
-# SLOGI v76.1.6 — School SLOGI and Complete Cian Feed
+# SLOGI v76.1.7 — Shared Password Gate candidate
 
-Released hotfix на базе immutable/public `v76.1.5`: единый School SLOGI shell и полная пагинируемая выдача сохранённых объявлений ЦИАН за rolling window 30 суток. Production activation, scheduler replacement и проверка полноты ingestion остаются отдельными owner-authorized gates.
+Candidate на exact released base `v76.1.6` (`06ee1659f7caf234df85de662424fe1d1159bb03`). Сайт использует одно общее каноническое рабочее пространство и открывает его на новом устройстве только после ввода общего пароля. Форм личного кабинета, регистрации, профиля и управления доступом в интерфейсе нет.
 
-## Что входит в релиз
+Пароль проверяется только в Supabase Edge по HTTPS. Браузер получает подписанное разрешение устройства с expiry/version/revocation и хранит его рядом с технической anonymous Auth session. Сам пароль, его производные и `service_role` в frontend, Git и PostgreSQL не попадают.
 
-- только серверный сбор и отображение предложений ЦИАН;
-- bounded discovery с durable backfill cursor и отдельная durable hydration queue;
-- последовательная догрузка всех страниц сохранённой 30-дневной выдачи без общего UI-лимита;
-- выдача только из сохранённой Supabase-базы, без внешнего запроса при фильтрации;
-- техническая anonymous Auth session без формы аккаунта;
-- общее защищённое workspace-состояние с одноразовыми invite links без ручного workspace code;
-- revision-based защита от незаметной перезаписи между компьютерами;
-- единый School SLOGI shell для desktop/mobile;
-- навигация в порядке «Поиск помещений» → «Мои помещения» → «Смета и КП» → «Ремонт»;
-- канонический фильтр кластеров и 58 polygon overlays из `clusters.geojson`;
-- добавление сохранённого объявления ЦИАН в существующую доменную модель «Моих помещений» без повторного парсинга;
-- дедупликация по `source + externalId` и canonical URL;
-- cross-device workspace sync с явной обработкой PostgreSQL revision conflict.
-- permanent purge физически удаляет только уже помещённые в корзину объекты из общего `locations` state и не допускает их восстановления после reload.
-- локальная мутация, сделанная во время начального чтения workspace после reconciliation, не теряется: при неизменившейся remote-базе выполняется один CAS, а при новом remote winner сохраняется conflict draft без автоматической перезаписи.
+## Граница безопасности
 
-Авито в runtime v76.1.0 отсутствует. В интерфейсе есть только неактивная информационная карточка «Авито — подключение готовится», без кнопки, URL и сетевого вызова. Ozon, Apify и Inpars не входят в релиз.
+- до действующего device grant frontend остаётся закрытым и не запрашивает workspace data;
+- RLS, Storage policy и CAS RPC независимо проверяют grant header, anonymous `auth.uid()`, expiry, revoke, version и канонический workspace;
+- `search-listings` и `import-listing` выполняют ту же server-side проверку до своей существующей логики;
+- однократный challenge, rate limits и cooldown защищают ввод пароля от replay и перебора;
+- выдача grant автоматически создаёт только membership единственного канонического workspace;
+- прежние membership/state/files/CAS и данные manual/Cian сохраняются без преобразования;
+- устаревший механизм ссылок выключен forward-only: история строк остаётся, активные строки отозваны, privileged RPC больше не исполняются.
 
-## Безопасность
-
-- Browserless token хранится только в Edge secrets или ignored `.env.local`;
-- браузер и Edge Functions не выполняют прямой `fetch` к `cian.ru`;
-- пользовательская выдача не запускает Browserless;
-- invite token создаётся только сервером, передаётся в URL fragment и хранится в БД только как HMAC; ручного workspace-code join в UI нет;
-- `anon` не получает прямой доступ к workspace-таблицам;
-- service-role key никогда не попадает в браузер;
-- публичный runtime содержит только production Supabase URL и publishable/anon-class key; service-role и остальные секреты отсутствуют.
+Grant и anonymous Auth tokens — bearer credentials. Same-origin XSS, вредоносное расширение или локальный доступ к уже разблокированному профилю браузера могут украсть их и прочитать локальный plaintext cache. Принятая модель и ограничения подробно описаны в [архитектуре gate](docs/PASSWORD_GATE_V76_1_7.md).
 
 ## Локальная проверка
 
-Используйте одноразовый Supabase stack на PostgreSQL 17. Применяются последовательно:
+Миграции применяются последовательно на чистом PostgreSQL 17:
 
-1. `20260814_7601_baseline.sql` — frozen baseline, не редактировать;
-2. `20260821_7610_listing_refresh.sql` — Cian queue и refresh state;
-3. `20260823_7611_shared_workspace.sql` — shared workspace, membership RLS и исходный CAS snapshot;
-4. `20260824_7612_workspace_cas_conflict.sql` — explicit HTTP 409 для stale revision без serialization retry-flood;
-5. `20260827_7615_workspace_invites.sql` — hash-only invite links и отключение legacy code join.
+1. `20260814_7601_baseline.sql` — frozen baseline;
+2. `20260821_7610_listing_refresh.sql` — существующая Cian queue;
+3. `20260823_7611_shared_workspace.sql` — shared state, membership, Storage и исходный CAS;
+4. `20260824_7612_workspace_cas_conflict.sql` — явный `PT409`;
+5. `20260827_7615_workspace_invites.sql` — историческая миграция, не редактируется;
+6. `20260828_7617_password_gate.sql` — forward-only password gate и enforcement.
 
-Внешний Cian live smoke не запускается автоматически. После offline/local gate требуется отдельное разрешение владельца на ограниченный Browserless smoke.
+Пустые имена server-only secrets находятся в `.env.example`. Для тестов используется только генерируемый во время запуска синтетический пароль; значение владельца не требуется.
 
 ## Документация
 
-- [Парсер ЦИАН](docs/LISTING_PARSER_V76_1.md)
-- [Daily refresh и очередь](docs/LISTING_REFRESH_V76_1.md)
-- [Общее рабочее пространство](docs/SHARED_WORKSPACE_V76_1.md)
-- [Дизайн-система](docs/DESIGN_SYSTEM_V76_1.md)
-- [Smoke test v76.1.1](docs/SMOKE_TEST_V76_1_1.md)
-- [CAS hotfix smoke v76.1.2](docs/SMOKE_TEST_V76_1_2.md)
-- [Shared purge hotfix smoke v76.1.3](docs/SMOKE_TEST_V76_1_3.md)
-- [Soft-delete after CAS smoke v76.1.4](docs/SMOKE_TEST_V76_1_4.md)
-- [Invite links smoke v76.1.5](docs/SMOKE_TEST_V76_1_5.md)
-- [School SLOGI + Cian pagination smoke v76.1.6](docs/SMOKE_TEST_V76_1_6.md)
-- [Deployment](docs/DEPLOYMENT_V76_1.md)
+- [Threat model и архитектура](docs/PASSWORD_GATE_V76_1_7.md)
+- [Production activation и rollback](docs/DEPLOYMENT_PASSWORD_GATE_V76_1_7.md)
+- [Проверки candidate](docs/SMOKE_TEST_V76_1_7.md)
+- [Shared workspace и CAS](docs/SHARED_WORKSPACE_V76_1.md)
+- [Cian parser](docs/LISTING_PARSER_V76_1.md)
+- [Cian refresh](docs/LISTING_REFRESH_V76_1.md)
+- [Design system](docs/DESIGN_SYSTEM_V76_1.md)
 
-Публикация файлов на GitHub не применяет миграции, не развёртывает Edge Functions, не включает anonymous Auth и не активирует cron. Все production-действия требуют отдельного разрешения владельца.
+Публикация, push, PR, merge, tag, release, Pages, production migrations, secrets и Edge deploy этим candidate не выполняются. Каждый production-шаг требует отдельного разрешения владельца.

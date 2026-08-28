@@ -12,6 +12,8 @@
 
 # Supabase local
 .supabase/
+supabase/.branches/
+supabase/.temp/
 
 # Dependencies
 node_modules/

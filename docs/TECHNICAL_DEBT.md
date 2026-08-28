@@ -1,8 +1,8 @@
 # SLOGI Technical Debt Register
 
-## Workspace invite authorization
+## Password-gate device lifecycle
 
-В v76.1.5 у workspace membership нет ролей. Поэтому любой действующий anonymous member может создать invite, а revoke разрешён только creator-member. Это безопаснее публичного admin-флага, но будущая ролевая модель должна выделить owner/invite-manager без изменения текущих memberships. До её появления UI не обещает административные права.
+В v76.1.7 все пользователи работают в одном canonical workspace, поэтому пользовательские workspace roles для доступа не требуются. Operational UI для просмотра и адресного отзыва отдельных device grants пока отсутствует; владелец использует server-side revoke/version operations из runbook. Отдельная будущая задача — минимальная audit/observability панель без личных кабинетов и без раскрытия bearer material.
 
 ## CRITICAL — baseline
 

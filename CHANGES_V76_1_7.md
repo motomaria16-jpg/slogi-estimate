@@ -1,4 +1,6 @@
-# SLOGI v76.1.7 — карта объявлений и кластеры
+# SLOGI v76.1.7 — Password Gate, compact design и карта ЦИАН
+
+Base: exact released v76.1.6 commit `06ee1659f7caf234df85de662424fe1d1159bb03`.
 
 ## Данные карты
 
@@ -23,6 +25,23 @@
 
 ## Схема и контракты
 
-- Миграций нет.
+- Старые migrations не изменены; password gate добавлен отдельной forward-only migration `20260828_7617_password_gate.sql`.
 - Cian discovery/transport/hydration contracts не изменены.
 - `geocode-address` сохраняет прежний POST-вход и `results`; ответ дополнен безопасным полем `diagnostic`.
+
+## Password gate
+
+- добавлен server-verified общий пароль и signed persistent device grant;
+- active grant enforced в shared/legacy RLS, Storage и CAS;
+- unlock автоматически подключает anonymous device только к configured canonical workspace;
+- добавлены one-time challenge, PBKDF2/constant-time verification, tamper/replay binding, rate limits, cooldown, expiry/revoke/version;
+- удалены link-based UI, frontend fragment handling и active Edge routes; database history retained forward-only;
+- ранний fail-closed bootstrap добавлен на все реальные product pages;
+- `search-listings` и `import-listing` требуют тот же grant до существующей логики;
+- обновлены docs, empty secret template, activation/rollback runbook и deterministic test matrix.
+
+## Границы password-обёртки
+
+Password wrapper не изменяет shared workspace/state layout, CAS revision contract, manual/Cian data model, Cian provider/discovery/hydration budget, канонические кластеры или Avito/Ozon behavior. Candidate объединяет его с compact School SLOGI design и картой/кластерами этого релиза.
+
+Production deployment/publication не выполнялись.
