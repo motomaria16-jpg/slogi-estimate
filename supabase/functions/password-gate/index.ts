@@ -86,14 +86,19 @@ export function secureTransport(
 
     const proto = String(request.headers.get('x-forwarded-proto') || '').trim().toLowerCase();
     if (proto !== 'https') return false;
-    if (String(request.headers.get('x-forwarded-port') || '').trim() !== '443') return false;
+    if (request.headers.has('x-forwarded-port')
+        && String(request.headers.get('x-forwarded-port') || '').trim() !== '443') return false;
     const configuredHost = configuredSupabaseHost(environment);
     if (!configuredHost) return false;
+    const allowedHosts = new Set([configuredHost, TRUSTED_SUPABASE_PROXY_HOST]);
     const urlHost = transportHost(url.host);
-    const host = transportHost(request.headers.get('host'));
-    const forwardedHost = transportHost(request.headers.get('x-forwarded-host'));
-    if (!urlHost || host !== urlHost || forwardedHost !== urlHost) return false;
-    return urlHost === configuredHost || urlHost === TRUSTED_SUPABASE_PROXY_HOST;
+    if (!urlHost || !allowedHosts.has(urlHost)) return false;
+    for (const header of ['host', 'x-forwarded-host']) {
+      if (!request.headers.has(header)) continue;
+      const host = transportHost(request.headers.get(header));
+      if (!host || !allowedHosts.has(host)) return false;
+    }
+    return true;
   } catch {
     return false;
   }

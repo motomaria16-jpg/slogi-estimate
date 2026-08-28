@@ -34,16 +34,18 @@ function inertStore(overrides:Partial<ListingServerStore>={}):ListingServerStore
 function scanState(nextPage=2):ScanState{return{source:'cian',nextPage,discoveryFailures:0,hydrationFailures:0,lastDiscoveryStartedAt:null,lastDiscoverySucceededAt:null,lastDiscoveryErrorCode:null,lastHydrationStartedAt:null,lastHydrationSucceededAt:null,lastHydrationErrorCode:null,cooldownUntil:null};}
 function queueItem(id:number):QueueItem{return{id,source:'cian',listingUrl:`https://www.cian.ru/rent/commercial/${100000000+id}`,externalId:String(100000000+id),priority:'backfill',status:'pending',attemptCount:0,discoveredAt:observedAt,lastDiscoveredAt:observedAt,nextAttemptAt:observedAt,lockedAt:null,lockedBy:null,lastAttemptAt:null,completedAt:null,lastErrorCode:null};}
 
-test('password gate Edge transport accepts only direct HTTPS or the exact hosted proxy contract',()=>{
+test('password gate Edge transport accepts only allowlisted hosted proxy surfaces',()=>{
   assert.equal(secureTransport(new Request('https://fixture.supabase.co/functions/v1/password-gate')),true);
   const environment={get:(name:string)=>name==='SUPABASE_URL'?'https://fixture.supabase.co':undefined};
-  const headers={host:'fixture.supabase.co','x-forwarded-host':'fixture.supabase.co','x-forwarded-port':'443','x-forwarded-proto':'https'};
+  const headers={host:'edge-runtime.supabase.com','x-forwarded-host':'fixture.supabase.co','x-forwarded-proto':'https'};
   assert.equal(secureTransport(new Request('http://fixture.supabase.co/functions/v1/password-gate',{headers}),environment),true);
-  const edgeHeaders={...headers,host:'edge-runtime.supabase.com','x-forwarded-host':'edge-runtime.supabase.com'};
-  assert.equal(secureTransport(new Request('http://edge-runtime.supabase.com/functions/v1/password-gate',{headers:edgeHeaders}),environment),true);
+  assert.equal(secureTransport(new Request('http://fixture.supabase.co/functions/v1/password-gate',{headers:{...headers,'x-forwarded-port':'443'}}),environment),true);
+  assert.equal(secureTransport(new Request('http://edge-runtime.supabase.com/functions/v1/password-gate',{headers:{...headers,host:'fixture.supabase.co','x-forwarded-host':'edge-runtime.supabase.com'}}),environment),true);
   assert.equal(secureTransport(new Request('http://fixture.supabase.co/functions/v1/password-gate',{headers:{...headers,host:'untrusted.example'}}),environment),false);
   assert.equal(secureTransport(new Request('http://fixture.supabase.co/functions/v1/password-gate',{headers:{...headers,'x-forwarded-proto':'https,http'}}),environment),false);
-  assert.equal(secureTransport(new Request('http://other.supabase.co/functions/v1/password-gate',{headers:{...headers,host:'other.supabase.co','x-forwarded-host':'other.supabase.co'}}),environment),false);
+  assert.equal(secureTransport(new Request('http://fixture.supabase.co/functions/v1/password-gate',{headers:{...headers,'x-forwarded-port':'80'}}),environment),false);
+  assert.equal(secureTransport(new Request('http://fixture.supabase.co/functions/v1/password-gate',{headers:{...headers,'x-forwarded-port':'443,80'}}),environment),false);
+  assert.equal(secureTransport(new Request('http://other.supabase.co/functions/v1/password-gate',{headers}),environment),false);
   assert.equal(secureTransport(new Request('http://fixture.supabase.co/functions/v1/password-gate',{headers}),{get:()=>undefined}),false);
   assert.equal(secureTransport(new Request('http://fixture.supabase.co/functions/v1/password-gate')),false);
 });

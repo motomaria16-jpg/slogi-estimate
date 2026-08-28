@@ -52,13 +52,16 @@ const transportEnvironment={get:name=>name==='SUPABASE_URL'?baseUrl:undefined};
 const trustedEdgeProxyHeaders={
   host:'edge-runtime.supabase.com',
   'x-forwarded-host':'edge-runtime.supabase.com',
-  'x-forwarded-port':'443',
   'x-forwarded-proto':'https',
 };
 const trustedProjectProxyHeaders={
   host:'example.supabase.co',
   'x-forwarded-host':'example.supabase.co',
-  'x-forwarded-port':'443',
+  'x-forwarded-proto':'https',
+};
+const trustedMixedProxyHeaders={
+  host:'edge-runtime.supabase.com',
+  'x-forwarded-host':'example.supabase.co',
   'x-forwarded-proto':'https',
 };
 
@@ -67,12 +70,20 @@ test('password gate accepts only direct HTTPS or an environment-bound hosted Sup
   assert.equal(secureTransport(transportRequest('https://fixture-project.supabase.co/functions/v1/password-gate'),{get:()=>undefined}),true);
   assert.equal(secureTransport(transportRequest('http://example.supabase.co/functions/v1/password-gate',trustedProjectProxyHeaders),transportEnvironment),true);
   assert.equal(secureTransport(transportRequest('http://edge-runtime.supabase.com/functions/v1/password-gate',trustedEdgeProxyHeaders),transportEnvironment),true);
-  assert.equal(secureTransport(transportRequest('http://edge-runtime.internal/functions/v1/password-gate',{
-    host:'untrusted.example',
-    'x-forwarded-host':'untrusted.example',
+  assert.equal(secureTransport(transportRequest('http://example.supabase.co/functions/v1/password-gate',trustedMixedProxyHeaders),transportEnvironment),true);
+  assert.equal(secureTransport(transportRequest('http://example.supabase.co/functions/v1/password-gate',{
+    ...trustedProjectProxyHeaders,
+    'x-forwarded-host':'edge-runtime.supabase.com',
     'x-forwarded-port':'443',
+  }),transportEnvironment),true);
+  assert.equal(secureTransport(transportRequest('http://edge-runtime.supabase.com/functions/v1/password-gate',{
+    ...trustedEdgeProxyHeaders,
+    host:'example.supabase.co',
+    'x-forwarded-port':'443',
+  }),transportEnvironment),true);
+  assert.equal(secureTransport(transportRequest('http://example.supabase.co/functions/v1/password-gate',{
     'x-forwarded-proto':'https',
-  }),transportEnvironment),false);
+  }),transportEnvironment),true);
   assert.equal(secureTransport(transportRequest('http://example.supabase.co/functions/v1/password-gate')),false);
   for(const proto of ['http','https,http','https, https','https://','']){
     assert.equal(secureTransport(transportRequest('http://example.supabase.co/functions/v1/password-gate',{
@@ -80,42 +91,37 @@ test('password gate accepts only direct HTTPS or an environment-bound hosted Sup
       'x-forwarded-proto':proto,
     }),transportEnvironment),false);
   }
-  assert.equal(secureTransport(transportRequest('http://example.supabase.co/functions/v1/password-gate',{
-    ...trustedProjectProxyHeaders,
-    'x-forwarded-host':'untrusted.example',
-  }),transportEnvironment),false);
-  assert.equal(secureTransport(transportRequest('http://example.supabase.co/functions/v1/password-gate',{
-    ...trustedProjectProxyHeaders,
-    host:'untrusted.example',
-  }),transportEnvironment),false);
-  for(const port of ['80','443, 80','https','']){
+  for(const port of ['80','443, 80','443,443','https','']){
     assert.equal(secureTransport(transportRequest('http://example.supabase.co/functions/v1/password-gate',{
       ...trustedProjectProxyHeaders,
       'x-forwarded-port':port,
     }),transportEnvironment),false);
   }
-  for(const host of ['other-project.supabase.co','foo.example','supabase.co','nested.project.supabase.co','example.supabase.co:443','example.supabase.co,evil.example']){
-    const headers={...trustedProjectProxyHeaders,host,'x-forwarded-host':host};
-    assert.equal(secureTransport(transportRequest('http://'+host.replace(',evil.example','')+'/functions/v1/password-gate',headers),transportEnvironment),false);
+  for(const host of ['other-project.supabase.co','foo.example','supabase.co','nested.project.supabase.co','example.supabase.co:443','example.supabase.co,evil.example','']){
+    assert.equal(secureTransport(transportRequest('http://example.supabase.co/functions/v1/password-gate',{
+      ...trustedProjectProxyHeaders,
+      host,
+    }),transportEnvironment),false);
+    assert.equal(secureTransport(transportRequest('http://example.supabase.co/functions/v1/password-gate',{
+      ...trustedProjectProxyHeaders,
+      'x-forwarded-host':host,
+    }),transportEnvironment),false);
   }
   for(const configuredUrl of [undefined,'','http://example.supabase.co','https://other.example','https://supabase.co','https://nested.example.supabase.co','https://user@example.supabase.co','https://example.supabase.co:443','https://example.supabase.co/path','https://example.supabase.co/?query=1','https://example.supabase.co/#fragment']){
     assert.equal(secureTransport(
-      transportRequest('http://example.supabase.co/functions/v1/password-gate',trustedProjectProxyHeaders),
+      transportRequest('http://example.supabase.co/functions/v1/password-gate',trustedMixedProxyHeaders),
       {get:name=>name==='SUPABASE_URL'?configuredUrl:undefined},
     ),false);
   }
-  assert.equal(secureTransport(transportRequest('http://other-project.supabase.co/functions/v1/password-gate',{
-    ...trustedProjectProxyHeaders,
-    host:'other-project.supabase.co',
-    'x-forwarded-host':'other-project.supabase.co',
-  }),transportEnvironment),false);
+  for(const urlHost of ['other-project.supabase.co','untrusted.example','supabase.co','nested.project.supabase.co','example.supabase.co:81']){
+    assert.equal(secureTransport(transportRequest(`http://${urlHost}/functions/v1/password-gate`,trustedMixedProxyHeaders),transportEnvironment),false);
+  }
   assert.equal(secureTransport(transportRequest('http://edge-runtime.internal/functions/v1/password-gate',trustedProjectProxyHeaders),transportEnvironment),false);
-  assert.equal(secureTransport(transportRequest('http://example.supabase.co/functions/v1/password-gate',trustedEdgeProxyHeaders),transportEnvironment),false);
   assert.equal(secureTransport(transportRequest('http://localhost/functions/v1/password-gate')),true);
   assert.equal(secureTransport(transportRequest('http://127.0.0.1/functions/v1/password-gate')),true);
 });
 
-test('handler accepts trusted proxy HTTPS before auth, password, or database work',async()=>{
+test('handler accepts the mixed project/proxy HTTPS tuple before auth, password, or database work',async()=>{
   const reads=[];let fetchCalls=0;
   const handler=createPasswordGateHandler({
     environment:{get:name=>{reads.push(name);return name==='SUPABASE_URL'?baseUrl:undefined;}},
@@ -125,7 +131,7 @@ test('handler accepts trusted proxy HTTPS before auth, password, or database wor
     method:'POST',
     headers:{
       'Content-Type':'application/json',
-      ...trustedProjectProxyHeaders,
+      ...trustedMixedProxyHeaders,
     },
     body:JSON.stringify({action:'unsupported'}),
   });
