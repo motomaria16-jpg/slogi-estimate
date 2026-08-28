@@ -7,7 +7,7 @@
 1. Зафиксировать backup и read-only каталог существующих `slogi_shared_workspaces`, memberships, state, attachments и Storage objects.
 2. Выбрать ID уже существующего общего workspace. Не создавать новый, не переносить state и не удалять другие строки. Если реальный canonical workspace неоднозначен, activation остановить.
 3. Подтвердить anonymous Auth, текущие RLS/CAS/Storage smoke, отсутствие `service_role` в опубликованных assets и отсутствие сторонних scripts/CSP regressions.
-4. Пройти clean PostgreSQL 17 apply/reset, Edge load, catalog E2E, unit и desktop/mobile browser tests из `SMOKE_TEST_V76_1_7.md`.
+4. Пройти clean PostgreSQL 17 apply/reset, Edge load, catalog E2E, unit и desktop/tablet/mobile browser tests из `SMOKE_TEST_V76_1_7.md`, включая полную пагинацию ЦИАН и карту/кластеры.
 5. Получить отдельное maintenance window: переход намеренно fail-closed и может кратко заблокировать всех пользователей.
 
 Read-only выбор canonical workspace:
@@ -60,7 +60,7 @@ insert into public.slogi_password_gate_config (
 
 5. Read-only проверить ровно одну config row, current version, отсутствие прямых table grants и наличие active-grant predicate во всех shared/legacy/Storage policies и CAS.
 6. Удалить из production deployment устаревшие Edge routes доступа. Миграция уже отозвала privileged RPC и активные исторические rows; таблицу и данные не удалять.
-7. Выполнить двумя чистыми browser contexts: wrong/right, reload, new device, одинаковый workspace/state, tamper/cross-auth replay, direct REST/Storage/CAS denial, desktop/mobile overflow/focus, отсутствие запрещённого UI.
+7. Выполнить чистыми browser contexts: wrong/right, reload, new device, одинаковый workspace/state, tamper/cross-auth replay, expiry/revoke, direct REST/Storage/CAS denial, desktop/tablet/mobile overflow/focus, полную Cian pagination и marker/card sync, отсутствие запрещённого UI.
 8. Проверить rate limit: первые пять consumed attempts в окне, шестой cooldown, `Retry-After`, правильный пароль также заблокирован в активном cooldown, concurrent attempts сериализуются.
 9. Только после зелёного smoke снять maintenance. Scheduler/Cian live smoke остаются отдельными gates и этим deployment не меняются.
 

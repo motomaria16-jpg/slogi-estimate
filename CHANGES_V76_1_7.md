@@ -44,4 +44,12 @@ Base: exact released v76.1.6 commit `06ee1659f7caf234df85de662424fe1d1159bb03`.
 
 Password wrapper не изменяет shared workspace/state layout, CAS revision contract, manual/Cian data model, Cian provider/discovery/hydration budget, канонические кластеры или Avito/Ozon behavior. Candidate объединяет его с compact School SLOGI design и картой/кластерами этого релиза.
 
+## Локальный integration gate
+
+- 93/93 deterministic Node/Edge assertions: PASS;
+- PostgreSQL 17 clean start + два полных reset и catalog/RLS/ACL/Storage/CAS/password lifecycle: PASS;
+- все шесть Edge functions загрузились локально; scheduler handlers отказали anonymous caller до provider logic;
+- browser fixture на 1440×900, 768×1024 и 390×844: password lifecycle, 53 объявления на двух страницах, 51 маркер, 58 полигонов, marker/card sync, 0 legacy UI, 0 overflow, 0 console errors;
+- tracked/untracked/ignored secret assignment scan: 0 findings; exact owner-secret scanner готов и fail-closed без защищённой инъекции.
+
 Production deployment/publication не выполнялись.

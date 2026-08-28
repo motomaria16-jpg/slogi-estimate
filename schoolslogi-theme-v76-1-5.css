@@ -211,23 +211,6 @@ body.slogi-search-page>.site-header,
 .pro-header-utilities .pro-notification-btn:hover,
 .pro-mobile-menu-trigger:hover{background:#f4e3c8!important;color:var(--slogi-teal-deep)!important}
 .pro-notification-count{font-size:13px!important}
-.pro-header-utilities>.slogi-workspace-connect{
-  position:static!important;
-  z-index:auto!important;
-  min-height:44px!important;
-  height:44px!important;
-  margin:0!important;
-  padding:0 16px!important;
-  border:1px solid #d8c7af!important;
-  border-radius:18px!important;
-  background:#fffaf3!important;
-  color:var(--slogi-teal-deep)!important;
-  font-size:14px!important;
-  font-weight:800!important;
-  white-space:nowrap!important;
-}
-.pro-header-utilities>.slogi-workspace-connect:hover{background:#f4e3c8!important}
-
 .pro-mobile-menu{
   top:calc(100% + 10px)!important;
   right:0!important;
@@ -238,21 +221,6 @@ body.slogi-search-page>.site-header,
   border-radius:24px!important;
   background:var(--slogi-surface-strong)!important;
   box-shadow:var(--slogi-shadow-float)!important;
-}
-.pro-mobile-workspace{
-  display:grid;
-  margin-top:10px;
-  padding-top:10px;
-  border-top:1px solid var(--slogi-line);
-}
-.pro-mobile-workspace>.slogi-workspace-connect{
-  position:static!important;
-  z-index:auto!important;
-  width:100%!important;
-  min-height:46px!important;
-  margin:0!important;
-  border-radius:16px!important;
-  font-size:16px!important;
 }
 .pro-mobile-primary a{min-height:48px!important;font-size:16px!important}
 .pro-mobile-primary a.active{background:#f4e3c8!important;color:#4d3b21!important}
