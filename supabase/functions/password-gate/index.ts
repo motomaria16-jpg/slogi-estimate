@@ -43,7 +43,7 @@ function exactKeys(body: Record<string, unknown>, expected: string[]): boolean {
   return actual.length === keys.length && actual.every((key, index) => key === keys[index]);
 }
 
-const TRUSTED_SUPABASE_HOST = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.supabase\.co$/i;
+const TRUSTED_SUPABASE_PROXY_HOST = 'edge-runtime.supabase.com';
 
 function transportHost(value: string | null): string | null {
   const raw = String(value || '').trim();
@@ -58,23 +58,7 @@ function transportHost(value: string | null): string | null {
   }
 }
 
-function configuredSupabaseHost(environment: EnvironmentReader): string | null {
-  try {
-    const url = new URL(String(environment.get('SUPABASE_URL') || '').trim());
-    return url.protocol === 'https:' && !url.username && !url.password && !url.port
-      && url.pathname.replace(/\/+$/, '') === '' && !url.search && !url.hash
-      && TRUSTED_SUPABASE_HOST.test(url.hostname)
-      ? url.hostname.toLowerCase()
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-export function secureTransport(
-  request: Request,
-  environment: EnvironmentReader = runtimeEnvironment(),
-): boolean {
+export function secureTransport(request: Request): boolean {
   try {
     const url = new URL(request.url);
     if (url.protocol === 'https:') return true;
@@ -83,12 +67,9 @@ export function secureTransport(
 
     const proto = String(request.headers.get('x-forwarded-proto') || '').trim().toLowerCase();
     if (proto !== 'https') return false;
-    const expectedHost = configuredSupabaseHost(environment);
-    if (!expectedHost) return false;
-    const forwardedHostHeader = request.headers.get('x-forwarded-host');
-    if (forwardedHostHeader != null) return transportHost(forwardedHostHeader) === expectedHost;
-    return transportHost(request.headers.get('host')) === expectedHost
-      || transportHost(url.host) === expectedHost;
+    if (String(request.headers.get('x-forwarded-port') || '').trim() !== '443') return false;
+    return transportHost(request.headers.get('host')) === TRUSTED_SUPABASE_PROXY_HOST
+      && transportHost(request.headers.get('x-forwarded-host')) === TRUSTED_SUPABASE_PROXY_HOST;
   } catch {
     return false;
   }
@@ -128,8 +109,7 @@ export function createPasswordGateHandler(dependencies: Dependencies = {}): (req
   return async (request: Request): Promise<Response> => {
     if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
     if (request.method !== 'POST') return response({ status: 'invalid_request' }, 405);
-    const environment = dependencies.environment || runtimeEnvironment();
-    if (!secureTransport(request, environment)) return response({ status: 'secure_transport_required' }, 400);
+    if (!secureTransport(request)) return response({ status: 'secure_transport_required' }, 400);
 
     const body = await readJsonObject(request);
     const action = body?.action;
@@ -146,6 +126,7 @@ export function createPasswordGateHandler(dependencies: Dependencies = {}): (req
       return response({ status: 'invalid_request' }, 400);
     }
 
+    const environment = dependencies.environment || runtimeEnvironment();
     let gate: GateEnvironment;
     try { gate = readGateEnvironment(environment); } catch { return response({ status: 'unavailable' }, 503); }
     const fetchImpl = dependencies.fetch || fetch;
