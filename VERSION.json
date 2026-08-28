@@ -4,15 +4,15 @@
   "releaseName": "Password Gate Secure Transport",
   "releaseType": "security-hotfix",
   "releaseDate": "2026-08-28",
-  "status": "candidate",
-  "tag": null,
-  "gitTag": null,
+  "status": "released",
+  "tag": "v76.1.8",
+  "gitTag": "v76.1.8",
   "baseTag": "v76.1.7",
   "baseCommit": "234053ef96bae917bb40372b9d4cc1d41eec78a3",
   "canonicalContentCommit": "38152071cbea31846d0d1592430ba562fa1f891a",
   "canonicalGitCommit": "38152071cbea31846d0d1592430ba562fa1f891a",
-  "metadataGitCommit": null,
-  "mergeCommit": null,
+  "metadataGitCommit": "8609ecf49d922cfdfb25160b04f5dc82434be21d",
+  "mergeCommit": "0b19834756be59dd1223b26311188734ed67c26d",
   "databaseBaseline": {
     "migrationPath": "supabase/migrations/20260814_7601_baseline.sql",
     "recordedV7601WorkingTreeSha256": "a4ab16221f6c76c21b6f541c7780111afcbcc72b8726cdac75c0d0adea656bc3",
@@ -321,8 +321,8 @@
     "baseTag": "v76.1.7",
     "baseCommit": "234053ef96bae917bb40372b9d4cc1d41eec78a3",
     "canonicalGitCommit": "38152071cbea31846d0d1592430ba562fa1f891a",
-    "metadataGitCommit": null,
-    "gitTag": null,
+    "metadataGitCommit": "8609ecf49d922cfdfb25160b04f5dc82434be21d",
+    "gitTag": "v76.1.8",
     "productionDeployed": false,
     "publicationAllowed": true,
     "productionFailure": "secure_transport_required_before_password_read",
@@ -356,5 +356,5 @@
     "sharedPasswordGateSha256": "b9aa1563711068979d1a95728eef83114250f57c738d4874c1e1668dca5472d0",
     "passwordGateMigrationSha256": "3f90f5d679aa9990c4e0fe5d469b6beddfe678472577dd0d9c56d67aa01ed612"
   },
-  "nextTarget": "GitHub review and v76.1.8 publication; production Edge deployment remains a separate owner-authorized action"
+  "nextTarget": "Production Edge deployment remains a separate owner-authorized action"
 }
