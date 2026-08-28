@@ -1,13 +1,15 @@
--- v76.1.0 Cian-only daily schedule template.
+-- v76.1.6 Cian-only rolling 30-day schedule template.
 -- INACTIVE BY DESIGN. Apply only after a separate production authorization.
 -- Required Vault secrets: slogi_project_url, slogi_edge_service_role_key,
 -- and slogi_listing_cron_secret.
 -- The secret value is resolved at runtime and is never embedded in cron.command.
--- Discovery and hydration are separate durable stages.
+-- Discovery and hydration are separate durable stages. Discovery revisits the
+-- hot page and advances one durable backfill cursor page every six hours;
+-- hydration drains at most two queued cards each hour.
 
 -- select cron.schedule(
---   'slogi-cian-daily-discovery',
---   '10 3 * * *',
+--   'slogi-cian-discovery-6h',
+--   '10 0,6,12,18 * * *',
 --   $schedule$
 --   select net.http_post(
 --     url := (select decrypted_secret from vault.decrypted_secrets where name = 'slogi_project_url')
@@ -26,8 +28,8 @@
 -- );
 
 -- select cron.schedule(
---   'slogi-cian-daily-hydration',
---   '25 3 * * *',
+--   'slogi-cian-hydration-hourly',
+--   '25 * * * *',
 --   $schedule$
 --   select net.http_post(
 --     url := (select decrypted_secret from vault.decrypted_secrets where name = 'slogi_project_url')
@@ -39,7 +41,7 @@
 --       'x-slogi-listing-cron-secret',
 --         (select decrypted_secret from vault.decrypted_secrets where name = 'slogi_listing_cron_secret')
 --     ),
---     body := '{"source":"cian","batchSize":10}'::jsonb,
+--     body := '{"source":"cian"}'::jsonb,
 --     timeout_milliseconds := 120000
 --   );
 --   $schedule$

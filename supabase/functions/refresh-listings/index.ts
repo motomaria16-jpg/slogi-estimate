@@ -25,11 +25,11 @@ export const validateRefreshStoreUrl = validateSupabaseServiceUrl;
 export const DISCOVERY_LIMITS = Object.freeze({
   browserlessCalls: 2,
   concurrency: 1,
+  backfillPagesPerRun: 1,
+  runSlotHours: 6,
   defaultRuntimeMs: 75_000,
   minRuntimeMs: 100,
   hardRuntimeMs: 90_000,
-  defaultMaxBackfillPage: 10,
-  hardMaxBackfillPage: 100,
   defaultStaleRunMs: 15 * 60_000,
   minStaleRunMs: 5 * 60_000,
   maxStaleRunMs: 60 * 60_000,
@@ -84,8 +84,9 @@ function isSource(value: unknown): value is ListingSource {
   return typeof value === 'string' && SOURCES.has(value as ListingSource);
 }
 
-function daySlot(value: Date): string {
-  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate())).toISOString();
+function discoverySlot(value: Date): string {
+  const hour = Math.floor(value.getUTCHours() / DISCOVERY_LIMITS.runSlotHours) * DISCOVERY_LIMITS.runSlotHours;
+  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate(), hour)).toISOString();
 }
 
 function response(body: unknown, status = 200): Response {
@@ -222,9 +223,8 @@ export function createRefreshListingsHandler(dependencies: RefreshDependencies =
     const now = dependencies.now?.() || new Date();
     const startedAt = now.toISOString();
     const runtimeMs = setting(environment, 'SLOGI_LISTING_DISCOVERY_RUNTIME_MS', DISCOVERY_LIMITS.defaultRuntimeMs, DISCOVERY_LIMITS.minRuntimeMs, DISCOVERY_LIMITS.hardRuntimeMs);
-    const maxBackfillPage = setting(environment, 'SLOGI_LISTING_REFRESH_MAX_BACKFILL_PAGE', DISCOVERY_LIMITS.defaultMaxBackfillPage, 2, DISCOVERY_LIMITS.hardMaxBackfillPage);
     const staleMs = setting(environment, 'SLOGI_LISTING_REFRESH_STALE_RUN_MS', DISCOVERY_LIMITS.defaultStaleRunMs, DISCOVERY_LIMITS.minStaleRunMs, DISCOVERY_LIMITS.maxStaleRunMs);
-    const runSlot = daySlot(now);
+    const runSlot = discoverySlot(now);
     const staleBefore = new Date(now.getTime() - staleMs).toISOString();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(new RuntimeBudgetError()), runtimeMs);
@@ -237,7 +237,7 @@ export function createRefreshListingsHandler(dependencies: RefreshDependencies =
       }
       runId = claim.runId;
       const state = await abortable(store.getState(source, controller.signal), controller.signal);
-      state.nextPage = Math.max(2, Math.min(maxBackfillPage, state.nextPage));
+      state.nextPage = Math.max(2, state.nextPage);
       state.lastDiscoveryStartedAt = startedAt;
       if (state.cooldownUntil && new Date(state.cooldownUntil).getTime() > now.getTime()) {
         await store.saveState(state, startedAt, controller.signal);
@@ -279,12 +279,11 @@ export function createRefreshListingsHandler(dependencies: RefreshDependencies =
       let cursorResetReason: string | null = null;
       if (backfillPageResult.status === 'empty') cursorResetReason = 'deep_page_empty';
       else if (oldOnlyBackfill) cursorResetReason = 'deep_page_old_only';
-      else if (backfillPage >= maxBackfillPage) cursorResetReason = 'max_backfill_page_reached';
       if (success) {
         state.discoveryFailures = 0;
         state.lastDiscoverySucceededAt = startedAt;
         state.lastDiscoveryErrorCode = null;
-        state.nextPage = cursorResetReason ? 2 : Math.min(maxBackfillPage, backfillPage + 1);
+        state.nextPage = cursorResetReason ? 2 : backfillPage + 1;
       } else {
         state.discoveryFailures += 1;
         state.lastDiscoveryErrorCode = pages.find((page) => page.errorCode)?.errorCode || (blockedPages ? 'blocked' : 'provider_error');

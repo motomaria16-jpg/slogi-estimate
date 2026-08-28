@@ -26,6 +26,7 @@ export const HYDRATION_LIMITS = Object.freeze({
   // contract identical so configuration cannot imply a larger daily batch.
   defaultBatch: 2,
   hardBatch: 2,
+  runSlotMinutes: 60,
   defaultConcurrency: 1,
   hardConcurrency: 1,
   browserlessCallsPerItem: 1,
@@ -91,8 +92,9 @@ function isSource(value: unknown): value is ListingSource {
   return typeof value === 'string' && SOURCES.has(value as ListingSource);
 }
 
-function daySlot(value: Date): string {
-  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate())).toISOString();
+function hydrationSlot(value: Date): string {
+  const minute = Math.floor(value.getUTCMinutes() / HYDRATION_LIMITS.runSlotMinutes) * HYDRATION_LIMITS.runSlotMinutes;
+  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate(), value.getUTCHours(), minute)).toISOString();
 }
 
 function response(body: unknown, status = 200): Response {
@@ -287,7 +289,7 @@ export function createHydrateListingsHandler(dependencies: HydrateDependencies =
     const batch = setting(environment, 'SLOGI_LISTING_HYDRATION_BATCH', HYDRATION_LIMITS.defaultBatch, 1, HYDRATION_LIMITS.hardBatch);
     const concurrency = setting(environment, 'SLOGI_LISTING_HYDRATION_CONCURRENCY', HYDRATION_LIMITS.defaultConcurrency, 1, HYDRATION_LIMITS.hardConcurrency);
     const visibilityMs = setting(environment, 'SLOGI_LISTING_HYDRATION_VISIBILITY_MS', HYDRATION_LIMITS.defaultVisibilityMs, HYDRATION_LIMITS.minVisibilityMs, HYDRATION_LIMITS.maxVisibilityMs);
-    const runSlot = daySlot(now);
+    const runSlot = hydrationSlot(now);
     const staleBefore = new Date(now.getTime() - visibilityMs).toISOString();
     const workerId = dependencies.workerId?.() || crypto.randomUUID();
     const controller = new AbortController();

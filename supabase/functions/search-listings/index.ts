@@ -19,9 +19,15 @@ export interface ListingReadRequest {
   sources: ListingSource[];
   page: number;
   limit: number;
+  snapshotAt: string | null;
   areaMin: number | null;
   areaMax: number | null;
   floor: number | null;
+}
+
+export interface ListingReadPage {
+  items: NormalizedListing[];
+  total: number;
 }
 
 export interface ListingScanStateView {
@@ -34,7 +40,7 @@ export interface ListingScanStateView {
 }
 
 export interface ListingReadStore {
-  readRecent(request: ListingReadRequest, now: Date): Promise<NormalizedListing[]>;
+  readRecent(request: ListingReadRequest, now: Date): Promise<ListingReadPage>;
   readScanStates(sources: ListingSource[]): Promise<ListingScanStateView[]>;
 }
 
@@ -71,13 +77,15 @@ export function parseSearchRequest(body: Record<string, unknown>): { ok: true; r
     return { ok: false, error: 'sources accepts only cian' };
   }
   const sources = [...new Set(rawSources as ListingSource[])];
-  const page = integerInRange(body.page, 1, 1, 100);
+  const page = integerInRange(body.page, 1, 1, 1_000_000);
   const limit = integerInRange(body.limit ?? body.limitPerSource, 50, 1, READ_LIMITS.maxItems);
+  const snapshotAt = body.snapshotAt == null ? null : String(body.snapshotAt);
+  if (snapshotAt != null && !Number.isFinite(new Date(snapshotAt).getTime())) return { ok: false, error: 'snapshotAt must be an ISO date' };
   const areaMin = numeric(body.areaMin);
   const areaMax = numeric(body.areaMax);
   const floor = numeric(body.floor);
   if (areaMin != null && areaMax != null && areaMin > areaMax) return { ok: false, error: 'areaMin must be less than or equal to areaMax' };
-  return { ok: true, request: { sources, page, limit, areaMin, areaMax, floor } };
+  return { ok: true, request: { sources, page, limit, snapshotAt, areaMin, areaMax, floor } };
 }
 
 function safeCode(value: unknown): string | null {
@@ -147,11 +155,34 @@ export class SupabaseListingReadStore implements ListingReadStore {
     try { return JSON.parse(text); } catch { throw new Error('market_read_invalid_json'); }
   }
 
-  async readRecent(request: ListingReadRequest, now: Date): Promise<NormalizedListing[]> {
-    const cutoff = new Date(now.getTime() - LISTING_FRESHNESS_MS).toISOString();
+  async #readPage(path: string): Promise<{ rows: unknown[]; total: number }> {
+    const result = await this.#fetch(`${this.#baseUrl}/rest/v1/${path}`, {
+      headers: {
+        apikey: this.#serviceKey,
+        Authorization: `Bearer ${this.#serviceKey}`,
+        Accept: 'application/json',
+        Prefer: 'count=exact',
+      },
+    });
+    const text = await result.text();
+    if (!result.ok) throw new Error(`market_read_http_${result.status}`);
+    let rows: unknown[];
+    try { rows = text ? JSON.parse(text) : []; } catch { throw new Error('market_read_invalid_json'); }
+    if (!Array.isArray(rows)) throw new Error('market_read_invalid_shape');
+    const totalText = result.headers.get('content-range')?.match(/\/(\d+)$/)?.[1];
+    const total = Number(totalText);
+    if (!Number.isSafeInteger(total) || total < 0) throw new Error('market_read_count_missing');
+    return { rows, total };
+  }
+
+  async readRecent(request: ListingReadRequest, now: Date): Promise<ListingReadPage> {
+    const snapshot = request.snapshotAt ? new Date(request.snapshotAt) : now;
+    const cutoff = new Date(snapshot.getTime() - LISTING_FRESHNESS_MS).toISOString();
     const parts = [
       'select=*', `freshness_at=gte.${encodeURIComponent(cutoff)}`, 'freshness_at=not.is.null',
-      'market_status=neq.removed', 'order=freshness_at.desc', `limit=${request.limit}`,
+      `freshness_at=lte.${encodeURIComponent(snapshot.toISOString())}`,
+      `updated_at=lte.${encodeURIComponent(snapshot.toISOString())}`,
+      'market_status=neq.removed', 'order=freshness_at.desc,source.asc,external_id.asc.nullslast,listing_url.asc', `limit=${request.limit}`,
       `offset=${(request.page - 1) * request.limit}`,
     ];
     if (request.sources.length === 1) parts.push(`source=eq.${request.sources[0]}`);
@@ -159,8 +190,8 @@ export class SupabaseListingReadStore implements ListingReadStore {
     if (request.areaMin != null) parts.push(`area=gte.${request.areaMin}`);
     if (request.areaMax != null) parts.push(`area=lte.${request.areaMax}`);
     if (request.floor != null) parts.push(`floor=eq.${request.floor}`);
-    const rows = await this.#read(`slogi_market_listings?${parts.join('&')}`);
-    return Array.isArray(rows) ? rows.map((row) => rowToListing(row as Record<string, unknown>)) : [];
+    const result = await this.#readPage(`slogi_market_listings?${parts.join('&')}`);
+    return { items: result.rows.map((row) => rowToListing(row as Record<string, unknown>)), total: result.total };
   }
 
   async readScanStates(sources: ListingSource[]): Promise<ListingScanStateView[]> {
@@ -195,16 +226,25 @@ export function createSearchListingsHandler(dependencies: SearchHandlerDependenc
     const parsed = parseSearchRequest(body);
     if (!parsed.ok) return response({ status: 'invalid_request', error: parsed.error }, 400);
     const now = dependencies.now?.() || new Date();
+    const snapshot = parsed.request.snapshotAt ? new Date(parsed.request.snapshotAt) : now;
+    if (snapshot.getTime() > now.getTime() + 5 * 60_000) return response({ status: 'invalid_request', error: 'snapshotAt is in the future' }, 400);
+    const readRequest = { ...parsed.request, snapshotAt: snapshot.toISOString() };
     let store = dependencies.store;
     if (!store) {
       try { store = new SupabaseListingReadStore(dependencies.environment || runtimeEnvironment()); }
       catch { return response({ status: 'provider_error', error: 'market_read_not_configured' }, 503); }
     }
     try {
-      const [storedItems, states] = await Promise.all([store.readRecent(parsed.request, now), store.readScanStates(parsed.request.sources)]);
-      const items = storedItems
-        .filter((item) => item.marketStatus !== 'removed' && listingFreshnessDecision(item, now) === 'recent')
-        .sort((left, right) => new Date(right.freshnessAt || 0).getTime() - new Date(left.freshnessAt || 0).getTime());
+      const [storedPage, states] = await Promise.all([store.readRecent(readRequest, now), store.readScanStates(parsed.request.sources)]);
+      const items = storedPage.items
+        .filter((item) => item.marketStatus !== 'removed' && listingFreshnessDecision(item, snapshot) === 'recent')
+        .sort((left, right) => {
+          const freshness = new Date(right.freshnessAt || 0).getTime() - new Date(left.freshnessAt || 0).getTime();
+          if (freshness) return freshness;
+          const leftKey = `${left.source}:${left.externalId || left.listingUrl}`;
+          const rightKey = `${right.source}:${right.externalId || right.listingUrl}`;
+          return leftKey.localeCompare(rightKey);
+        });
       const stateBySource = new Map(states.map((state) => [state.source, state]));
       const sourceMeta = Object.fromEntries(parsed.request.sources.map((source) => {
         const state = stateBySource.get(source);
@@ -220,9 +260,14 @@ export function createSearchListingsHandler(dependencies: SearchHandlerDependenc
           errorCode: state?.errorCode || null,
         }];
       }));
+      const offset = (parsed.request.page - 1) * parsed.request.limit;
+      const hasMore = offset + items.length < storedPage.total;
       const meta = {
         sources: sourceMeta, page: parsed.request.page, limit: parsed.request.limit, fetchedAt: now.toISOString(),
-        freshnessCutoff: new Date(now.getTime() - LISTING_FRESHNESS_MS).toISOString(),
+        total: storedPage.total, returned: items.length, hasMore,
+        nextPage: hasMore ? parsed.request.page + 1 : null,
+        snapshotAt: snapshot.toISOString(),
+        freshnessCutoff: new Date(snapshot.getTime() - LISTING_FRESHNESS_MS).toISOString(),
         freshnessDays: LISTING_FRESHNESS_DAYS, persistence: 'disabled',
       };
       return response({ items, data: items, meta });
