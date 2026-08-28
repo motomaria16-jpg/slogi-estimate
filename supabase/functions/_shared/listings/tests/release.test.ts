@@ -14,7 +14,7 @@ import { createHydrateListingsHandler, HYDRATION_LIMITS } from '../../../hydrate
 import { createImportListingHandler } from '../../../import-listing/index.ts';
 import { createJoinWorkspaceHandler } from '../../../join-workspace/index.ts';
 import { createRefreshListingsHandler, DISCOVERY_LIMITS } from '../../../refresh-listings/index.ts';
-import { createSearchListingsHandler, parseSearchRequest, type ListingReadStore } from '../../../search-listings/index.ts';
+import { createSearchListingsHandler, parseSearchRequest, SupabaseListingReadStore, type ListingReadStore } from '../../../search-listings/index.ts';
 
 const testDirectory=dirname(fileURLToPath(import.meta.url));
 const functionsDirectory=join(testDirectory,'..','..','..');
@@ -97,8 +97,10 @@ test('runtime Browserless policy is Cian smart-scrape only',()=>{
   assert.throws(()=>resolveBrowserlessTimeoutProfile('avito','card','smart-scrape'));
 });
 
-test('daily run hard budgets are bounded and sequential',()=>{
-  assert.equal(DISCOVERY_LIMITS.browserlessCalls,2);assert.equal(DISCOVERY_LIMITS.concurrency,1);assert.equal(HYDRATION_LIMITS.hardBatch,2);assert.equal(HYDRATION_LIMITS.hardConcurrency,1);assert.equal(HYDRATION_LIMITS.browserlessCallsPerItem,1);assert.ok(BROWSERLESS_LIMITS.hardClientTimeoutMs<=75000);
+test('rolling ingestion budgets are bounded, sequential and cursor-capable',()=>{
+  assert.equal(DISCOVERY_LIMITS.browserlessCalls,2);assert.equal(DISCOVERY_LIMITS.concurrency,1);assert.equal(DISCOVERY_LIMITS.backfillPagesPerRun,1);assert.equal(DISCOVERY_LIMITS.runSlotHours,6);assert.equal(HYDRATION_LIMITS.hardBatch,2);assert.equal(HYDRATION_LIMITS.runSlotMinutes,60);assert.equal(HYDRATION_LIMITS.hardConcurrency,1);assert.equal(HYDRATION_LIMITS.browserlessCallsPerItem,1);assert.ok(BROWSERLESS_LIMITS.hardClientTimeoutMs<=75000);
+  const source=readFileSync(join(repositoryDirectory,'supabase','functions','refresh-listings','index.ts'),'utf8');
+  assert.equal(/MAX_BACKFILL_PAGE|max_backfill_page_reached/i.test(source),false);
 });
 
 test('manual import uses one Cian smart-scrape call without unblock or retry',async()=>{
@@ -113,7 +115,7 @@ test('search request allowlist accepts only Cian and rejects crawler actions',()
 });
 
 test('search requires a bearer session before any database read',async()=>{
-  let reads=0;const store:ListingReadStore={async readRecent(){reads++;return[];},async readScanStates(){reads++;return[];}};
+  let reads=0;const store:ListingReadStore={async readRecent(){reads++;return{items:[],total:0};},async readScanStates(){reads++;return[];}};
   const result=await createSearchListingsHandler({store})(new Request('http://local/search',{method:'POST',body:'{}'}));
   assert.equal(result.status,401);assert.equal(reads,0);
 });
@@ -122,9 +124,30 @@ test('search reads saved rows only and applies recent/removed filter',async()=>{
   const recent=listing({freshnessAt:new Date(dateReference.getTime()-29*86400000).toISOString()});
   const old=listing({listingUrl:'https://www.cian.ru/rent/commercial/222222222',freshnessAt:new Date(dateReference.getTime()-31*86400000).toISOString()});
   const removed=listing({listingUrl:'https://www.cian.ru/rent/commercial/333333333',marketStatus:'removed'});
-  let reads=0;const store:ListingReadStore={async readRecent(){reads++;return[old,removed,recent];},async readScanStates(){reads++;return[];}};
+  let reads=0;const store:ListingReadStore={async readRecent(){reads++;return{items:[old,removed,recent],total:1};},async readScanStates(){reads++;return[];}};
   const response=await createSearchListingsHandler({store,now:()=>dateReference})(new Request('http://local/search',{method:'POST',headers:{Authorization:'Bearer fixture','Content-Type':'application/json'},body:'{}'}));
-  const body=await response.json();assert.equal(reads,2);assert.deepEqual(body.items.map((entry:NormalizedListing)=>entry.listingUrl),[recent.listingUrl]);
+  const body=await response.json();assert.equal(reads,2);assert.deepEqual(body.items.map((entry:NormalizedListing)=>entry.listingUrl),[recent.listingUrl]);assert.equal(body.meta.total,1);assert.equal(body.meta.snapshotAt,dateReference.toISOString());
+});
+
+test('search returns stable pagination metadata without triggering writes',async()=>{
+  let captured:any=null;const rows=Array.from({length:5},(_,index)=>listing({externalId:String(index+1),listingUrl:`https://www.cian.ru/rent/commercial/${100000000+index}`,freshnessAt:new Date(dateReference.getTime()-index*1000).toISOString()}));
+  const store:ListingReadStore={async readRecent(request){captured=request;return{items:rows.slice(2,4),total:5};},async readScanStates(){return[];}};
+  const response=await createSearchListingsHandler({store,now:()=>dateReference})(new Request('http://local/search',{method:'POST',headers:{Authorization:'Bearer fixture','Content-Type':'application/json'},body:JSON.stringify({sources:['cian'],page:2,limit:2,snapshotAt:dateReference.toISOString()})}));
+  const body=await response.json();assert.equal(response.status,200);assert.equal(captured.page,2);assert.equal(captured.limit,2);assert.equal(body.items.length,2);assert.equal(body.meta.total,5);assert.equal(body.meta.hasMore,true);assert.equal(body.meta.nextPage,3);
+});
+
+test('Supabase listing read uses exact count, inclusive cutoff and stable read-only ordering',async()=>{
+  let requested='';let method='GET';let prefer='';
+  const fetchImpl:typeof fetch=async(input,init)=>{
+    requested=String(input);method=String(init?.method||'GET');prefer=new Headers(init?.headers).get('Prefer')||'';
+    return new Response(JSON.stringify([{
+      source:'cian',listing_url:'https://www.cian.ru/rent/commercial/111111111',external_id:'111111111',address:'fixture',freshness_at:dateReference.toISOString(),freshness_kind:'published',first_seen_at:observedAt,last_seen_at:observedAt,market_status:'active',parse_warnings:[],parse_completeness:1,
+    }]),{status:200,headers:{'Content-Range':'0-0/205'}});
+  };
+  const store=new SupabaseListingReadStore(environment({SUPABASE_URL:'https://fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture'}),fetchImpl);
+  const result=await store.readRecent({sources:['cian'],page:3,limit:100,snapshotAt:dateReference.toISOString(),areaMin:null,areaMax:null,floor:null},dateReference);
+  assert.equal(method,'GET');assert.equal(prefer,'count=exact');assert.equal(result.total,205);assert.equal(result.items.length,1);
+  assert.match(requested,/freshness_at=gte\./);assert.match(requested,/freshness_at=lte\./);assert.match(requested,/updated_at=lte\./);assert.match(requested,/market_status=neq\.removed/);assert.match(requested,/order=freshness_at\.desc,source\.asc,external_id\.asc\.nullslast,listing_url\.asc/);assert.match(requested,/offset=200/);
 });
 
 test('duplicate daily discovery slot exits before Browserless',async()=>{
@@ -134,11 +157,26 @@ test('duplicate daily discovery slot exits before Browserless',async()=>{
   assert.equal(response.status,200);assert.equal(calls,0);assert.equal((await response.json()).outcome.status,'duplicate');
 });
 
-test('duplicate daily hydration slot exits before Browserless',async()=>{
+test('duplicate hourly hydration slot exits before Browserless',async()=>{
   let calls=0;const store=inertStore({async claimRun(){return{claimed:false,runId:null,recovered:false};}});
   const handler=createHydrateListingsHandler({store,client:{async fetchPage(){calls++;throw new Error('unexpected');}},environment:environment({SLOGI_LISTING_CRON_SECRET:'fixture'}),now:()=>dateReference,workerId:()=> '11111111-1111-4111-8111-111111111111'});
   const response=await handler(new Request('http://local/hydrate',{method:'POST',headers:{'x-slogi-listing-cron-secret':'fixture','Content-Type':'application/json'},body:'{"source":"cian"}'}));
   assert.equal(response.status,200);assert.equal(calls,0);assert.equal((await response.json()).outcome.status,'duplicate');
+});
+
+test('discovery and hydration slots advance within the same UTC day without provider calls',async()=>{
+  const capture=async(kind:'discovery'|'hydration',at:string)=>{
+    let slot='';
+    const store=inertStore({async claimRun(_source,phase,runSlot){assert.equal(phase,kind);slot=runSlot;return{claimed:false,runId:null,recovered:false};}});
+    const common={store,client:{async fetchPage(){throw new Error('unexpected_provider_call');}},environment:environment({SLOGI_LISTING_CRON_SECRET:'fixture'}),now:()=>new Date(at)};
+    const handler=kind==='discovery'?createRefreshListingsHandler(common):createHydrateListingsHandler({...common,workerId:()=> '11111111-1111-4111-8111-111111111111'});
+    const response=await handler(new Request('http://local/slot',{method:'POST',headers:{'x-slogi-listing-cron-secret':'fixture','Content-Type':'application/json'},body:'{"source":"cian"}'}));
+    assert.equal(response.status,200);return slot;
+  };
+  assert.equal(await capture('discovery','2026-08-28T07:59:00Z'),'2026-08-28T06:00:00.000Z');
+  assert.equal(await capture('discovery','2026-08-28T13:01:00Z'),'2026-08-28T12:00:00.000Z');
+  assert.equal(await capture('hydration','2026-08-28T07:59:00Z'),'2026-08-28T07:00:00.000Z');
+  assert.equal(await capture('hydration','2026-08-28T08:01:00Z'),'2026-08-28T08:00:00.000Z');
 });
 
 test('invalid workspace code is generic and does not call provider',async()=>{
@@ -164,14 +202,14 @@ test('shared workspace schema uses membership RLS, fixed search_path and CAS',()
   assert.match(sql,/create table public\.slogi_shared_workspaces/);assert.match(sql,/create table public\.slogi_shared_workspace_members/);assert.match(sql,/create table public\.slogi_shared_workspace_state/);assert.match(sql,/enable row level security/);assert.match(sql,/set search_path = pg_catalog, public/);assert.match(sql,/workspace_revision_conflict/);assert.match(sql,/where workspace_state\.workspace_id = p_workspace_id[\s\S]*workspace_state\.revision = p_expected_revision/);assert.match(sql,/revoke all on public\.slogi_shared_workspaces from public, anon, authenticated, service_role/);assert.equal(/grant[^;]+slogi_shared_workspaces to authenticated/i.test(sql),false);
 });
 
-test('daily schedule is inactive, Cian-only and resolves secrets from Vault',()=>{
+test('rolling schedule is inactive, Cian-only and resolves secrets from Vault',()=>{
   const sql=readFileSync(join(repositoryDirectory,'supabase','schedules','cian-listings-daily.sql.example'),'utf8');
-  assert.match(sql,/INACTIVE BY DESIGN/);assert.match(sql,/vault\.decrypted_secrets/);assert.match(sql,/"source":"cian"/);assert.equal(/^\s*select cron\.schedule/m.test(sql),false);assert.equal(/avito|apify|inpars|ozon/i.test(sql),false);
+  assert.match(sql,/INACTIVE BY DESIGN/);assert.match(sql,/vault\.decrypted_secrets/);assert.match(sql,/10 0,6,12,18 \* \* \*/);assert.match(sql,/25 \* \* \* \*/);assert.match(sql,/body := '\{"source":"cian"\}'::jsonb/);assert.equal(/batchSize/.test(sql),false);assert.equal(/^\s*select cron\.schedule/m.test(sql),false);assert.equal(/avito|apify|inpars|ozon/i.test(sql),false);
 });
 
 test('frontend search sends Auth, reads only, and exposes disabled future source',()=>{
   const js=readFileSync(join(repositoryDirectory,'cian-workspace.js'),'utf8');const html=readFileSync(join(repositoryDirectory,'available-spaces.html'),'utf8');
-  assert.match(js,/Authorization/);assert.match(js,/getAccessToken/);assert.equal(/persist|update-clusters|refresh-listings|hydrate-listings/.test(js),false);assert.match(html,/Авито — подключение готовится/);assert.equal(/data-source="avito"|available-source/.test(html),false);
+  assert.match(js,/Authorization/);assert.match(js,/getAccessToken/);assert.match(js,/feed\.loadAllPages/);assert.match(html,/cian-listing-feed\.js/);assert.equal(/persist|update-clusters|refresh-listings|hydrate-listings/.test(js),false);assert.match(html,/Авито — подключение готовится/);assert.equal(/data-source="avito"|available-source/.test(html),false);
 });
 
 test('hotfix navigation exposes the four product sections in the approved order',()=>{
