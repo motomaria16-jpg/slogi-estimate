@@ -4,15 +4,15 @@
   "releaseName": "Password Gate Proxy Tuple Transport",
   "releaseType": "security-hotfix",
   "releaseDate": "2026-08-28",
-  "status": "candidate",
-  "tag": null,
-  "gitTag": null,
+  "status": "released",
+  "tag": "v76.1.10",
+  "gitTag": "v76.1.10",
   "baseTag": "v76.1.9",
   "baseCommit": "06e2280a9ad9e89d6fa8bac89dba3597b409e758",
   "canonicalContentCommit": "86b28fba32ee6d6cb8802e998cbd9ef809cef16c",
   "canonicalGitCommit": "86b28fba32ee6d6cb8802e998cbd9ef809cef16c",
-  "metadataGitCommit": null,
-  "mergeCommit": null,
+  "metadataGitCommit": "9e04ca517b91fe05c460a159497650d6343d9d47",
+  "mergeCommit": "f070147ff178a747218492dbcdf55dadafa6ceaf",
   "databaseBaseline": {
     "migrationPath": "supabase/migrations/20260814_7601_baseline.sql",
     "recordedV7601WorkingTreeSha256": "a4ab16221f6c76c21b6f541c7780111afcbcc72b8726cdac75c0d0adea656bc3",
@@ -407,8 +407,9 @@
     "baseTag": "v76.1.9",
     "baseCommit": "06e2280a9ad9e89d6fa8bac89dba3597b409e758",
     "canonicalGitCommit": "86b28fba32ee6d6cb8802e998cbd9ef809cef16c",
-    "metadataGitCommit": null,
-    "gitTag": null,
+    "metadataGitCommit": "9e04ca517b91fe05c460a159497650d6343d9d47",
+    "mergeCommit": "f070147ff178a747218492dbcdf55dadafa6ceaf",
+    "gitTag": "v76.1.10",
     "productionDeployed": false,
     "publicationAllowed": true,
     "productionFailure": "secure_transport_required_mixed_proxy_tuple",
@@ -456,5 +457,5 @@
     "sharedPasswordGateSha256": "b9aa1563711068979d1a95728eef83114250f57c738d4874c1e1668dca5472d0",
     "passwordGateMigrationSha256": "3f90f5d679aa9990c4e0fe5d469b6beddfe678472577dd0d9c56d67aa01ed612"
   },
-  "nextTarget": "GitHub review and v76.1.10 publication; production Edge deployment remains a separate owner-authorized action"
+  "nextTarget": "Production Edge deployment remains a separate owner-authorized action"
 }
