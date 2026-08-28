@@ -144,6 +144,7 @@ test('forward migration enforces singleton grant in RLS, Storage and CAS while r
     /create table public\.slogi_password_gate_grants/i,
     /create table public\.slogi_password_gate_challenges/i,
     /create table public\.slogi_password_gate_rate_limits/i,
+    /for v_scope in[\s\S]*order by value[\s\S]*for update/i,
     /slogi_has_active_password_gate_grant\(workspace_id\)/i,
     /SLOGI shared state select member[\s\S]*slogi_has_active_password_gate_grant/i,
     /SLOGI shared files select member[\s\S]*slogi_has_active_password_gate_grant/i,

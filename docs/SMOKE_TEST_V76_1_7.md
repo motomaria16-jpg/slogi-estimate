@@ -4,13 +4,14 @@ Date: 2026-08-28. Scope: isolated local candidate only. Production, Pages, exter
 
 ## Database and catalog
 
-- PostgreSQL 17 clean start applied all six migrations: PASS;
+- PostgreSQL 17 clean start applied all six migrations three independent times: PASS;
 - clean `db reset --local` reapplied all six migrations: PASS;
 - candidate used isolated ports/project ID; an existing unrelated local Supabase remained running and untouched;
 - transaction-scoped catalog/RLS E2E with final `ROLLBACK`: PASS;
 - no grant, tamper, expiry, row revoke and version bump: shared state, Storage and CAS denied;
 - valid grant: membership/state/Storage visible and CAS revision advanced exactly once;
 - second anonymous user: exactly one membership in the configured canonical workspace;
+- actual DB rate state: attempts 1–5 allowed, attempt 6 starts cooldown, another challenge remains blocked, consumed challenge replay denied;
 - server-only gate tables: no direct anon/authenticated/service-role table privileges;
 - deprecated access RPC execute removed; historical table retained and marked deprecated.
 

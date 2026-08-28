@@ -51,6 +51,58 @@ begin
 end;
 $$;
 
+do $$
+declare
+  attempt integer;
+  wait_seconds integer;
+  challenge_hash text;
+  scopes text[] := array[repeat('d', 64), repeat('e', 64)];
+begin
+  for attempt in 1..5 loop
+    challenge_hash := lpad(to_hex(attempt), 64, '0');
+    perform public.slogi_create_password_gate_challenge(
+      '22222222-2222-4222-8222-222222222222', challenge_hash,
+      statement_timestamp() + interval '5 minutes'
+    );
+    wait_seconds := public.slogi_begin_password_gate_attempt(
+      '22222222-2222-4222-8222-222222222222', challenge_hash, scopes
+    );
+    if wait_seconds <> 0 then
+      raise exception 'rate limit started before five consumed attempts';
+    end if;
+  end loop;
+  challenge_hash := lpad(to_hex(6), 64, '0');
+  perform public.slogi_create_password_gate_challenge(
+    '22222222-2222-4222-8222-222222222222', challenge_hash,
+    statement_timestamp() + interval '5 minutes'
+  );
+  wait_seconds := public.slogi_begin_password_gate_attempt(
+    '22222222-2222-4222-8222-222222222222', challenge_hash, scopes
+  );
+  if wait_seconds < 1 then
+    raise exception 'sixth attempt did not start cooldown';
+  end if;
+  challenge_hash := lpad(to_hex(7), 64, '0');
+  perform public.slogi_create_password_gate_challenge(
+    '22222222-2222-4222-8222-222222222222', challenge_hash,
+    statement_timestamp() + interval '5 minutes'
+  );
+  wait_seconds := public.slogi_begin_password_gate_attempt(
+    '22222222-2222-4222-8222-222222222222', challenge_hash, scopes
+  );
+  if wait_seconds < 1 then
+    raise exception 'active cooldown allowed another attempt';
+  end if;
+  begin
+    perform public.slogi_begin_password_gate_attempt(
+      '22222222-2222-4222-8222-222222222222', challenge_hash, scopes
+    );
+    raise exception 'consumed challenge was replayed';
+  exception when sqlstate 'PT401' then null;
+  end;
+end;
+$$;
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
 select set_config('request.jwt.claim.role', 'authenticated', true);
