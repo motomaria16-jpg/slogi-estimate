@@ -1,3 +1,5 @@
+import { GeocodeAddressService, GeocodeServiceError } from './service.ts';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-slogi-client',
@@ -5,26 +7,21 @@ const corsHeaders = {
   'Content-Type': 'application/json; charset=utf-8',
 };
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: corsHeaders });
+function json(body: unknown, status = 200, extraHeaders: Record<string, string> = {}) {
+  return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, ...extraHeaders } });
 }
 
-function parseResults(payload: any, fallbackAddress: string) {
-  const members = payload?.response?.GeoObjectCollection?.featureMember;
-  if (!Array.isArray(members)) return [];
-  return members.map((item: any) => {
-    const obj = item?.GeoObject || {};
-    const meta = obj?.metaDataProperty?.GeocoderMetaData || {};
-    const pos = String(obj?.Point?.pos || '').trim().split(/\s+/).map(Number);
-    if (pos.length < 2 || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) return null;
-    return {
-      address: String(meta?.Address?.formatted || meta?.text || [obj?.description, obj?.name].filter(Boolean).join(', ') || fallbackAddress),
-      lng: pos[0],
-      lat: pos[1],
-      precision: String(meta?.precision || ''),
-    };
-  }).filter(Boolean);
+function environmentInteger(name: string, fallback: number) {
+  const value = Math.trunc(Number(Deno.env.get(name)));
+  return Number.isFinite(value) ? value : fallback;
 }
+
+const geocoder = new GeocodeAddressService({
+  timeoutMs: environmentInteger('GEOCODER_TIMEOUT_MS', 8_000),
+  maxAttempts: environmentInteger('GEOCODER_MAX_ATTEMPTS', 3),
+  minProviderIntervalMs: environmentInteger('GEOCODER_MIN_INTERVAL_MS', 120),
+  clientRateLimit: environmentInteger('GEOCODER_CLIENT_RATE_LIMIT', 600),
+});
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -36,25 +33,14 @@ Deno.serve(async (req) => {
     const key = String(Deno.env.get('YANDEX_GEOCODER_API_KEY') || body?.apikey || '').trim();
     if (!key) return json({ error: 'Не настроен ключ API Геокодера.' }, 500);
 
-    const url = new URL('https://geocode-maps.yandex.ru/v1/');
-    url.searchParams.set('apikey', key);
-    url.searchParams.set('geocode', address);
-    url.searchParams.set('lang', 'ru_RU');
-    url.searchParams.set('format', 'json');
-    url.searchParams.set('results', '10');
-    url.searchParams.set('rspn', '0');
-    if (body?.ll) url.searchParams.set('ll', String(body.ll));
-    if (body?.spn) url.searchParams.set('spn', String(body.spn));
-
-    const origin = String(req.headers.get('origin') || '').trim();
-    const headers: Record<string, string> = { 'Accept': 'application/json' };
-    if (origin) headers['Referer'] = origin.endsWith('/') ? origin : `${origin}/`;
-    const response = await fetch(url.toString(), { headers });
-    let payload: any = null;
-    try { payload = await response.json(); } catch (_) {}
-    if (!response.ok) return json({ error: payload?.message || `Yandex Geocoder HTTP ${response.status}`, status: response.status }, response.status);
-    return json({ results: parseResults(payload, address) });
+    const clientKey = [req.headers.get('x-forwarded-for') || '', req.headers.get('origin') || '', req.headers.has('authorization') ? 'session' : 'anonymous'].join('|');
+    const result = await geocoder.geocode({ address, apiKey: key, ll: String(body?.ll || ''), spn: String(body?.spn || ''), clientKey, referer: String(req.headers.get('origin') || '') });
+    return json(result);
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : String(error) }, 500);
+    if (error instanceof GeocodeServiceError) {
+      const headers = error.retryAfterSeconds == null ? {} : { 'Retry-After': String(error.retryAfterSeconds) };
+      return json({ error: error.code, diagnostic: { status: error.code } }, error.status, headers);
+    }
+    return json({ error: 'geocoder_internal_error', diagnostic: { status: 'geocoder_internal_error' } }, 500);
   }
 });
