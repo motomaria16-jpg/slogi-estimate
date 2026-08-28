@@ -2,13 +2,17 @@
   "app": "SLOGI",
   "version": "76.1.7",
   "releaseName": "Password Gate, Cian Map and Compact Search",
-  "releaseType": "security-candidate",
+  "releaseType": "security-release",
   "releaseDate": "2026-08-28",
-  "status": "candidate-local-only",
-  "tag": null,
+  "status": "released",
+  "tag": "v76.1.7",
+  "gitTag": "v76.1.7",
   "baseTag": "v76.1.6",
   "baseCommit": "06ee1659f7caf234df85de662424fe1d1159bb03",
   "canonicalContentCommit": "c5f919d1c53c584546939ac70e9c01a664f6750d",
+  "canonicalGitCommit": "c5f919d1c53c584546939ac70e9c01a664f6750d",
+  "metadataGitCommit": "0fd31dcf6f960440b5c4b046aef2567738a4ecb7",
+  "mergeCommit": "209cf1d989d0a1a0a1ff2fd998a6674595fdf36e",
   "databaseBaseline": {
     "migrationPath": "supabase/migrations/20260814_7601_baseline.sql",
     "recordedV7601WorkingTreeSha256": "a4ab16221f6c76c21b6f541c7780111afcbcc72b8726cdac75c0d0adea656bc3",
@@ -272,8 +276,12 @@
       "c5f919d1c53c584546939ac70e9c01a664f6750d"
     ],
     "canonicalContentCommit": "c5f919d1c53c584546939ac70e9c01a664f6750d",
+    "canonicalGitCommit": "c5f919d1c53c584546939ac70e9c01a664f6750d",
+    "metadataGitCommit": "0fd31dcf6f960440b5c4b046aef2567738a4ecb7",
+    "mergeCommit": "209cf1d989d0a1a0a1ff2fd998a6674595fdf36e",
+    "gitTag": "v76.1.7",
     "productionDeployed": false,
-    "publicationAllowed": false,
+    "publicationAllowed": true,
     "cleanPostgresql17ApplyPasses": 3,
     "catalogRlsStorageCasPassed": true,
     "deterministicTestsPassed": 93,
@@ -308,5 +316,5 @@
     "cianActivationManifestSha256": "8e7f139cbb63bf9cd18ae28bf06135a3477c36a5ddfc053f2473513ce080621c",
     "cianRollbackManifestSha256": "9015c68e7734fb9d25a4ee5495004afd3730ac85c6039f4d51b252244b269e3e"
   },
-  "nextTarget": "separate owner-authorized production activation using the v76.1.7 runbook"
+  "nextTarget": "separate owner-authorized production activation using the v76.1.7 runbook; published frontend remains fail-closed until activation"
 }
