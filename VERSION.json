@@ -1,11 +1,11 @@
 {
   "app": "SLOGI",
-  "version": "76.1.5",
-  "releaseName": "Workspace Invite Links Hotfix",
+  "version": "76.1.6",
+  "releaseName": "School SLOGI and Cian 30-Day Feed",
   "releaseType": "hotfix",
-  "releaseDate": "2026-08-27",
+  "releaseDate": "2026-08-28",
   "status": "released",
-  "baseTag": "v76.1.4",
+  "baseTag": "v76.1.5",
   "databaseBaseline": {
     "migrationPath": "supabase/migrations/20260814_7601_baseline.sql",
     "recordedV7601WorkingTreeSha256": "a4ab16221f6c76c21b6f541c7780111afcbcc72b8726cdac75c0d0adea656bc3",
@@ -46,17 +46,17 @@
     "search-listings": {
       "path": "supabase/functions/search-listings/index.ts",
       "verifyJwt": true,
-      "sourceSha256": "8e5b5460b4a612cb19b6f649e4713a30d5e9d82b5f5d9f9c3dde08a4a1893787"
+      "sourceSha256": "4c1786ebcdabef464ebca46a8e45e15d7ce53de7997adf5838c38637060bc440"
     },
     "refresh-listings": {
       "path": "supabase/functions/refresh-listings/index.ts",
       "verifyJwt": true,
-      "sourceSha256": "d5c92641d0a82045720724bea1661900ccee0bdf3b8e2170c9d936bdfda2d657"
+      "sourceSha256": "5c4302c6610844578a98612d81f2e6d8da5a9d47fdb5e9a59fabb5a91c40f35a"
     },
     "hydrate-listings": {
       "path": "supabase/functions/hydrate-listings/index.ts",
       "verifyJwt": true,
-      "sourceSha256": "6a79dc3fde0bab481f4f37076b2c22cd03ba66311a24627fb7f47029a8c799c0"
+      "sourceSha256": "caca462aea57471ff63e5c99250ef4635152e1e165b43d618511ec1854c6373d"
     },
     "join-workspace": {
       "path": "supabase/functions/join-workspace/index.ts",
@@ -77,13 +77,13 @@
     "sharedListingsModuleSha256": "ff4ddd2a6b20b61182b6e8f308a1973722662b1c5702f4abc6333b6ac3cb7ac0"
   },
   "releaseGate": {
-    "canonicalGitCommit": "0966642a335bdb98a73797aa3465aa5858049221",
-    "metadataGitCommit": "fe0c766b72f77d02fbf32704b3f953bd89263801",
-    "gitTag": "v76.1.5",
+    "canonicalGitCommit": "fbee5df0a71110f6ecac4bf820992460742f97ab",
+    "metadataGitCommit": "be80f5d17bdb2731c87ce249820c4ecf870d12c0",
+    "gitTag": "v76.1.6",
     "cleanEnvironmentApplyTested": true,
     "catalogAuditPassed": true,
     "unitFixtureTests": {
-      "passed": 17,
+      "passed": 35,
       "failed": 0,
       "inheritedFromBaseTag": false
     },
@@ -215,7 +215,38 @@
       "consoleWarnings": 0,
       "externalNetworkCalls": 0,
       "productionDeployed": false
+    },
+    "schoolSlogiTheme": {
+      "sourceSha256": "76a8ebcc018fd66f52d8fc7d1f36275ce102d110fb14c0d79723756cbf9336ce",
+      "navigationThemeTestsPassed": 9,
+      "desktopAndMobileEvidenceStates": 12,
+      "horizontalOverflowPx": 0,
+      "consoleErrors": 0,
+      "consoleWarnings": 0,
+      "productionDeployed": false
+    },
+    "cianThirtyDayHotfix": {
+      "listingFeedSha256": "7de56afe874ca7a4a86365cd137a86f481c5ece2c51ecd10b8a201da95bd4954",
+      "workspaceClientSha256": "87259d6e7ef3c3755eb835717a2bb3821ca1e183afbeb35418fd5e8580b01d83",
+      "frontendTestsPassed": 8,
+      "edgeIngestionTestsPassed": 18,
+      "fixtureRowsPaginated": 205,
+      "configuredPageSize": 50,
+      "exactThirtyDayBoundaryIncluded": true,
+      "stableSnapshotPagination": true,
+      "readPathProviderCalls": 0,
+      "readPathWrites": 0,
+      "discoveryRunSlotHours": 6,
+      "backfillPagesPerRun": 1,
+      "artificialBackfillPageCap": false,
+      "hydrationRunSlotMinutes": 60,
+      "hydrationHardBatch": 2,
+      "schedulerTemplateInactive": true,
+      "productionIngestionCompletenessProven": false,
+      "externalProviderCalls": 0,
+      "existingMigrationsChanged": false,
+      "productionDeployed": false
     }
   },
-  "nextTarget": "owner-authorized staged invite-link production activation"
+  "nextTarget": "owner-authorized production activation and ingestion completeness verification"
 }

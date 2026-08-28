@@ -2,6 +2,8 @@
   'use strict';
 
   const cfg=(window.SLOGI_PHASE0_CONFIG&&window.SLOGI_PHASE0_CONFIG.listingSearch)||{};
+  const feed=window.SlogiCianFeed;
+  if(!feed)throw new Error('cian_listing_feed_unavailable');
   const DAY=24*60*60*1000;
   const MAX_FRESH_DAYS=30;
   const $=id=>document.getElementById(id);
@@ -18,6 +20,9 @@
   let clustersVisible=true;
   let selectedListingId='';
   let lastFocused=null;
+  let loadPartial=false;
+  let serverTotal=null;
+  let loadedPages=0;
 
   const esc=value=>String(value==null?'':value).replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
   const number=value=>{const parsed=Number(value);return Number.isFinite(parsed)?parsed:null;};
@@ -64,7 +69,6 @@
     return item;
   }
   function criteria(){return{cluster:String(fields.cluster.value||''),areaMin:inputNumber(fields.areaMin),areaMax:inputNumber(fields.areaMax),rentMin:inputNumber(fields.rentMin),rentMax:inputNumber(fields.rentMax),sqmMin:inputNumber(fields.sqmMin),sqmMax:inputNumber(fields.sqmMax),days:Number(fields.days.value)||MAX_FRESH_DAYS,sort:String(fields.sort.value||'freshness-desc')};}
-  function within(value,min,max){if(min!=null&&(value==null||value<min))return false;if(max!=null&&(value==null||value>max))return false;return true;}
   function populateClusters(){
     const current=fields.cluster.value,items=clusterService()&&clusterService().list()||[];
     fields.cluster.innerHTML='<option value="">Все кластеры</option>'+items.map(item=>`<option value="${esc(item.id)}">${esc(item.name)}</option>`).join('')+'<option value="__unassigned">Кластер не определён</option>';
@@ -73,12 +77,7 @@
 
   function applyFilters(){
     const c=criteria();
-    visible=all.filter(item=>{
-      if(!isRecent(item,c.days))return false;
-      const clusterMatch=!c.cluster||(c.cluster==='__unassigned'?!item.clusterId:item.clusterId===c.cluster);
-      return clusterMatch&&within(item.area,c.areaMin,c.areaMax)&&within(item.rentMonthly,c.rentMin,c.rentMax)&&within(item.pricePerSquareMeter,c.sqmMin,c.sqmMax);
-    });
-    visible.sort((left,right)=>c.sort==='rent-asc'?(left.rentMonthly??Infinity)-(right.rentMonthly??Infinity):c.sort==='area-asc'?(left.area??Infinity)-(right.area??Infinity):c.sort==='sqm-asc'?(left.pricePerSquareMeter??Infinity)-(right.pricePerSquareMeter??Infinity):freshnessTime(right)-freshnessTime(left));
+    visible=feed.filterAndSort(all,c);
     render();focusSelectedCluster(c.cluster);
   }
 
@@ -92,8 +91,13 @@
   function render(){
     nodes.loading.hidden=true;
     nodes.count.textContent=String(visible.length);
-    nodes.summary.textContent=visible.length===all.length?`Показано ${visible.length} актуальных предложений.`:`Показано ${visible.length} из ${all.length} актуальных предложений.`;
+    if(loadPartial)nodes.summary.textContent=`Показано ${visible.length} из ${all.length} загруженных предложений. Сервер сообщил ${serverTotal==null?'неизвестное число':serverTotal}; выдача неполная (${loadedPages} стр.).`;
+    else nodes.summary.textContent=visible.length===all.length?`Найдено ${visible.length} актуальных предложений.`:`Найдено ${visible.length} из ${all.length} актуальных предложений.`;
     nodes.empty.hidden=visible.length!==0;
+    if(visible.length===0){
+      nodes.empty.querySelector('h3').textContent=loadPartial?'Выдача загружена не полностью':'Предложения не найдены';
+      nodes.empty.querySelector('p').textContent=loadPartial?'Не все страницы удалось прочитать. Повторите загрузку, чтобы не пропустить подходящие объявления.':'Измените условия поиска или дождитесь следующего планового обновления ЦИАН.';
+    }
     nodes.list.hidden=visible.length===0;
     nodes.list.innerHTML=visible.map(card).join('');
     nodes.list.querySelectorAll('[data-listing-id]').forEach(button=>button.addEventListener('click',()=>{selectListing(button.dataset.listingId);openListing(button.dataset.listingId,button)}));
@@ -159,14 +163,20 @@
     try{
       const endpoint=String(cfg.endpoint||'');if(!endpoint)throw new Error('listing_search_unavailable');
       const token=await window.SlogiCloud.getAccessToken();
-      const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'X-Slogi-Client':'cian-workspace'},body:JSON.stringify({sources:['cian'],limit:100}),signal:controller.signal});
-      const payload=await response.json().catch(()=>null);
-      if(!response.ok)throw new Error(payload&&payload.error||'listing_search_failed');
-      all=(Array.isArray(payload&&payload.items)?payload.items:[]).map(normalize).filter(item=>isRecent(item,MAX_FRESH_DAYS));
-      setSource(payload&&payload.meta);
+      const pageSize=Math.max(1,Math.min(100,Math.trunc(Number(cfg.limit)||100)));
+      const loaded=await feed.loadAllPages(async({page,limit,snapshotAt})=>{
+        const request={sources:['cian'],page,limit};if(snapshotAt)request.snapshotAt=snapshotAt;
+        const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'X-Slogi-Client':'cian-workspace'},body:JSON.stringify(request),signal:controller.signal});
+        const payload=await response.json().catch(()=>null);
+        if(!response.ok)throw new Error(payload&&payload.error||'listing_search_failed');
+        return{items:(Array.isArray(payload&&payload.items)?payload.items:[]).map(normalize).filter(item=>isRecent(item,MAX_FRESH_DAYS)),meta:payload&&payload.meta};
+      },{limit:pageSize});
+      all=loaded.items;loadPartial=loaded.partial;serverTotal=loaded.serverTotal;loadedPages=loaded.pages;
+      setSource(loaded.meta);
+      if(loadPartial){nodes.badge.textContent='Частично';nodes.badge.dataset.state='partial';}
       applyFilters();
     }catch(error){
-      all=[];visible=[];render();
+      all=[];visible=[];loadPartial=false;serverTotal=null;loadedPages=0;render();
       nodes.summary.textContent='Сохранённые предложения временно недоступны.';
       nodes.source.textContent=error&&error.name==='AbortError'?'Чтение заняло слишком много времени.':'Не удалось прочитать сохранённую базу.';
       nodes.badge.textContent='Недоступно';nodes.badge.dataset.state='error';
