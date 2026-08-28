@@ -247,9 +247,10 @@
   "candidateGateV7617": {
     "branch": "feature/v76-1-7-password-gate",
     "implementationCommit": "94ca5585803410dcda5edc575dc3475c9ca4acdb",
+    "rateLifecycleRegressionCommit": "369fb4b2e41267f8078610a9960fbeccee0939a4",
     "productionDeployed": false,
     "publicationAllowed": false,
-    "cleanPostgresql17ApplyPasses": 2,
+    "cleanPostgresql17ApplyPasses": 3,
     "catalogRlsStorageCasPassed": true,
     "deterministicTestsPassed": 76,
     "deterministicTestsFailed": 0,
@@ -265,9 +266,9 @@
     "protectedCianMapClusterDesignBehaviorChanged": false,
     "sharedWorkspaceClientSha256": "552b628f000f7e46f2241be10467a78919d653de90b8bbb28615048eb00e49a9",
     "passwordGateCssSha256": "35c9313dcb9858bcd259686b551cf710c4487686e67c0674ffc749b92480da5a",
-    "unitTestSha256": "93ac23e6fe69b501f8dc08582673bf91a1ee18295ab862472571b32f2da2456b",
+    "unitTestSha256": "892b1ba14d9f4c221f8349ff861f790e5955ae1a1a2caaa183443402d920324d",
     "browserTestSha256": "cf2ae408e19ace8f2b811237977d8680c8374209ee51b53c59ac2c031a2b20b2",
-    "catalogTestSha256": "76e38b5671886f3c8d0515c8382e1b1a562ded004c4b42633a0cc0da4094af98"
+    "catalogTestSha256": "8e402862a433bbc529c416b38a22a7efbcb94774762163ce00ce606912347f98"
   },
   "nextTarget": "separate owner-authorized production activation using the v76.1.7 runbook"
 }
