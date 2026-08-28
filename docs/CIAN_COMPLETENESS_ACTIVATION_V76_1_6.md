@@ -50,8 +50,8 @@ Release target: `06ee1659f7caf234df85de662424fe1d1159bb03` (`v76.1.6`).
 | `supabase/functions/hydrate-listings/index.ts` | `caca462aea57471ff63e5c99250ef4635152e1e165b43d618511ec1854c6373d` |
 | `cian-listing-feed.js` | `7de56afe874ca7a4a86365cd137a86f481c5ece2c51ecd10b8a201da95bd4954` |
 | `cian-workspace.js` | `87259d6e7ef3c3755eb835717a2bb3821ca1e183afbeb35418fd5e8580b01d83` |
-| `supabase/schedules/cian-listings-v7616-activate.sql` | `001caa1eb9f51daf0815140e24d9afd56b6c24630d81c62f8d401553d4d742a7` |
-| `supabase/schedules/cian-listings-v7616-rollback.sql` | `a83edd1754f151e1edbaa09f0d59b28c51bcc42b2977eb095290c1a251029381` |
+| `supabase/schedules/cian-listings-v7616-activate.sql` | `8e7f139cbb63bf9cd18ae28bf06135a3477c36a5ddfc053f2473513ce080621c` |
+| `supabase/schedules/cian-listings-v7616-rollback.sql` | `9015c68e7734fb9d25a4ee5495004afd3730ac85c6039f4d51b252244b269e3e` |
 
 ## Fail-closed production order for the integration agent
 
