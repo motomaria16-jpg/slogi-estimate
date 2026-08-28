@@ -4,15 +4,15 @@
   "releaseName": "Cian Reliable-Recent Partial Listings",
   "releaseType": "security-hotfix",
   "releaseDate": "2026-08-29",
-  "status": "candidate",
-  "tag": null,
-  "gitTag": null,
+  "status": "released",
+  "tag": "v76.1.11",
+  "gitTag": "v76.1.11",
   "baseTag": "v76.1.10",
   "baseCommit": "1695900d720f8ad192e55f51bd49eed783500b36",
   "canonicalContentCommit": "ee11625e1a1ad5e10eb3cfa864c91d191bd95675",
   "canonicalGitCommit": "ee11625e1a1ad5e10eb3cfa864c91d191bd95675",
-  "metadataGitCommit": null,
-  "mergeCommit": null,
+  "metadataGitCommit": "2cf02e69663293bc5c2370a0ca7e3af5797e9436",
+  "mergeCommit": "7d6d3e2771d6cb4e37a2f9d2dd33961f9e3bf80c",
   "databaseBaseline": {
     "migrationPath": "supabase/migrations/20260814_7601_baseline.sql",
     "recordedV7601WorkingTreeSha256": "a4ab16221f6c76c21b6f541c7780111afcbcc72b8726cdac75c0d0adea656bc3",
@@ -462,8 +462,9 @@
     "baseTag": "v76.1.10",
     "baseCommit": "1695900d720f8ad192e55f51bd49eed783500b36",
     "canonicalGitCommit": "ee11625e1a1ad5e10eb3cfa864c91d191bd95675",
-    "metadataGitCommit": null,
-    "gitTag": null,
+    "metadataGitCommit": "2cf02e69663293bc5c2370a0ca7e3af5797e9436",
+    "mergeCommit": "7d6d3e2771d6cb4e37a2f9d2dd33961f9e3bf80c",
+    "gitTag": "v76.1.11",
     "productionDeployed": false,
     "publicationAllowed": true,
     "productionNonterminalQueueRows": 132,
@@ -518,5 +519,5 @@
     "listingMigrationSha256": "efdeb03e49eb8ae93b19ab4fdf0000f2d2b47e45368e68a1f1cdf227fd820f25",
     "inactiveScheduleSha256": "adac103fc606566c1fb15b711e1ea00085408700516a0f4298c7d5107fda39e7"
   },
-  "nextTarget": "GitHub review and v76.1.11 publication; production deployment remains a separate owner-authorized action"
+  "nextTarget": "Production deployment remains a separate owner-authorized action"
 }
