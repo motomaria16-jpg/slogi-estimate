@@ -48,64 +48,103 @@ function rpcName(url){return String(url).split('/').pop();}
 function transportRequest(url,headers={}){
   return new Request(url,{method:'POST',headers:{'Content-Type':'application/json',...headers},body:JSON.stringify({action:'challenge'})});
 }
-const trustedProxyHeaders={
+const transportEnvironment={get:name=>name==='SUPABASE_URL'?baseUrl:undefined};
+const trustedEdgeProxyHeaders={
   host:'edge-runtime.supabase.com',
   'x-forwarded-host':'edge-runtime.supabase.com',
   'x-forwarded-port':'443',
   'x-forwarded-proto':'https',
 };
+const trustedProjectProxyHeaders={
+  host:'example.supabase.co',
+  'x-forwarded-host':'example.supabase.co',
+  'x-forwarded-port':'443',
+  'x-forwarded-proto':'https',
+};
 
-test('password gate accepts only direct HTTPS or the unambiguous trusted Supabase proxy contract',()=>{
+test('password gate accepts only direct HTTPS or an environment-bound hosted Supabase proxy contract',()=>{
   assert.equal(secureTransport(transportRequest('https://fixture-project.supabase.co/functions/v1/password-gate')),true);
-  assert.equal(secureTransport(transportRequest('http://edge-runtime.internal/functions/v1/password-gate',trustedProxyHeaders)),true);
+  assert.equal(secureTransport(transportRequest('https://fixture-project.supabase.co/functions/v1/password-gate'),{get:()=>undefined}),true);
+  assert.equal(secureTransport(transportRequest('http://example.supabase.co/functions/v1/password-gate',trustedProjectProxyHeaders),transportEnvironment),true);
+  assert.equal(secureTransport(transportRequest('http://edge-runtime.supabase.com/functions/v1/password-gate',trustedEdgeProxyHeaders),transportEnvironment),true);
   assert.equal(secureTransport(transportRequest('http://edge-runtime.internal/functions/v1/password-gate',{
     host:'untrusted.example',
     'x-forwarded-host':'untrusted.example',
     'x-forwarded-port':'443',
     'x-forwarded-proto':'https',
-  })),false);
+  }),transportEnvironment),false);
   assert.equal(secureTransport(transportRequest('http://example.supabase.co/functions/v1/password-gate')),false);
   for(const proto of ['http','https,http','https, https','https://','']){
-    assert.equal(secureTransport(transportRequest('http://edge-runtime.internal/functions/v1/password-gate',{
-      ...trustedProxyHeaders,
+    assert.equal(secureTransport(transportRequest('http://example.supabase.co/functions/v1/password-gate',{
+      ...trustedProjectProxyHeaders,
       'x-forwarded-proto':proto,
-    })),false);
+    }),transportEnvironment),false);
   }
-  assert.equal(secureTransport(transportRequest('http://edge-runtime.internal/functions/v1/password-gate',{
-    ...trustedProxyHeaders,
+  assert.equal(secureTransport(transportRequest('http://example.supabase.co/functions/v1/password-gate',{
+    ...trustedProjectProxyHeaders,
     'x-forwarded-host':'untrusted.example',
-  })),false);
-  assert.equal(secureTransport(transportRequest('http://edge-runtime.internal/functions/v1/password-gate',{
-    ...trustedProxyHeaders,
+  }),transportEnvironment),false);
+  assert.equal(secureTransport(transportRequest('http://example.supabase.co/functions/v1/password-gate',{
+    ...trustedProjectProxyHeaders,
     host:'untrusted.example',
-  })),false);
+  }),transportEnvironment),false);
   for(const port of ['80','443, 80','https','']){
-    assert.equal(secureTransport(transportRequest('http://edge-runtime.internal/functions/v1/password-gate',{
-      ...trustedProxyHeaders,
+    assert.equal(secureTransport(transportRequest('http://example.supabase.co/functions/v1/password-gate',{
+      ...trustedProjectProxyHeaders,
       'x-forwarded-port':port,
-    })),false);
+    }),transportEnvironment),false);
   }
+  for(const host of ['other-project.supabase.co','foo.example','supabase.co','nested.project.supabase.co','example.supabase.co:443','example.supabase.co,evil.example']){
+    const headers={...trustedProjectProxyHeaders,host,'x-forwarded-host':host};
+    assert.equal(secureTransport(transportRequest('http://'+host.replace(',evil.example','')+'/functions/v1/password-gate',headers),transportEnvironment),false);
+  }
+  for(const configuredUrl of [undefined,'','http://example.supabase.co','https://other.example','https://supabase.co','https://nested.example.supabase.co','https://user@example.supabase.co','https://example.supabase.co:443','https://example.supabase.co/path','https://example.supabase.co/?query=1','https://example.supabase.co/#fragment']){
+    assert.equal(secureTransport(
+      transportRequest('http://example.supabase.co/functions/v1/password-gate',trustedProjectProxyHeaders),
+      {get:name=>name==='SUPABASE_URL'?configuredUrl:undefined},
+    ),false);
+  }
+  assert.equal(secureTransport(transportRequest('http://other-project.supabase.co/functions/v1/password-gate',{
+    ...trustedProjectProxyHeaders,
+    host:'other-project.supabase.co',
+    'x-forwarded-host':'other-project.supabase.co',
+  }),transportEnvironment),false);
+  assert.equal(secureTransport(transportRequest('http://edge-runtime.internal/functions/v1/password-gate',trustedProjectProxyHeaders),transportEnvironment),false);
+  assert.equal(secureTransport(transportRequest('http://example.supabase.co/functions/v1/password-gate',trustedEdgeProxyHeaders),transportEnvironment),false);
   assert.equal(secureTransport(transportRequest('http://localhost/functions/v1/password-gate')),true);
+  assert.equal(secureTransport(transportRequest('http://127.0.0.1/functions/v1/password-gate')),true);
 });
 
 test('handler accepts trusted proxy HTTPS before auth, password, or database work',async()=>{
   const reads=[];let fetchCalls=0;
   const handler=createPasswordGateHandler({
-    environment:{get:name=>{reads.push(name);return undefined;}},
+    environment:{get:name=>{reads.push(name);return name==='SUPABASE_URL'?baseUrl:undefined;}},
     fetch:async()=>{fetchCalls+=1;throw new Error('unexpected_fetch');},
   });
-  const proxyRequest=new Request('http://edge-runtime.internal/functions/v1/password-gate',{
+  const proxyRequest=new Request('http://example.supabase.co/functions/v1/password-gate',{
     method:'POST',
     headers:{
       'Content-Type':'application/json',
-      ...trustedProxyHeaders,
+      ...trustedProjectProxyHeaders,
     },
     body:JSON.stringify({action:'unsupported'}),
   });
+  const missingEnvironmentRequest=proxyRequest.clone();
   const proxyResponse=await handler(proxyRequest);
   assert.equal(proxyResponse.status,400);
   assert.deepEqual(await proxyResponse.json(),{status:'invalid_request'});
-  assert.deepEqual(reads,[]);
+  assert.deepEqual(reads,['SUPABASE_URL']);
+  assert.equal(fetchCalls,0);
+
+  reads.length=0;
+  const missingEnvironmentHandler=createPasswordGateHandler({
+    environment:{get:name=>{reads.push(name);return undefined;}},
+    fetch:async()=>{fetchCalls+=1;throw new Error('unexpected_fetch');},
+  });
+  const rejected=await missingEnvironmentHandler(missingEnvironmentRequest);
+  assert.equal(rejected.status,400);
+  assert.deepEqual(await rejected.json(),{status:'secure_transport_required'});
+  assert.deepEqual(reads,['SUPABASE_URL']);
   assert.equal(fetchCalls,0);
 });
 

@@ -36,10 +36,15 @@ function queueItem(id:number):QueueItem{return{id,source:'cian',listingUrl:`http
 
 test('password gate Edge transport accepts only direct HTTPS or the exact hosted proxy contract',()=>{
   assert.equal(secureTransport(new Request('https://fixture.supabase.co/functions/v1/password-gate')),true);
-  const headers={host:'edge-runtime.supabase.com','x-forwarded-host':'edge-runtime.supabase.com','x-forwarded-port':'443','x-forwarded-proto':'https'};
-  assert.equal(secureTransport(new Request('http://edge-runtime.internal/functions/v1/password-gate',{headers})),true);
-  assert.equal(secureTransport(new Request('http://edge-runtime.internal/functions/v1/password-gate',{headers:{...headers,host:'untrusted.example'}})),false);
-  assert.equal(secureTransport(new Request('http://edge-runtime.internal/functions/v1/password-gate',{headers:{...headers,'x-forwarded-proto':'https,http'}})),false);
+  const environment={get:(name:string)=>name==='SUPABASE_URL'?'https://fixture.supabase.co':undefined};
+  const headers={host:'fixture.supabase.co','x-forwarded-host':'fixture.supabase.co','x-forwarded-port':'443','x-forwarded-proto':'https'};
+  assert.equal(secureTransport(new Request('http://fixture.supabase.co/functions/v1/password-gate',{headers}),environment),true);
+  const edgeHeaders={...headers,host:'edge-runtime.supabase.com','x-forwarded-host':'edge-runtime.supabase.com'};
+  assert.equal(secureTransport(new Request('http://edge-runtime.supabase.com/functions/v1/password-gate',{headers:edgeHeaders}),environment),true);
+  assert.equal(secureTransport(new Request('http://fixture.supabase.co/functions/v1/password-gate',{headers:{...headers,host:'untrusted.example'}}),environment),false);
+  assert.equal(secureTransport(new Request('http://fixture.supabase.co/functions/v1/password-gate',{headers:{...headers,'x-forwarded-proto':'https,http'}}),environment),false);
+  assert.equal(secureTransport(new Request('http://other.supabase.co/functions/v1/password-gate',{headers:{...headers,host:'other.supabase.co','x-forwarded-host':'other.supabase.co'}}),environment),false);
+  assert.equal(secureTransport(new Request('http://fixture.supabase.co/functions/v1/password-gate',{headers}),{get:()=>undefined}),false);
   assert.equal(secureTransport(new Request('http://fixture.supabase.co/functions/v1/password-gate')),false);
 });
 
