@@ -74,7 +74,7 @@ body.slogi-search-page>.site-header,
   min-height:100%!important;
   max-height:100%!important;
   align-items:center!important;
-  gap:clamp(16px,2vw,30px)!important;
+  gap:clamp(12px,1.25vw,18px)!important;
   padding:0 clamp(16px,2vw,28px)!important;
 }
 .site-header .brand{
@@ -134,7 +134,8 @@ body.slogi-search-page>.site-header,
   box-shadow:none!important;
 }
 .site-header .pro-nav-inner,
-.slogi-search-page .site-header .pro-nav .pro-nav-inner{
+.slogi-search-page .site-header .pro-nav .pro-nav-inner,
+.slogi-search-page .site-header .top>.pro-nav .pro-nav-inner{
   display:flex!important;
   width:100%!important;
   height:100%!important;
@@ -143,7 +144,17 @@ body.slogi-search-page>.site-header,
   padding:0!important;
   overflow:visible!important;
 }
-.pro-product-nav{display:flex!important;align-items:center!important;gap:5px!important}
+.site-header .pro-product-nav,
+.slogi-search-page .site-header .pro-product-nav{
+  display:flex!important;
+  height:100%!important;
+  min-height:0!important;
+  align-items:center!important;
+  align-self:center!important;
+  gap:5px!important;
+  margin:0!important;
+  transform:none!important;
+}
 .site-header .pro-product-nav a,
 .slogi-search-page .site-header .pro-product-nav a{
   display:inline-flex!important;
@@ -151,12 +162,12 @@ body.slogi-search-page>.site-header,
   height:44px!important;
   align-items:center!important;
   justify-content:center!important;
-  padding:0 clamp(12px,1.35vw,20px)!important;
+  padding:0 clamp(10px,1vw,14px)!important;
   border:1px solid transparent!important;
   border-radius:18px!important;
   background:transparent!important;
   color:#57534e!important;
-  font-size:15px!important;
+  font-size:14px!important;
   font-weight:750!important;
   line-height:1.15!important;
   text-decoration:none!important;
@@ -186,9 +197,11 @@ body.slogi-search-page>.site-header,
 }
 .pro-header-utilities .pro-global-search-wrap{
   display:flex!important;
+  flex:0 1 190px!important;
+  width:190px!important;
   height:44px!important;
-  min-width:190px!important;
-  max-width:270px!important;
+  min-width:180px!important;
+  max-width:190px!important;
   border:1px solid #d8c7af!important;
   border-radius:17px!important;
   background:#fffaf3!important;

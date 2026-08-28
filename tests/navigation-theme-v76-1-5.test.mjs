@@ -47,6 +47,7 @@ test('all work pages load the v76.1.5 theme after every legacy stylesheet',()=>{
     const styles=[...html.matchAll(/<link\b[^>]*href=["']([^"']+\.css(?:\?[^"']*)?)["'][^>]*>/gi)].map(match=>match[1]);
     assert.ok(styles.length,page+': stylesheets are present');
     assert.equal(localTarget(styles.at(-1)),themeName,page+': theme is the final stylesheet');
+    assert.match(html,/schoolslogi-theme-v76-1-5\.css\?v=76152/,page+': centered-header theme cache key');
     assert.match(html,/professional-shell\.js\?v=7615/,page+': shell cache key');
   }
 });
@@ -111,6 +112,12 @@ test('theme exposes School SLOGI tokens, readable scale, and responsive shell ru
   assert.match(css,/@media\(max-width:600px\)/);
   assert.match(css,/overflow-x:clip!important/);
   assert.match(css,/\.kp-page[\s\S]*font-family:Arial/);
+});
+
+test('desktop product labels are vertically centered in the shared header',()=>{
+  const css=read(themeName);
+  assert.match(css,/\.slogi-search-page \.site-header \.top>\.pro-nav \.pro-nav-inner\{[\s\S]*height:100%!important;[\s\S]*align-items:center!important;/);
+  assert.match(css,/\.slogi-search-page \.site-header \.pro-product-nav\{[\s\S]*height:100%!important;[\s\S]*align-items:center!important;[\s\S]*align-self:center!important;/);
 });
 
 test('after screenshots cover six states on desktop and mobile',()=>{
