@@ -3,12 +3,14 @@
 
   const cfg=(window.SLOGI_PHASE0_CONFIG&&window.SLOGI_PHASE0_CONFIG.listingSearch)||{};
   const feed=window.SlogiCianFeed;
+  const mapData=window.SlogiCianMapData;
   if(!feed)throw new Error('cian_listing_feed_unavailable');
+  if(!mapData)throw new Error('cian_map_data_unavailable');
   const DAY=24*60*60*1000;
   const MAX_FRESH_DAYS=30;
   const $=id=>document.getElementById(id);
   const fields={cluster:$('available-cluster'),areaMin:$('available-area-min'),areaMax:$('available-area-max'),rentMin:$('available-rent-min'),rentMax:$('available-rent-max'),sqmMin:$('available-sqm-min'),sqmMax:$('available-sqm-max'),days:$('available-date'),sort:$('available-sort')};
-  const nodes={button:$('available-search'),reset:$('available-reset'),count:$('available-count'),updated:$('available-last-update'),source:$('cian-source-state'),badge:$('cian-source-badge'),summary:$('available-summary'),loading:$('available-loading'),list:$('available-list'),empty:$('available-empty'),map:$('cian-map'),mapLoading:$('cian-map-loading'),mapMessage:$('cian-map-message'),mapCount:$('cian-map-count'),clusterToggle:$('cian-clusters-toggle'),dialog:$('cian-listing-dialog'),dialogContent:$('cian-dialog-content')};
+  const nodes={button:$('available-search'),reset:$('available-reset'),count:$('available-count'),updated:$('available-last-update'),source:$('cian-source-state'),badge:$('cian-source-badge'),summary:$('available-summary'),loading:$('available-loading'),list:$('available-list'),empty:$('available-empty'),map:$('cian-map'),mapLoading:$('cian-map-loading'),mapMessage:$('cian-map-message'),mapCount:$('cian-map-count'),mapMissing:$('cian-map-missing'),mapFailed:$('cian-map-failed'),mapPending:$('cian-map-pending'),clusterToggle:$('cian-clusters-toggle'),dialog:$('cian-listing-dialog'),dialogContent:$('cian-dialog-content')};
   let all=[];
   let visible=[];
   let loading=false;
@@ -23,14 +25,17 @@
   let loadPartial=false;
   let serverTotal=null;
   let loadedPages=0;
+  let activeLoadController=null;
+  let loadGeneration=0;
+  const geocodeCache=(()=>{try{return mapData.createAddressCache(window.localStorage);}catch(_error){return mapData.createAddressCache(null);}})();
 
   const esc=value=>String(value==null?'':value).replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
-  const number=value=>{const parsed=Number(value);return Number.isFinite(parsed)?parsed:null;};
+  const number=value=>{if(value==null||String(value).trim()==='')return null;const parsed=Number(value);return Number.isFinite(parsed)?parsed:null;};
   const inputNumber=input=>{const raw=String(input&&input.value||'').trim();return raw===''?null:number(raw);};
   const money=value=>value==null?'Нет данных':Math.round(value).toLocaleString('ru-RU')+' ₽';
   const area=value=>value==null?'Нет данных':Number(value).toLocaleString('ru-RU',{maximumFractionDigits:1})+' м²';
   const formatDate=value=>{const date=new Date(value||'');return Number.isNaN(date.getTime())?'Нет данных':date.toLocaleDateString('ru-RU',{day:'2-digit',month:'long',year:'numeric'});};
-  const freshnessId=item=>String(item.externalId||item.listingUrl||'');
+  const freshnessId=item=>mapData.listingId(item);
   const clusterService=()=>window.SlogiPhase0&&window.SlogiPhase0.clusterService||null;
   const phase0Service=()=>window.SlogiPhase0&&window.SlogiPhase0.phase0Service||null;
 
@@ -49,12 +54,10 @@
     const age=now-time;
     return age>=0&&age<=Number(days)*DAY;
   }
-  function canonicalClusterFor(value){
-    const service=clusterService();if(!service)return null;
-    const latitude=number(value&&value.latitude),longitude=number(value&&value.longitude);
-    if(latitude!=null&&longitude!=null){const match=service.findByCoordinates(latitude,longitude);if(match)return match;}
-    const stated=String(value&&value.clusterName||value&&value.cluster_name||'').trim();
-    return stated?service.find(stated):null;
+  function canonicalClusterState(value){
+    const service=clusterService(),geo=mapData.coordinates(value);if(!geo||!service||typeof service.findByCoordinates!=='function')return mapData.clusterState(value,service);
+    const match=service.findByCoordinates(geo.latitude,geo.longitude);
+    return match?{clusterId:String(match.id||''),clusterName:String(match.name||''),clusterStatus:'inside',clusterBoundary:match.boundary===true}:{clusterId:'',clusterName:'',clusterStatus:'outside',clusterBoundary:false};
   }
   function normalize(raw){
     const areaValue=number(raw.area);
@@ -63,15 +66,15 @@
     const item={
       source:String(raw.source||''),listingUrl:safeCianUrl(raw.listingUrl||raw.listing_url),externalId:String(raw.externalId||raw.external_id||''),title:String(raw.title||''),address:String(raw.address||''),description:String(raw.description||''),
       latitude:number(raw.latitude),longitude:number(raw.longitude),area:areaValue,rentMonthly:rent,pricePerSquareMeter:price,floor:number(raw.floor),totalFloors:number(raw.totalFloors??raw.total_floors),ceilingHeight:number(raw.ceilingHeight??raw.ceiling_height),
-      freshnessAt:String(raw.freshnessAt||raw.freshness_at||''),freshnessKind:String(raw.freshnessKind||raw.freshness_kind||''),publishedAt:String(raw.publishedAt||raw.published_at||''),sourceUpdatedAt:String(raw.sourceUpdatedAt||raw.source_updated_at||''),marketStatus:String(raw.marketStatus||raw.market_status||'active'),clusterId:'',clusterName:'',parseCompleteness:number(raw.parseCompleteness??raw.parse_completeness)||0,parseWarnings:Array.isArray(raw.parseWarnings)?raw.parseWarnings.map(String):[]
+      freshnessAt:String(raw.freshnessAt||raw.freshness_at||''),freshnessKind:String(raw.freshnessKind||raw.freshness_kind||''),publishedAt:String(raw.publishedAt||raw.published_at||''),sourceUpdatedAt:String(raw.sourceUpdatedAt||raw.source_updated_at||''),marketStatus:String(raw.marketStatus||raw.market_status||'active'),clusterId:'',clusterName:'',clusterStatus:'not_computed',clusterBoundary:false,coordinateSource:'',geocodeStatus:'',geocodeAttempts:0,geocodeDiagnostic:'',parseCompleteness:number(raw.parseCompleteness??raw.parse_completeness)||0,parseWarnings:Array.isArray(raw.parseWarnings)?raw.parseWarnings.map(String):[]
     };
-    const canonical=canonicalClusterFor(Object.assign({},raw,item));if(canonical){item.clusterId=canonical.id;item.clusterName=canonical.name;}
+    Object.assign(item,canonicalClusterState(item));if(mapData.coordinates(item)){item.coordinateSource='stored';item.geocodeStatus='stored';}
     return item;
   }
   function criteria(){return{cluster:String(fields.cluster.value||''),areaMin:inputNumber(fields.areaMin),areaMax:inputNumber(fields.areaMax),rentMin:inputNumber(fields.rentMin),rentMax:inputNumber(fields.rentMax),sqmMin:inputNumber(fields.sqmMin),sqmMax:inputNumber(fields.sqmMax),days:Number(fields.days.value)||MAX_FRESH_DAYS,sort:String(fields.sort.value||'freshness-desc')};}
   function populateClusters(){
     const current=fields.cluster.value,items=clusterService()&&clusterService().list()||[];
-    fields.cluster.innerHTML='<option value="">Все кластеры</option>'+items.map(item=>`<option value="${esc(item.id)}">${esc(item.name)}</option>`).join('')+'<option value="__unassigned">Кластер не определён</option>';
+    fields.cluster.innerHTML='<option value="">Все кластеры</option>'+items.map(item=>`<option value="${esc(item.id)}">${esc(item.name)}</option>`).join('')+'<option value="__outside">Вне кластеров</option><option value="__unresolved">Кластер не определён (нет координат)</option>';
     if(Array.from(fields.cluster.options).some(option=>option.value===current))fields.cluster.value=current;
   }
 
@@ -81,12 +84,19 @@
     render();focusSelectedCluster(c.cluster);
   }
 
+  function clusterLabel(item){
+    if(item.clusterStatus==='inside')return item.clusterName||'Кластер рассчитан';
+    if(item.clusterStatus==='outside')return'Вне кластеров';
+    if(item.geocodeStatus==='pending')return'Кластер рассчитывается';
+    return'Кластер не определён: нет координат';
+  }
+
   function card(item){
     const id=esc(freshnessId(item));
     const title=esc(item.title||item.address||'Коммерческое помещение');
     const dateLabel=item.freshnessKind==='published'?'Опубликовано':'Обновлено';
     const existing=existingProject(item),projectId=existing&&existing.id||'';
-    return`<article class="cian-listing-card ${selectedListingId===freshnessId(item)?'selected':''}" data-listing-card="${id}"><button class="cian-card-open" type="button" data-listing-id="${id}" aria-label="Открыть объявление ${title}"><div class="cian-card-main"><div class="cian-card-top"><span class="cian-badge">ЦИАН</span><span class="cian-badge cluster">${esc(item.clusterName||'Кластер не определён')}</span><span class="cian-badge fresh">${dateLabel} ${esc(formatDate(item.freshnessAt))}</span></div><h3>${title}</h3><p class="cian-address">${esc(item.address||'Адрес не опубликован')}</p><div class="cian-card-metrics"><span>${esc(area(item.area))}</span><span>${item.floor==null?'Этаж не указан':esc('Этаж '+item.floor+(item.totalFloors?' из '+item.totalFloors:''))}</span><span>${item.ceilingHeight==null?'Высота не указана':esc('Потолки '+item.ceilingHeight+' м')}</span></div></div><div class="cian-card-price"><strong>${esc(money(item.rentMonthly))}</strong><span>${item.pricePerSquareMeter==null?'Цена за м² не указана':esc(money(item.pricePerSquareMeter)+' / м²')}</span></div></button><div class="cian-card-actions"><button class="cian-button cian-add-object" type="button" data-add-listing="${id}" ${existing?'disabled':''}>${existing?'Добавлено':'Добавить объект'}</button>${existing?`<a href="index.html?location=${encodeURIComponent(projectId)}">Открыть в «Моих помещениях»</a>`:''}</div></article>`;
+    return`<article class="cian-listing-card ${selectedListingId===freshnessId(item)?'selected':''}" data-listing-card="${id}"><button class="cian-card-open" type="button" data-listing-id="${id}" aria-label="Открыть объявление ${title}"><div class="cian-card-main"><div class="cian-card-top"><span class="cian-badge">ЦИАН</span><span class="cian-badge cluster">${esc(clusterLabel(item))}</span><span class="cian-badge fresh">${dateLabel} ${esc(formatDate(item.freshnessAt))}</span></div><h3>${title}</h3><p class="cian-address">${esc(item.address||'Адрес не опубликован')}</p><div class="cian-card-metrics"><span>${esc(area(item.area))}</span><span>${item.floor==null?'Этаж не указан':esc('Этаж '+item.floor+(item.totalFloors?' из '+item.totalFloors:''))}</span><span>${item.ceilingHeight==null?'Высота не указана':esc('Потолки '+item.ceilingHeight+' м')}</span></div></div><div class="cian-card-price"><strong>${esc(money(item.rentMonthly))}</strong><span>${item.pricePerSquareMeter==null?'Цена за м² не указана':esc(money(item.pricePerSquareMeter)+' / м²')}</span></div></button><div class="cian-card-actions"><button class="cian-button cian-add-object" type="button" data-add-listing="${id}" ${existing?'disabled':''}>${existing?'Добавлено':'Добавить объект'}</button>${existing?`<a href="index.html?location=${encodeURIComponent(projectId)}">Открыть в «Моих помещениях»</a>`:''}</div></article>`;
   }
   function render(){
     nodes.loading.hidden=true;
@@ -100,9 +110,6 @@
     }
     nodes.list.hidden=visible.length===0;
     nodes.list.innerHTML=visible.map(card).join('');
-    nodes.list.querySelectorAll('[data-listing-id]').forEach(button=>button.addEventListener('click',()=>{selectListing(button.dataset.listingId);openListing(button.dataset.listingId,button)}));
-    nodes.list.querySelectorAll('[data-add-listing]').forEach(button=>button.addEventListener('click',()=>addListing(button.dataset.addListing,button)));
-    nodes.list.querySelectorAll('[data-listing-card]').forEach(cardNode=>{cardNode.addEventListener('mouseenter',()=>selectListing(cardNode.dataset.listingCard,{center:false}));cardNode.addEventListener('focusin',()=>selectListing(cardNode.dataset.listingCard,{center:false}));});
     updateMap();
   }
   function existingProject(item){const service=phase0Service();return service&&typeof service.findListingProject==='function'?service.findListingProject(item):null;}
@@ -129,7 +136,7 @@
     lastFocused=trigger||document.activeElement;
     const existing=existingProject(item),already=Boolean(existing);
     const url=safeCianUrl(item.listingUrl);
-    nodes.dialogContent.innerHTML=`<div class="cian-dialog-body"><div class="cian-dialog-head"><div><p class="cian-eyebrow">ЦИАН · ${esc(item.externalId||'объявление')}</p><h2 id="cian-dialog-title">${esc(item.title||'Коммерческое помещение')}</h2></div><button class="cian-dialog-close" type="button" aria-label="Закрыть">×</button></div><p class="cian-dialog-address">${esc(item.address||'Адрес не опубликован')}</p><div class="cian-dialog-grid"><div><span>Кластер</span><strong>${esc(item.clusterName||'Кластер не определён')}</strong></div><div><span>Площадь</span><strong>${esc(area(item.area))}</strong></div><div><span>Аренда в месяц</span><strong>${esc(money(item.rentMonthly))}</strong></div><div><span>Цена за м²</span><strong>${esc(item.pricePerSquareMeter==null?'Нет данных':money(item.pricePerSquareMeter))}</strong></div><div><span>${item.freshnessKind==='published'?'Опубликовано':'Обновлено'}</span><strong>${esc(formatDate(item.freshnessAt))}</strong></div></div>${item.description?`<p class="cian-dialog-description">${esc(item.description)}</p>`:''}<div class="cian-dialog-actions"><button class="cian-button" type="button" data-add-dialog ${already?'disabled':''}>${already?'Добавлено':'Добавить объект'}</button>${already?`<a class="cian-dialog-link" href="index.html?location=${encodeURIComponent(existing.id)}">Открыть в «Моих помещениях»</a>`:''}${url?`<a class="cian-dialog-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Открыть на ЦИАН</a>`:''}</div></div>`;
+    nodes.dialogContent.innerHTML=`<div class="cian-dialog-body"><div class="cian-dialog-head"><div><p class="cian-eyebrow">ЦИАН · ${esc(item.externalId||'объявление')}</p><h2 id="cian-dialog-title">${esc(item.title||'Коммерческое помещение')}</h2></div><button class="cian-dialog-close" type="button" aria-label="Закрыть">×</button></div><p class="cian-dialog-address">${esc(item.address||'Адрес не опубликован')}</p><div class="cian-dialog-grid"><div><span>Кластер</span><strong>${esc(clusterLabel(item))}</strong></div><div><span>Площадь</span><strong>${esc(area(item.area))}</strong></div><div><span>Аренда в месяц</span><strong>${esc(money(item.rentMonthly))}</strong></div><div><span>Цена за м²</span><strong>${esc(item.pricePerSquareMeter==null?'Нет данных':money(item.pricePerSquareMeter))}</strong></div><div><span>${item.freshnessKind==='published'?'Опубликовано':'Обновлено'}</span><strong>${esc(formatDate(item.freshnessAt))}</strong></div></div>${item.description?`<p class="cian-dialog-description">${esc(item.description)}</p>`:''}<div class="cian-dialog-actions"><button class="cian-button" type="button" data-add-dialog ${already?'disabled':''}>${already?'Добавлено':'Добавить объект'}</button>${already?`<a class="cian-dialog-link" href="index.html?location=${encodeURIComponent(existing.id)}">Открыть в «Моих помещениях»</a>`:''}${url?`<a class="cian-dialog-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Открыть на ЦИАН</a>`:''}</div></div>`;
     nodes.dialogContent.querySelector('.cian-dialog-close').addEventListener('click',()=>nodes.dialog.close());
     const add=nodes.dialogContent.querySelector('[data-add-dialog]');if(add&&!already)add.addEventListener('click',async()=>{await addListing(id,add);if(nodes.dialog.open)nodes.dialog.close();});
     nodes.dialog.showModal();
@@ -156,32 +163,55 @@
     nodes.updated.textContent=last?formatDate(last):'Нет данных';
   }
 
+  async function fetchListingPage(endpoint,token,request,signal){
+    const controller=new AbortController();let timedOut=false;
+    const timeout=setTimeout(()=>{timedOut=true;controller.abort();},Math.max(1000,Number(cfg.timeoutMs)||30000));
+    const abort=()=>controller.abort();signal&&signal.addEventListener('abort',abort,{once:true});
+    try{
+      const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'X-Slogi-Client':'cian-workspace'},body:JSON.stringify(request),signal:controller.signal});
+      const payload=await response.json().catch(()=>null);
+      if(!response.ok)throw new Error(payload&&payload.error||'listing_search_failed');
+      return{items:(Array.isArray(payload&&payload.items)?payload.items:[]).map(normalize).filter(item=>isRecent(item,MAX_FRESH_DAYS)),meta:payload&&payload.meta};
+    }catch(error){if(timedOut){const timeoutError=new Error('listing_page_timeout');timeoutError.code='listing_page_timeout';throw timeoutError;}throw error;}
+    finally{clearTimeout(timeout);signal&&signal.removeEventListener('abort',abort);}
+  }
+
   async function loadListings(){
-    if(loading)return;
+    const generation=++loadGeneration;
+    if(activeLoadController)activeLoadController.abort();
+    const controller=new AbortController();activeLoadController=controller;
     loading=true;nodes.button.disabled=true;nodes.loading.hidden=false;nodes.empty.hidden=true;nodes.summary.textContent='Читаем сохранённые предложения…';
-    const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),Number(cfg.timeoutMs)||30000);
     try{
       const endpoint=String(cfg.endpoint||'');if(!endpoint)throw new Error('listing_search_unavailable');
       const token=await window.SlogiCloud.getAccessToken();
       const pageSize=Math.max(1,Math.min(100,Math.trunc(Number(cfg.limit)||100)));
       const loaded=await feed.loadAllPages(async({page,limit,snapshotAt})=>{
         const request={sources:['cian'],page,limit};if(snapshotAt)request.snapshotAt=snapshotAt;
-        const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'X-Slogi-Client':'cian-workspace'},body:JSON.stringify(request),signal:controller.signal});
-        const payload=await response.json().catch(()=>null);
-        if(!response.ok)throw new Error(payload&&payload.error||'listing_search_failed');
-        return{items:(Array.isArray(payload&&payload.items)?payload.items:[]).map(normalize).filter(item=>isRecent(item,MAX_FRESH_DAYS)),meta:payload&&payload.meta};
-      },{limit:pageSize});
+        return fetchListingPage(endpoint,token,request,controller.signal);
+      },{limit:pageSize,signal:controller.signal});
+      if(generation!==loadGeneration||controller.signal.aborted)return;
       all=loaded.items;loadPartial=loaded.partial;serverTotal=loaded.serverTotal;loadedPages=loaded.pages;
       setSource(loaded.meta);
       if(loadPartial){nodes.badge.textContent='Частично';nodes.badge.dataset.state='partial';}
       applyFilters();
+      const geocodingCfg=window.SLOGI_PHASE0_CONFIG&&window.SLOGI_PHASE0_CONFIG.geocoding||{};
+      let geocode=null;try{geocode=mapData.createServerGeocoder({endpoint:geocodingCfg.endpoint,token,timeoutMs:Number(geocodingCfg.timeoutMs)||12000,maxAttempts:3});}catch(_error){geocode=null;}
+      await mapData.geocodeMissingListings(all,{geocode,clusterService:clusterService(),cache:geocodeCache,signal:controller.signal,concurrency:2,onProgress:progress=>{
+        if(generation!==loadGeneration||controller.signal.aborted)return;
+        if(progress.completed===progress.total||progress.completed%5===0)applyFilters();
+        else updateMapStats(progress.projection);
+      }});
+      if(generation!==loadGeneration||controller.signal.aborted)return;
+      applyFilters();
     }catch(error){
+      if(error&&error.name==='AbortError')return;
+      if(generation!==loadGeneration)return;
       all=[];visible=[];loadPartial=false;serverTotal=null;loadedPages=0;render();
       nodes.summary.textContent='Сохранённые предложения временно недоступны.';
       nodes.source.textContent=error&&error.name==='AbortError'?'Чтение заняло слишком много времени.':'Не удалось прочитать сохранённую базу.';
       nodes.badge.textContent='Недоступно';nodes.badge.dataset.state='error';
       nodes.empty.hidden=false;nodes.empty.querySelector('h3').textContent='Не удалось загрузить предложения';nodes.empty.querySelector('p').textContent='Повторите чтение позже. Внешний сбор объявлений с этой страницы не запускается.';
-    }finally{clearTimeout(timer);loading=false;nodes.button.disabled=false;nodes.loading.hidden=true;}
+    }finally{if(generation===loadGeneration){activeLoadController=null;loading=false;nodes.button.disabled=false;nodes.loading.hidden=true;}}
   }
 
   function loadYandex(){
@@ -190,9 +220,10 @@
       const key=String(window.SLOGI_CONFIG&&window.SLOGI_CONFIG.yandexMapsApiKey||'');
       const script=document.createElement('script');
       script.src='https://api-maps.yandex.ru/2.1/?lang=ru_RU'+(key?'&apikey='+encodeURIComponent(key):'');
-      script.async=true;script.onload=()=>window.ymaps.ready(resolve);script.onerror=()=>reject(new Error('map_api_unavailable'));
+      let settled=false;const finish=callback=>{if(settled)return;settled=true;clearTimeout(timer);script.onload=null;script.onerror=null;callback();};
+      script.async=true;script.onload=()=>finish(()=>window.ymaps.ready(resolve));script.onerror=()=>finish(()=>reject(new Error('map_api_unavailable')));
       document.head.appendChild(script);
-      setTimeout(()=>reject(new Error('map_api_timeout')),15000);
+      const timer=setTimeout(()=>finish(()=>reject(new Error('map_api_timeout'))),15000);
     });
   }
   function featureCoords(feature){const geometry=feature&&feature.geometry||{},convert=ring=>ring.map(point=>[point[1],point[0]]);if(geometry.type==='Polygon')return geometry.coordinates.map(convert);if(geometry.type==='MultiPolygon')return geometry.coordinates.map(poly=>poly.map(convert));return null;}
@@ -227,26 +258,44 @@
       updateMap();
     }catch(_error){nodes.mapLoading.textContent='Карта временно недоступна';nodes.mapMessage.textContent='Список предложений продолжает работать.';}
   }
+  function updateMapStats(state=mapData.projection(visible)){
+    const total=state.listings.length;
+    nodes.mapCount.textContent=`${state.markerCount} из ${total} на карте`;
+    nodes.mapMissing.textContent=`Без координат: ${state.withoutCoordinatesCount}`;
+    nodes.mapFailed.textContent=`Не прошли геокодирование: ${state.geocodeFailedCount}`;
+    nodes.mapPending.textContent=`Ожидают геокодирования: ${state.geocodePendingCount}`;
+    if(state.withoutCoordinatesCount)nodes.mapMessage.textContent=`На карте ${state.markerCount} объектов. Ещё ${state.withoutCoordinatesCount} без координат остаются в списке.`;
+    else nodes.mapMessage.textContent='Все отфильтрованные объекты с координатами показаны; близкие маркеры объединяются визуально.';
+  }
   function updateMap(){
+    const state=mapData.projection(visible);updateMapStats(state);
     if(!map||!clusterer)return;
+    markerById.forEach(marker=>marker&&marker.events&&typeof marker.events.removeAll==='function'&&marker.events.removeAll());
     clusterer.removeAll();markerById=new Map();
-    const points=visible.filter(item=>Number.isFinite(item.latitude)&&Number.isFinite(item.longitude));
+    const points=state.markers;
     const markers=points.map(item=>{
-      const marker=new window.ymaps.Placemark([item.latitude,item.longitude],{hintContent:item.address||item.title||'Объявление ЦИАН',balloonContent:`<div class="cian-balloon"><strong>${esc(item.title||item.address||'Помещение')}</strong><span>${esc(item.address||'Адрес не указан')}</span><span>${esc(item.clusterName||'Кластер не определён')}</span><span>${esc(area(item.area))} · ${esc(money(item.rentMonthly))}</span></div>`},{preset:selectedListingId===freshnessId(item)?'islands#orangeDotIcon':'islands#darkGreenDotIcon'});
-      marker.events.add('click',()=>{const button=nodes.list.querySelector(`[data-listing-id="${CSS.escape(freshnessId(item))}"]`);selectListing(freshnessId(item),{center:false});button?.scrollIntoView({behavior:'smooth',block:'center'});openListing(freshnessId(item),button);});
+      const marker=new window.ymaps.Placemark([item.latitude,item.longitude],{hintContent:item.address||item.title||'Объявление ЦИАН',balloonContent:`<div class="cian-balloon"><strong>${esc(item.title||item.address||'Помещение')}</strong><span>${esc(item.address||'Адрес не указан')}</span><span>${esc(clusterLabel(item))}</span><span>${esc(area(item.area))} · ${esc(money(item.rentMonthly))}</span></div>`},{preset:selectedListingId===freshnessId(item)?'islands#orangeDotIcon':'islands#darkGreenDotIcon'});
+      marker.events.add('click',()=>{const button=nodes.list.querySelector(`[data-listing-id="${CSS.escape(freshnessId(item))}"]`);selectListing(freshnessId(item),{center:false});button?.scrollIntoView({behavior:'smooth',block:'center'});});
       markerById.set(freshnessId(item),marker);return marker;
     });
-    clusterer.add(markers);nodes.mapCount.textContent=`${markers.length} ${markers.length===1?'точка':markers.length>1&&markers.length<5?'точки':'точек'}`;
-    if(markers.length&&!fields.cluster.value)map.setBounds(clusterer.getBounds(),{checkZoomRange:true,zoomMargin:50}).catch(()=>{});stylePolygons();
+    clusterer.add(markers);
+    const bounds=markers.length&&clusterer.getBounds();if(bounds&&!fields.cluster.value)map.setBounds(bounds,{checkZoomRange:true,zoomMargin:50}).catch(()=>{});stylePolygons();
   }
 
   function resetFilters(){Object.values(fields).forEach(field=>{if(field.tagName==='SELECT')field.selectedIndex=0;else field.value='';});selectedListingId='';applyFilters();}
   function bind(){
     nodes.button.addEventListener('click',loadListings);nodes.reset.addEventListener('click',resetFilters);
     Object.values(fields).forEach(field=>field.addEventListener(field.tagName==='INPUT'?'input':'change',applyFilters));
+    nodes.list.addEventListener('click',event=>{
+      const add=event.target.closest('[data-add-listing]');if(add){addListing(add.dataset.addListing,add);return;}
+      const button=event.target.closest('[data-listing-id]');if(button){selectListing(button.dataset.listingId);openListing(button.dataset.listingId,button);}
+    });
+    nodes.list.addEventListener('mouseover',event=>{const cardNode=event.target.closest('[data-listing-card]');if(cardNode&&!cardNode.contains(event.relatedTarget))selectListing(cardNode.dataset.listingCard,{center:false});});
+    nodes.list.addEventListener('focusin',event=>{const cardNode=event.target.closest('[data-listing-card]');if(cardNode)selectListing(cardNode.dataset.listingCard,{center:false});});
     nodes.clusterToggle.addEventListener('click',()=>{clustersVisible=!clustersVisible;nodes.clusterToggle.setAttribute('aria-pressed',String(clustersVisible));nodes.clusterToggle.textContent=clustersVisible?'Скрыть кластеры':'Показать кластеры';stylePolygons();});
     nodes.dialog.addEventListener('keydown',trapDialogFocus);
     nodes.dialog.addEventListener('close',()=>{if(lastFocused&&document.contains(lastFocused))lastFocused.focus();lastFocused=null;});
+    window.addEventListener('pagehide',()=>{activeLoadController&&activeLoadController.abort();markerById.forEach(marker=>marker&&marker.events&&typeof marker.events.removeAll==='function'&&marker.events.removeAll());},{once:true});
   }
   function init(){if(initialized)return;initialized=true;populateClusters();bind();initMap();loadListings();window.addEventListener('slogi:locations-updated',render);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();

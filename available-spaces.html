@@ -11,7 +11,7 @@
   <link href="layout-v76-1-1.css?v=7611" rel="stylesheet"/>
   <link href="objects-visual-standard.css?v=33" rel="stylesheet"/>
   <link href="phase0.css?v=68" rel="stylesheet"/>
-  <link href="cian-workspace.css?v=761" rel="stylesheet"/>
+  <link href="cian-workspace.css?v=7617" rel="stylesheet"/>
 <link href="schoolslogi-theme-v76-1-5.css?v=76171" rel="stylesheet"/></head>
 <body class="slogi-search-page available-spaces-page">
 <header class="site-header"><div class="top"><div class="brand"><a class="logo-link" href="index.html" aria-label="СЛОГИ — главная"><div class="logo-word" aria-hidden="true"><span>С</span><span>Л</span><span>О</span><span>Г</span><span>И</span></div></a></div></div></header>
@@ -36,7 +36,7 @@
   <section class="cian-filter-card" aria-labelledby="available-filter-title">
     <div class="cian-section-heading"><div><p class="cian-eyebrow">Отбор</p><h2 id="available-filter-title">Фильтры предложений</h2></div><button id="available-reset" class="cian-text-button" type="button">Сбросить</button></div>
     <div class="cian-filters">
-      <label class="wide"><span>Кластер</span><select id="available-cluster" aria-label="Кластер"><option value="">Все кластеры</option><option value="__unassigned">Кластер не определён</option></select></label>
+      <label class="wide"><span>Кластер</span><select id="available-cluster" aria-label="Кластер"><option value="">Все кластеры</option><option value="__outside">Вне кластеров</option><option value="__unresolved">Кластер не определён (нет координат)</option></select></label>
       <fieldset><legend>Площадь, м²</legend><input id="available-area-min" type="number" min="0" step="1" placeholder="От" aria-label="Минимальная площадь"/><input id="available-area-max" type="number" min="0" step="1" placeholder="До" aria-label="Максимальная площадь"/></fieldset>
       <fieldset><legend>Аренда в месяц, ₽</legend><input id="available-rent-min" type="number" min="0" step="1000" placeholder="От" aria-label="Минимальная аренда"/><input id="available-rent-max" type="number" min="0" step="1000" placeholder="До" aria-label="Максимальная аренда"/></fieldset>
       <fieldset><legend>Цена за м², ₽</legend><input id="available-sqm-min" type="number" min="0" step="100" placeholder="От" aria-label="Минимальная цена за квадратный метр"/><input id="available-sqm-max" type="number" min="0" step="100" placeholder="До" aria-label="Максимальная цена за квадратный метр"/></fieldset>
@@ -55,6 +55,7 @@
     <aside class="cian-map-card" aria-labelledby="cian-map-title">
       <div class="cian-section-heading"><div><p class="cian-eyebrow">Расположение</p><h2 id="cian-map-title">Карта предложений</h2></div><span class="cian-map-count" id="cian-map-count">0 точек</span></div>
       <div class="cian-map-toolbar"><button class="cian-map-toggle" id="cian-clusters-toggle" type="button" aria-pressed="true">Скрыть кластеры</button></div>
+      <div class="cian-map-stats" aria-live="polite"><span id="cian-map-missing">Без координат: 0</span><span id="cian-map-failed">Не прошли геокодирование: 0</span><span id="cian-map-pending">Ожидают геокодирования: 0</span></div>
       <div id="cian-map" class="cian-map" tabindex="0" aria-label="Карта объявлений ЦИАН"></div>
       <div id="cian-map-loading" class="cian-map-overlay" role="status">Загружаем карту…</div>
       <p id="cian-map-message">Объявления без координат остаются в списке.</p>
@@ -65,6 +66,6 @@
 <dialog class="cian-dialog" id="cian-listing-dialog" aria-labelledby="cian-dialog-title"><div id="cian-dialog-content"></div></dialog>
 <div id="available-toast" class="phase0-toast" role="status" aria-live="polite"></div>
 
-<script src="professional-core.js?v=31"></script><script src="workflow-storage.js?v=31"></script><script src="professional-shell.js?v=76171"></script><script src="yandex-map-config.js?v=62"></script><script src="clusters-data.js?v=31"></script><script src="phase0-config.js?v=7615"></script><script src="phase0-services.js?v=7611"></script><script src="shared-workspace.js?v=7615"></script><script src="cian-listing-feed.js?v=7616"></script><script src="cian-workspace.js?v=7616"></script>
+<script src="professional-core.js?v=31"></script><script src="workflow-storage.js?v=31"></script><script src="professional-shell.js?v=76171"></script><script src="yandex-map-config.js?v=62"></script><script src="clusters-data.js?v=31"></script><script src="cluster-geometry.js?v=7617"></script><script src="phase0-config.js?v=7615"></script><script src="phase0-services.js?v=7617"></script><script src="shared-workspace.js?v=7615"></script><script src="cian-listing-feed.js?v=7617"></script><script src="cian-map-data.js?v=7617"></script><script src="cian-workspace.js?v=7617"></script>
 </body>
 </html>

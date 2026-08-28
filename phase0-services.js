@@ -177,19 +177,21 @@ class FileService{
 
 class ClusterService{
   features(){return(window.SLOGI_CLUSTERS_GEOJSON&&Array.isArray(window.SLOGI_CLUSTERS_GEOJSON.features))?window.SLOGI_CLUSTERS_GEOJSON.features:[]}
-  idOf(feature){return String(feature&&feature.properties&&(feature.properties.id||feature.properties.clusterId||feature.properties.name)||'')}
-  nameOf(feature){return String(feature&&feature.properties&&feature.properties.name||'')}
+  geometry(){return window.SlogiClusterGeometry||null}
+  collection(){return{type:'FeatureCollection',features:this.features()}}
+  idOf(feature){const geometry=this.geometry();return geometry?geometry.idOf(feature):String(feature&&feature.properties&&(feature.properties.id||feature.properties.clusterId||feature.properties.name)||'')}
+  nameOf(feature){const geometry=this.geometry();return geometry?geometry.nameOf(feature):String(feature&&feature.properties&&feature.properties.name||'')}
   list(){return this.features().map(feature=>({id:this.idOf(feature),name:this.nameOf(feature),feature})).filter(x=>x.id&&x.name).sort((a,b)=>a.name.localeCompare(b.name,'ru'))}
-  pointInRing(point,ring){let inside=false;const x=point[0],y=point[1];for(let i=0,j=ring.length-1;i<ring.length;j=i++){
-    const xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];const intersects=((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/((yj-yi)||Number.EPSILON)+xi);if(intersects)inside=!inside;
-  }return inside}
-  pointInPolygon(point,polygon){if(!polygon||!polygon.length||!this.pointInRing(point,polygon[0]))return false;for(let i=1;i<polygon.length;i++)if(this.pointInRing(point,polygon[i]))return false;return true}
+  pointInRing(point,ring){const geometry=this.geometry();if(geometry)return geometry.ringPosition(point,ring)!=='outside';let inside=false;const x=point[0],y=point[1];for(let i=0,j=ring.length-1;i<ring.length;j=i++){const xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];const intersects=((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/((yj-yi)||Number.EPSILON)+xi);if(intersects)inside=!inside;}return inside}
+  pointInPolygon(point,polygon){const geometry=this.geometry();if(geometry)return geometry.polygonPosition(point,polygon)!=='outside';if(!polygon||!polygon.length||!this.pointInRing(point,polygon[0]))return false;for(let i=1;i<polygon.length;i++)if(this.pointInRing(point,polygon[i]))return false;return true}
   contains(feature,geo){const g=normalizeGeo(geo);if(!g||!feature||!feature.geometry)return false;const point=[g.lng,g.lat],geometry=feature.geometry;
+    const service=this.geometry();if(service)return['inside','boundary'].includes(service.featurePosition(feature,g.lat,g.lng));
     if(geometry.type==='Polygon')return this.pointInPolygon(point,geometry.coordinates);
     if(geometry.type==='MultiPolygon')return geometry.coordinates.some(poly=>this.pointInPolygon(point,poly));
     return false;
   }
-  findByCoordinates(lat,lng){const geo=normalizeGeo({lat,lng});if(!geo)return null;const feature=this.features().find(item=>this.contains(item,geo));return feature?{id:this.idOf(feature),name:this.nameOf(feature),feature}:null}
+  locate(lat,lng){const geo=normalizeGeo({lat,lng});if(!geo)return{status:'invalid',clusterId:'',clusterName:'',boundary:false,feature:null};const geometry=this.geometry();if(geometry)return geometry.locate(this.collection(),geo.lat,geo.lng);const feature=this.features().find(item=>this.contains(item,geo));return feature?{status:'inside',clusterId:this.idOf(feature),clusterName:this.nameOf(feature),boundary:false,feature}:{status:'outside',clusterId:'',clusterName:'',boundary:false,feature:null}}
+  findByCoordinates(lat,lng){const located=this.locate(lat,lng);return located.status==='inside'?{id:located.clusterId,name:located.clusterName,feature:located.feature,boundary:located.boundary===true}:null}
   pointSegmentMeters(point,a,b){const lat0=point[1]*Math.PI/180,scaleX=111320*Math.cos(lat0),scaleY=110540;const px=point[0]*scaleX,py=point[1]*scaleY,ax=a[0]*scaleX,ay=a[1]*scaleY,bx=b[0]*scaleX,by=b[1]*scaleY,dx=bx-ax,dy=by-ay;const denom=dx*dx+dy*dy;const t=denom?Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/denom)):0;return Math.hypot(px-(ax+t*dx),py-(ay+t*dy))}
   distanceToFeatureMeters(feature,geo){const g=normalizeGeo(geo);if(!g||!feature||!feature.geometry)return Infinity;if(this.contains(feature,g))return 0;const point=[g.lng,g.lat],geometry=feature.geometry,polys=geometry.type==='Polygon'?[geometry.coordinates]:geometry.type==='MultiPolygon'?geometry.coordinates:[];let best=Infinity;polys.forEach(poly=>poly.forEach(ring=>{for(let i=1;i<ring.length;i++)best=Math.min(best,this.pointSegmentMeters(point,ring[i-1],ring[i]));if(ring.length>2)best=Math.min(best,this.pointSegmentMeters(point,ring[ring.length-1],ring[0]))}));return best}
   findNearestByCoordinates(lat,lng,maxMeters=2500){const geo=normalizeGeo({lat,lng});if(!geo)return null;let best=null,bestDistance=Infinity;this.features().forEach(feature=>{const distance=this.distanceToFeatureMeters(feature,geo);if(distance<bestDistance){bestDistance=distance;best=feature}});return best&&bestDistance<=maxMeters?{id:this.idOf(best),name:this.nameOf(best),feature:best,distanceMeters:Math.round(bestDistance)}:null}
