@@ -67,12 +67,22 @@ test('pagination fails partial instead of skipping rows when the server total ch
   assert.equal(calls,2);assert.equal(result.partial,true);assert.equal(result.errorCode,'total_changed');assert.equal(result.items.length,1);
 });
 
+test('pagination stops safely when next page exceeds the exact total',async()=>{
+  let calls=0;const result=await feed.loadAllPages(async()=>{calls++;return{items:[item(1)],meta:{snapshotAt:'2026-08-28T12:00:00.000Z',page:1,total:1,returned:1,hasMore:true,nextPage:2}};},{limit:50});
+  assert.equal(calls,1);assert.equal(result.partial,true);assert.equal(result.errorCode,'pagination_exceeds_total');
+});
+
+test('an aborted stale load is rejected instead of restoring a partial response',async()=>{
+  const controller=new AbortController();
+  await assert.rejects(()=>feed.loadAllPages(async({page})=>{if(page===2){controller.abort();const error=new Error('aborted');error.name='AbortError';throw error;}return{items:[item(1)],meta:{snapshotAt:'2026-08-28T12:00:00.000Z',total:2,hasMore:true,nextPage:2}};},{limit:1,signal:controller.signal}),error=>error&&error.name==='AbortError');
+});
+
 test('read path contains no provider trigger or persistence action',()=>{
   const source=fs.readFileSync(path.join(__dirname,'..','cian-workspace.js'),'utf8');
-  const readPath=source.slice(source.indexOf('async function loadListings'),source.indexOf('function loadYandex'));
+  const readPath=source.slice(source.indexOf('async function fetchListingPage'),source.indexOf('function loadYandex'));
   assert.equal(/fetch\([^)]*(?:cian\.ru|browserless)/i.test(source),false);
   assert.equal(/refresh-listings|hydrate-listings|update-clusters|\bpersist\b/i.test(source),false);
-  assert.equal(/addMarketListing|\.sync\(|localStorage|sessionStorage/i.test(readPath),false);
+  assert.equal(/addMarketListing|\.sync\(|from\(|insert\(|update\(|upsert\(/i.test(readPath),false);
   assert.equal((readPath.match(/\bfetch\(/g)||[]).length,1);
-  assert.match(source,/feed\.loadAllPages/);assert.match(source,/Authorization/);
+  assert.match(source,/feed\.loadAllPages/);assert.match(source,/Authorization/);assert.match(source,/loadGeneration/);assert.match(source,/controller\.signal/);
 });
