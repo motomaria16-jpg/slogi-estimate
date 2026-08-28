@@ -72,11 +72,6 @@ function stageOverview(){
   const stage=stageById(currentStage()),state=stageState(stage),done=stage.criteria.filter((_,i)=>checkValue(stage.id,i)).length,docs=stage.docs.filter(([key])=>docReady(key)).length,total=stage.criteria.length+stage.docs.length,progress=Math.round((done+docs)/Math.max(total,1)*100);
   $('current-stage-overview').innerHTML=`<div class="stage-overview-head"><div><span>Этап ${stage.id} из ${STAGES.length}</span><strong>${esc(stage.name)}</strong></div><span class="stage-duration">${esc(stage.duration)}</span></div><div class="stage-overview-progress"><span style="width:${progress}%"></span></div><div class="stage-overview-meta"><span>Контрольные точки: ${done}/${stage.criteria.length}</span><span>Документы: ${docs}/${stage.docs.length}</span><span>Готовность: ${progress}%</span></div><div class="stage-result"><b>Результат:</b> ${esc(stage.result)}</div>${state.ready?'<div class="stage-ready-note">Все обязательные условия этапа выполнены.</div>':''}`;
 }
-function objectTasks(){
-  const tasks=P?(P.read().tasks||[]).filter(t=>String(t.projectId)===String(id)&&!['Готово','Отменена'].includes(t.status)):[];
-  $('all-object-tasks').href='tasks.html?project='+encodeURIComponent(id);
-  $('object-tasks').innerHTML=tasks.length?tasks.slice(0,5).map(t=>`<a class="object-task-row" href="tasks.html?project=${encodeURIComponent(id)}"><div><strong>${esc(t.title)}</strong><span>${esc(t.ownerName||t.ownerId||'Ответственный не указан')} · ${t.dueDate?date(t.dueDate):'без срока'}</span></div><em class="task-status">${esc(t.status||'Новая')}</em></a>`).join(''):'<div class="empty-passport compact">Открытых задач по объекту нет.</div>';
-}
 function nextAction(){
   const stage=stageById(currentStage()),state=stageState(stage);let title='',href=`passport.html?location=${encodeURIComponent(id)}&tab=stages`;
   const missingCriterion=stage.criteria.find((_,i)=>!checkValue(stage.id,i));
@@ -96,7 +91,7 @@ function workflowSummary(){
   $('document-chain').innerHTML=chain.map((item,index)=>`${index?'<div class="chain-arrow">→</div>':''}<a class="chain-card ${item.ready?'ready':''} ${item.outdated?'outdated':''}" href="${item.href}"><span>${index+1}</span><div><h4>${item.name}</h4><p>${item.outdated?'Требует обновления':item.ready?'Версия v'+item.version:'Документ не создан'}</p></div><b>${item.outdated?'!':item.ready?'✓':'○'}</b></a>`).join('');
 }
 function summary(){
-  stageOverview();nextAction();objectTasks();workflowSummary();
+  stageOverview();nextAction();workflowSummary();
   const payments=Array.isArray(project.paymentSchedule)?project.paymentSchedule:[],paid=payments.reduce((s,p)=>s+(Number(p.actual)||0),0),plan=payments.reduce((s,p)=>s+(Number(p.planned)||0),0);
   $('overview-stats').innerHTML=[['Итого по смете',money(project.total)],['Комплектность документов',Math.round(completeness())+'%'],['Плановая дата открытия',project.openingDate?date(project.openingDate):'Не указана'],['Оплачено',money(paid)],['Ответственный',project.managerName||'Не назначен'],['План платежей',money(plan)]].map(([label,value])=>`<div class="overview-stat"><strong>${esc(value)}</strong><span>${esc(label)}</span></div>`).join('');
   calculations();proposalSummary();financeSummary();
