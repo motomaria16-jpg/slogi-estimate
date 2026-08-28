@@ -9,6 +9,7 @@ const root=dirname(dirname(fileURLToPath(import.meta.url)));
 const coreSource=await readFile(join(root,'professional-core.js'),'utf8');
 const sharedSource=await readFile(join(root,'shared-workspace.js'),'utf8');
 const SESSION_KEY='slogi_anonymous_session_v1';
+const GRANT_KEY='slogi_device_grant_v1';
 const LOCATIONS_KEY='slogi_locations_v1';
 const WORKFLOW_KEY='slogi_professional_state_v2';
 const CONFLICT_KEY='slogi_shared_workspace_conflict_v1';
@@ -48,7 +49,7 @@ function fakeDocument(){
   const head=makeNode('head'),body=makeNode('body');
   head.appendChild=body.appendChild=function(child){if(child&&child.id)nodes.set(child.id,child);return child;};
   return{
-    document:{readyState:'loading',head,body,getElementById:id=>nodes.get(String(id))||null,createElement:makeNode,addEventListener(type,handler){if(type==='DOMContentLoaded')domReady=handler;}},
+    document:{readyState:'loading',documentElement:{setAttribute(){}},head,body,getElementById:id=>nodes.get(String(id))||null,createElement:makeNode,addEventListener(type,handler){if(type==='DOMContentLoaded')domReady=handler;}},
     fireReady(){if(!domReady)throw new Error('DOMContentLoaded handler missing');domReady();},
   };
 }
@@ -56,13 +57,15 @@ function fakeDocument(){
 async function sharedHarness({remoteState,revision=7,rpc='ok',winnerState={locations:[],workspace:workflowState()}}){
   const Storage=storageClass();
   const session={access_token:'fixture-access',refresh_token:'fixture-refresh',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'fixture-user',is_anonymous:true}};
-  const localStorage=new Storage({[SESSION_KEY]:JSON.stringify(session),[LOCATIONS_KEY]:'[]',[WORKFLOW_KEY]:JSON.stringify(workflowState())});
+  const grant={grant:'fixture-device-grant',expiresAt:new Date(Date.now()+86400000).toISOString(),version:1};
+  const localStorage=new Storage({[SESSION_KEY]:JSON.stringify(session),[GRANT_KEY]:JSON.stringify(grant),[LOCATIONS_KEY]:'[]',[WORKFLOW_KEY]:JSON.stringify(workflowState())});
   const events=[];
   const documentHarness=fakeDocument();
   let stateReads=0,rpcCalls=0,capturedState=null;
   const fetch=async(input,init={})=>{
     const url=String(input);
     if(url.endsWith('/auth/v1/user'))return jsonResponse({id:'fixture-user',is_anonymous:true});
+    if(url.endsWith('/functions/v1/password-gate'))return jsonResponse({status:'granted',expiresAt:grant.expiresAt,version:1});
     if(url.includes('/slogi_shared_workspace_members?'))return jsonResponse([{workspace_id:'fixture-workspace'}]);
     if(url.includes('/slogi_shared_workspace_state?')){
       const state=stateReads++===0?remoteState:winnerState;
@@ -77,10 +80,13 @@ async function sharedHarness({remoteState,revision=7,rpc='ok',winnerState={locat
     throw new Error(`unexpected fetch ${new URL(url).pathname}`);
   };
   const window={
-    SLOGI_PHASE0_CONFIG:{supabase:{url:'https://fixture.supabase.co',publishableKey:'fixture-publishable-key-with-safe-length'},sharedWorkspace:{inviteJoinEndpoint:'https://fixture.supabase.co/functions/v1/join-workspace-invite',inviteManageEndpoint:'https://fixture.supabase.co/functions/v1/workspace-invites'}},
+    SLOGI_PHASE0_CONFIG:{supabase:{url:'https://fixture.supabase.co',publishableKey:'fixture-publishable-key-with-safe-length'},sharedWorkspace:{passwordGateEndpoint:'https://fixture.supabase.co/functions/v1/password-gate',grantStorageKey:GRANT_KEY}},
+    location:{hash:'',pathname:'/',search:'',href:'https://fixture.local/'},
+    history:{state:null,replaceState(){}},
+    fetch,
     dispatchEvent:event=>events.push(event),
   };
-  const context=vm.createContext({window,document:documentHarness.document,localStorage,Storage,CustomEvent:class{constructor(type,options={}){this.type=type;this.detail=options.detail;}},fetch,Response,URL,Date,Math,JSON,Set,String,Number,Array,Object,Boolean,RegExp,encodeURIComponent,setTimeout,clearTimeout});
+  const context=vm.createContext({window,document:documentHarness.document,localStorage,Storage,CustomEvent:class{constructor(type,options={}){this.type=type;this.detail=options.detail;}},fetch,Response,Headers,Request,URL,Date,Math,JSON,Set,String,Number,Array,Object,Boolean,RegExp,encodeURIComponent,setTimeout,clearTimeout});
   vm.runInContext(coreSource,context,{filename:'professional-core.js'});
   vm.runInContext(sharedSource,context,{filename:'shared-workspace.js'});
   documentHarness.fireReady();
@@ -91,7 +97,8 @@ async function sharedHarness({remoteState,revision=7,rpc='ok',winnerState={locat
 
 async function initializationRaceHarness({seed,remoteState,revision,mutate}){
   const Storage=storageClass();
-  const localStorage=new Storage(seed);
+  const grant={grant:'fixture-device-grant',expiresAt:new Date(Date.now()+86400000).toISOString(),version:1};
+  const localStorage=new Storage({...seed,[GRANT_KEY]:JSON.stringify(grant)});
   const documentHarness=fakeDocument();
   let releaseState,markStateReadStarted,markReady;
   const stateReadStarted=new Promise(resolve=>{markStateReadStarted=resolve;});
@@ -102,6 +109,7 @@ async function initializationRaceHarness({seed,remoteState,revision,mutate}){
   const fetch=async(input,init={})=>{
     const url=String(input);
     if(url.endsWith('/auth/v1/user'))return jsonResponse({id:'fixture-user',is_anonymous:true});
+    if(url.endsWith('/functions/v1/password-gate'))return jsonResponse({status:'granted',expiresAt:grant.expiresAt,version:1});
     if(url.includes('/slogi_shared_workspace_members?'))return jsonResponse([{workspace_id:'fixture-workspace'}]);
     if(url.includes('/slogi_shared_workspace_state?')){
       markStateReadStarted();
@@ -116,10 +124,13 @@ async function initializationRaceHarness({seed,remoteState,revision,mutate}){
     throw new Error(`unexpected fetch ${new URL(url).pathname}`);
   };
   const window={
-    SLOGI_PHASE0_CONFIG:{supabase:{url:'https://fixture.supabase.co',publishableKey:'fixture-publishable-key-with-safe-length'},sharedWorkspace:{inviteJoinEndpoint:'https://fixture.supabase.co/functions/v1/join-workspace-invite',inviteManageEndpoint:'https://fixture.supabase.co/functions/v1/workspace-invites'}},
+    SLOGI_PHASE0_CONFIG:{supabase:{url:'https://fixture.supabase.co',publishableKey:'fixture-publishable-key-with-safe-length'},sharedWorkspace:{passwordGateEndpoint:'https://fixture.supabase.co/functions/v1/password-gate',grantStorageKey:GRANT_KEY}},
+    location:{hash:'',pathname:'/',search:'',href:'https://fixture.local/'},
+    history:{state:null,replaceState(){}},
+    fetch,
     dispatchEvent:event=>{events.push(event);if(event.type==='slogi:shared-workspace-ready')markReady();},
   };
-  const context=vm.createContext({window,document:documentHarness.document,localStorage,Storage,CustomEvent:class{constructor(type,options={}){this.type=type;this.detail=options.detail;}},fetch,Response,URL,Date,Math,JSON,Set,String,Number,Array,Object,Boolean,RegExp,encodeURIComponent,setTimeout,clearTimeout});
+  const context=vm.createContext({window,document:documentHarness.document,localStorage,Storage,CustomEvent:class{constructor(type,options={}){this.type=type;this.detail=options.detail;}},fetch,Response,Headers,Request,URL,Date,Math,JSON,Set,String,Number,Array,Object,Boolean,RegExp,encodeURIComponent,setTimeout,clearTimeout});
   vm.runInContext(coreSource,context,{filename:'professional-core.js'});
   vm.runInContext(sharedSource,context,{filename:'shared-workspace.js'});
   documentHarness.fireReady();

@@ -1,6 +1,7 @@
 import { LISTING_FRESHNESS_DAYS, LISTING_FRESHNESS_MS, listingFreshnessDecision } from '../_shared/listings/freshness.ts';
 import { validateSupabaseServiceUrl } from '../_shared/listings/supabase-url.ts';
 import type { ListingSource, NormalizedListing } from '../_shared/listings/types.ts';
+import { authorizeDeviceGrant } from '../_shared/password-gate.ts';
 
 interface EnvironmentReader {
   get(name: string): string | undefined;
@@ -8,7 +9,7 @@ interface EnvironmentReader {
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-slogi-client',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-slogi-client, x-slogi-device-grant',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Content-Type': 'application/json; charset=utf-8',
 };
@@ -47,6 +48,8 @@ export interface ListingReadStore {
 interface SearchHandlerDependencies {
   store?: ListingReadStore;
   environment?: EnvironmentReader;
+  fetch?: typeof fetch;
+  authorize?: (request: Request) => Promise<boolean>;
   now?: () => Date;
 }
 
@@ -222,6 +225,14 @@ export function createSearchListingsHandler(dependencies: SearchHandlerDependenc
     if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
     if (request.method !== 'POST') return response({ status: 'invalid_request', error: 'Method not allowed' }, 405);
     if (!hasBearerSession(request)) return response({ status: 'unauthorized', error: 'Unauthorized' }, 401);
+    const authorized = dependencies.authorize
+      ? await dependencies.authorize(request).catch(() => false)
+      : (await authorizeDeviceGrant(
+        request,
+        dependencies.environment || runtimeEnvironment(),
+        dependencies.fetch || fetch,
+      )).ok;
+    if (!authorized) return response({ status: 'unauthorized', error: 'Unauthorized' }, 401);
     const body = await request.json().catch(() => ({})) as Record<string, unknown>;
     const parsed = parseSearchRequest(body);
     if (!parsed.ok) return response({ status: 'invalid_request', error: parsed.error }, 400);
@@ -231,7 +242,7 @@ export function createSearchListingsHandler(dependencies: SearchHandlerDependenc
     const readRequest = { ...parsed.request, snapshotAt: snapshot.toISOString() };
     let store = dependencies.store;
     if (!store) {
-      try { store = new SupabaseListingReadStore(dependencies.environment || runtimeEnvironment()); }
+      try { store = new SupabaseListingReadStore(dependencies.environment || runtimeEnvironment(), dependencies.fetch || fetch); }
       catch { return response({ status: 'provider_error', error: 'market_read_not_configured' }, 503); }
     }
     try {

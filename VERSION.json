@@ -1,11 +1,14 @@
 {
   "app": "SLOGI",
-  "version": "76.1.6",
-  "releaseName": "School SLOGI and Cian 30-Day Feed",
-  "releaseType": "hotfix",
+  "version": "76.1.7",
+  "releaseName": "Password Gate, Cian Map and Compact Search",
+  "releaseType": "security-candidate",
   "releaseDate": "2026-08-28",
-  "status": "released",
-  "baseTag": "v76.1.5",
+  "status": "candidate-local-only",
+  "tag": null,
+  "baseTag": "v76.1.6",
+  "baseCommit": "06ee1659f7caf234df85de662424fe1d1159bb03",
+  "canonicalContentCommit": "c5f919d1c53c584546939ac70e9c01a664f6750d",
   "databaseBaseline": {
     "migrationPath": "supabase/migrations/20260814_7601_baseline.sql",
     "recordedV7601WorkingTreeSha256": "a4ab16221f6c76c21b6f541c7780111afcbcc72b8726cdac75c0d0adea656bc3",
@@ -30,53 +33,54 @@
     "workspaceInvites": {
       "path": "supabase/migrations/20260827_7615_workspace_invites.sql",
       "sourceSha256": "96c9fc5302a2844de68c9e0a1efc851196357280b5a6bd9c86459800d7fb8ea5"
+    },
+    "passwordGate": {
+      "path": "supabase/migrations/20260828_7617_password_gate.sql",
+      "sourceSha256": "3f90f5d679aa9990c4e0fe5d469b6beddfe678472577dd0d9c56d67aa01ed612"
     }
   },
   "edgeFunctions": {
     "geocode-address": {
       "path": "supabase/functions/geocode-address/index.ts",
       "verifyJwt": false,
-      "sourceSha256": "3abba2c902966a8392ce46baf22be3a33caee77575c35122742c0df2b1cf4e7f"
+      "sourceSha256": "e076d934c261133d8bfe17a555880420df15f01e0718a3b0ce16948c1a6bcd57",
+      "serviceSha256": "4359cb0cf4a188c9c1217cb85dc3317cd975501c43ee117d31e04e0777f1721b"
     },
     "import-listing": {
       "path": "supabase/functions/import-listing/index.ts",
       "verifyJwt": true,
-      "sourceSha256": "5631da65fed7bb9715011f88b0972439aba1bb079b7269d4bab2f4cd42d114b9"
+      "sourceSha256": "cab789694299f940dc4a212f746902c204ec648cbca4be4f338aaace3d5940a4"
     },
     "search-listings": {
       "path": "supabase/functions/search-listings/index.ts",
       "verifyJwt": true,
-      "sourceSha256": "4c1786ebcdabef464ebca46a8e45e15d7ce53de7997adf5838c38637060bc440"
+      "sourceSha256": "a3aefe11d9137c3e0ba4e7f5b1b0cd66dde9f242defab6b09292cb9364619e72"
     },
     "refresh-listings": {
       "path": "supabase/functions/refresh-listings/index.ts",
       "verifyJwt": true,
-      "sourceSha256": "5c4302c6610844578a98612d81f2e6d8da5a9d47fdb5e9a59fabb5a91c40f35a"
+      "sourceSha256": "19b9ba426ce8fa9a1f8c7ef9966715649f2acbc686f239f23f25ac93b96bf09f"
     },
     "hydrate-listings": {
       "path": "supabase/functions/hydrate-listings/index.ts",
       "verifyJwt": true,
-      "sourceSha256": "caca462aea57471ff63e5c99250ef4635152e1e165b43d618511ec1854c6373d"
+      "sourceSha256": "4c01881ca111496dea32de38f548c1f1ab269646dc1fbcf9246b9a5afb0bb684"
     },
-    "join-workspace": {
-      "path": "supabase/functions/join-workspace/index.ts",
+    "password-gate": {
+      "path": "supabase/functions/password-gate/index.ts",
       "verifyJwt": true,
-      "sourceSha256": "c3715c80689ea848d8208bc44a49a3a24f26eb71885f030429471e3df386e33f"
+      "sourceSha256": "68b98e3ed7054b33f29b165320e20a476bb8a56e4fc83433a3db2dd1fc1f9127"
     },
-    "join-workspace-invite": {
-      "path": "supabase/functions/join-workspace-invite/index.ts",
-      "verifyJwt": true,
-      "sourceSha256": "c03622dfcab07fd393a58195863e42edbd7e3fe98aaafc4413d243bde9d6d7e4"
-    },
-    "workspace-invites": {
-      "path": "supabase/functions/workspace-invites/index.ts",
-      "verifyJwt": true,
-      "sourceSha256": "39a176f43efca61d9683f980e7d6bf3a9828bce09c276653e6a88a23280cffd0"
-    },
-    "sharedWorkspaceInvitesSha256": "71a1ff13f450641472ddf5e9506e7e4969b211de8021e68f2c9ce4986e4c97c7",
-    "sharedListingsModuleSha256": "ff4ddd2a6b20b61182b6e8f308a1973722662b1c5702f4abc6333b6ac3cb7ac0"
+    "sharedPasswordGateSha256": "b9aa1563711068979d1a95728eef83114250f57c738d4874c1e1668dca5472d0",
+    "retiredAccessRoutes": ["join-workspace", "join-workspace-invite", "workspace-invites"],
+    "sharedListingsModules": {
+      "providerSha256": "d11f2a44b6456ba627f7b72e20bac1b3dabd2b10f5e24b65958b4395ae8c1260",
+      "browserlessSha256": "c158b44f829e36c906752da338dab75fdce32230f40672fce13c030dea78f439",
+      "searchServiceSha256": "6ab3aaabcd4c3e959320c221697b9b6da3760079621b5294519e8fa52d25709b",
+      "serverStoreSha256": "e55dd7540af8d21792956f02638872e9e1ab439444d229d655516f7d0fefc373"
+    }
   },
-  "releaseGate": {
+  "baseReleaseGateV7616": {
     "canonicalGitCommit": "fbee5df0a71110f6ecac4bf820992460742f97ab",
     "metadataGitCommit": "be80f5d17bdb2731c87ce249820c4ecf870d12c0",
     "gitTag": "v76.1.6",
@@ -248,5 +252,61 @@
       "productionDeployed": false
     }
   },
-  "nextTarget": "owner-authorized production activation and ingestion completeness verification"
+  "candidateGateV7617": {
+    "branch": "release/v76-1-7-password-cian-map",
+    "sourcePasswordBranch": "feature/v76-1-7-password-gate",
+    "sourcePasswordHead": "7c2f87cb51c5bfbd84a1af1b34a7011e4515be45",
+    "sourcePasswordCommits": [
+      "94ca5585803410dcda5edc575dc3475c9ca4acdb",
+      "800f49e897fb92211e4ee43e12dcfe3e26d0fd9f",
+      "369fb4b2e41267f8078610a9960fbeccee0939a4",
+      "7c2f87cb51c5bfbd84a1af1b34a7011e4515be45"
+    ],
+    "implementationCommit": "94ca5585803410dcda5edc575dc3475c9ca4acdb",
+    "rateLifecycleRegressionCommit": "369fb4b2e41267f8078610a9960fbeccee0939a4",
+    "integrationCommits": [
+      "5f6994bf0d98330173083fe125d9069e909c35c0",
+      "c648b565948384abfe9d7d84f95d0297be65fa49",
+      "d6ecccda80bab258e96508986b7729eb6ba05a58",
+      "b10b9593851443f99cde186837e666a055a2b414",
+      "c5f919d1c53c584546939ac70e9c01a664f6750d"
+    ],
+    "canonicalContentCommit": "c5f919d1c53c584546939ac70e9c01a664f6750d",
+    "productionDeployed": false,
+    "publicationAllowed": false,
+    "cleanPostgresql17ApplyPasses": 3,
+    "catalogRlsStorageCasPassed": true,
+    "deterministicTestsPassed": 93,
+    "deterministicTestsFailed": 0,
+    "browserDesktopPassed": true,
+    "browserTabletPassed": true,
+    "browserMobilePassed": true,
+    "browserCianListings": 53,
+    "browserCianPages": 2,
+    "browserMapMarkers": 51,
+    "browserMissingCoordinates": 2,
+    "browserClusterPolygons": 58,
+    "browserUnlockRequestsPerClick": 1,
+    "browserHorizontalOverflowPx": 0,
+    "unexpectedBrowserConsoleErrors": 0,
+    "externalProviderCalls": 0,
+    "ownerPasswordUsedInTests": false,
+    "ownerPasswordExactByteScanRun": false,
+    "ownerPasswordExactByteScanRequiredBeforeActivation": true,
+    "passwordWrapperChangedCianProviderBudget": false,
+    "passwordWrapperChangedMapClusterContracts": false,
+    "sharedWorkspaceClientSha256": "552b628f000f7e46f2241be10467a78919d653de90b8bbb28615048eb00e49a9",
+    "passwordGateCssSha256": "35c9313dcb9858bcd259686b551cf710c4487686e67c0674ffc749b92480da5a",
+    "unitTestSha256": "892b1ba14d9f4c221f8349ff861f790e5955ae1a1a2caaa183443402d920324d",
+    "browserTestSha256": "7724d624b3a4dd58246fa1114a544d8c9e60d73b18621ef3e0527cb4fcf08261",
+    "catalogTestSha256": "8e402862a433bbc529c416b38a22a7efbcb94774762163ce00ce606912347f98",
+    "cianListingFeedSha256": "503614a66892749424bdc8c82135a2ad206e3a09706d0470e8fb85811dafa2e3",
+    "cianWorkspaceSha256": "030d37fa99daaa20d509099a61e6dbf7bb5280c505725389b17a20161c3bb644",
+    "cianMapDataSha256": "360e513813cc658aba6aa57f7f7a7d9f60b0c64cd5ac5b4ccc5b573fd8e4ca04",
+    "clusterGeometrySha256": "f76f76ce442c21051eea4e30100fc1d9350c06465070a515e7d0903fe825e432",
+    "compactThemeSha256": "23f20e4648dcd901c14166ecaff62efb9ba2abb0884596570d3f1f37471529de",
+    "cianActivationManifestSha256": "8e7f139cbb63bf9cd18ae28bf06135a3477c36a5ddfc053f2473513ce080621c",
+    "cianRollbackManifestSha256": "9015c68e7734fb9d25a4ee5495004afd3730ac85c6039f4d51b252244b269e3e"
+  },
+  "nextTarget": "separate owner-authorized production activation using the v76.1.7 runbook"
 }

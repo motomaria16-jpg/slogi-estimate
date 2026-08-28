@@ -1,0 +1,86 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const test=require('node:test');
+const vm=require('node:vm');
+const geometry=require('../cluster-geometry.js');
+const mapData=require('../cian-map-data.js');
+const feed=require('../cian-listing-feed.js');
+
+const ROOT=path.join(__dirname,'..');
+const POLYGONS=JSON.parse(fs.readFileSync(path.join(ROOT,'clusters.geojson'),'utf8'));
+const NOW=Date.parse('2026-08-28T12:00:00.000Z');
+const clusterService={locate:(lat,lng)=>geometry.locate(POLYGONS,lat,lng)};
+
+function listing(id,overrides={}){return{source:'cian',externalId:String(id),listingUrl:`https://www.cian.ru/rent/commercial/${id}`,address:'Москва, тестовый адрес, 1',freshnessAt:new Date(NOW-86400000).toISOString(),freshnessKind:'published',marketStatus:'active',area:100,rentMonthly:300000,pricePerSquareMeter:3000,clusterId:'',clusterName:'',clusterStatus:'not_computed',...overrides};}
+function memoryStorage(){const values=new Map();return{getItem:key=>values.has(key)?values.get(key):null,setItem:(key,value)=>values.set(key,String(value))};}
+function response(status,payload,headers={}){return{ok:status>=200&&status<300,status,headers:{get:name=>headers[String(name).toLowerCase()]||null},json:async()=>payload};}
+
+test('null, blank and partial coordinate pairs are never treated as real coordinates',()=>{
+  assert.equal(mapData.coordinates({latitude:null,longitude:null}),null);assert.equal(mapData.coordinates({latitude:'',longitude:''}),null);assert.equal(mapData.coordinates({latitude:55.84,longitude:null}),null);
+  assert.equal(geometry.locate(POLYGONS,null,null).status,'invalid');
+});
+
+test('canonical source contains exactly 58 uniquely named polygons and browser data is identical',()=>{
+  const sandbox={window:{}};vm.runInNewContext(fs.readFileSync(path.join(ROOT,'clusters-data.js'),'utf8'),sandbox);
+  assert.equal(POLYGONS.features.length,58);assert.equal(new Set(POLYGONS.features.map(feature=>feature.properties.name)).size,58);
+  assert.equal(sandbox.window.SLOGI_CLUSTERS_GEOJSON.features.length,58);
+  assert.deepEqual(JSON.parse(JSON.stringify(sandbox.window.SLOGI_CLUSTERS_GEOJSON)),POLYGONS);
+});
+
+test('point-in-polygon is deterministic for inside, outside and boundary points',()=>{
+  const inside=geometry.locate(POLYGONS,55.84,37.36),outside=geometry.locate(POLYGONS,56,38),boundary=geometry.locate(POLYGONS,55.834088,37.388049);
+  assert.deepEqual({status:inside.status,id:inside.clusterId,name:inside.clusterName,boundary:inside.boundary},{status:'inside',id:'Митино',name:'Митино',boundary:false});
+  assert.deepEqual({status:outside.status,id:outside.clusterId,name:outside.clusterName},{status:'outside',id:'',name:''});
+  assert.deepEqual({status:boundary.status,id:boundary.clusterId,name:boundary.clusterName,boundary:boundary.boundary},{status:'inside',id:'Митино',name:'Митино',boundary:true});
+  assert.equal(geometry.locate(POLYGONS,55.834088,37.388049).canonicalIndex,0);
+});
+
+test('same address is geocoded once while distinct canonical listings keep distinct markers',async()=>{
+  const items=[listing(1),listing(2)];let calls=0;
+  await mapData.geocodeMissingListings(items,{clusterService,geocode:async()=>{calls++;return{status:'geocoded',attempts:1,latitude:55.84,longitude:37.36};}});
+  const state=mapData.projection(items);
+  assert.equal(calls,1);assert.equal(state.markerCount,2);assert.equal(new Set(state.markers.map(mapData.listingId)).size,2);
+  assert.ok(items.every(item=>item.clusterId==='Митино'&&item.clusterName==='Митино'&&item.clusterStatus==='inside'));
+});
+
+test('reload reuses the address cache and does not call the geocoder again',async()=>{
+  const storage=memoryStorage(),first=[listing(1)];let calls=0;
+  await mapData.geocodeMissingListings(first,{clusterService,cache:mapData.createAddressCache(storage),geocode:async()=>{calls++;return{status:'geocoded',attempts:1,latitude:55.84,longitude:37.36};}});
+  const reloaded=[listing(1)];
+  await mapData.geocodeMissingListings(reloaded,{clusterService,cache:mapData.createAddressCache(storage),geocode:async()=>{calls++;return{status:'failed'};}});
+  assert.equal(calls,1);assert.equal(reloaded[0].coordinateSource,'geocode_cache');assert.equal(reloaded[0].clusterId,'Митино');
+});
+
+test('geocoder HTTP failure and timeout are explicit and never invent coordinates',async()=>{
+  const failed=mapData.createServerGeocoder({endpoint:'https://example.test/geocode',maxAttempts:1,fetchImpl:async()=>response(502,{error:'upstream'})});
+  const failure=await failed('Москва, Тверская, 1');assert.equal(failure.status,'failed');assert.equal(mapData.coordinates(failure),null);
+  const timeout=mapData.createServerGeocoder({endpoint:'https://example.test/geocode',timeoutMs:100,maxAttempts:1,fetchImpl:(_url,options)=>new Promise((_resolve,reject)=>options.signal.addEventListener('abort',()=>{const error=new Error('timeout');error.name='AbortError';reject(error);},{once:true}))});
+  const timedOut=await timeout('Москва, Тверская, 2');assert.equal(timedOut.status,'timeout');assert.equal(mapData.coordinates(timedOut),null);
+});
+
+test('marker and missing-coordinate counts equal the filtered canonical listing set',async()=>{
+  const items=[listing(1,{latitude:55.84,longitude:37.36}),listing(2,{address:'Москва, второй адрес, 2'}),listing(3,{address:'Москва, ошибка, 3'}),listing(4,{address:''})];
+  let calls=0;await mapData.geocodeMissingListings(items,{clusterService,geocode:async address=>{calls++;return address.includes('второй')?{status:'geocoded',attempts:1,latitude:56,longitude:38}:{status:'timeout',attempts:3,diagnostic:'timeout'};}});
+  const filtered=feed.filterAndSort(items,{days:30},NOW),state=mapData.projection(filtered);
+  assert.equal(calls,2);assert.equal(state.listings.length,4);assert.equal(state.markerCount,2);assert.equal(state.withoutCoordinatesCount,2);assert.equal(state.geocodeFailedCount,1);assert.equal(state.missingAddressCount,1);assert.equal(state.markerCount,filtered.filter(item=>mapData.coordinates(item)).length);
+  assert.equal(items[1].clusterStatus,'outside');assert.equal(items[2].clusterStatus,'not_computed');
+});
+
+test('cluster filter drives list and map from one filtered collection',()=>{
+  const items=[listing(1,{latitude:55.84,longitude:37.36}),listing(2,{latitude:56,longitude:38}),listing(3,{address:''})];items.forEach(item=>mapData.classify(item,clusterService));
+  const inside=feed.filterAndSort(items,{cluster:'Митино',days:30},NOW),outside=feed.filterAndSort(items,{cluster:'__outside',days:30},NOW),unresolved=feed.filterAndSort(items,{cluster:'__unresolved',days:30},NOW);
+  assert.deepEqual(inside.map(mapData.listingId),mapData.projection(inside).markers.map(mapData.listingId));
+  assert.deepEqual(inside.map(item=>item.externalId),['1']);assert.deepEqual(outside.map(item=>item.externalId),['2']);assert.deepEqual(unresolved.map(item=>item.externalId),['3']);
+});
+
+test('UI binds marker-card selection and list listeners once',()=>{
+  const source=fs.readFileSync(path.join(ROOT,'cian-workspace.js'),'utf8');
+  const render=source.slice(source.indexOf('function render()'),source.indexOf('function existingProject'));
+  const bind=source.slice(source.indexOf('function bind()'),source.indexOf('function init()'));
+  assert.equal(/addEventListener/.test(render),false);
+  assert.match(bind,/nodes\.list\.addEventListener\('click'/);assert.match(bind,/selectListing\(button\.dataset\.listingId\)/);
+  assert.match(source,/marker\.events\.add\('click',[\s\S]*selectListing/);assert.match(source,/fields\.cluster\.value=cluster\.id;applyFilters\(\)/);
+  assert.match(source,/marker\.events\.removeAll/);
+});

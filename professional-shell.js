@@ -58,7 +58,7 @@ function normalizeHeader(){
   const searchUtility=['index.html','available-spaces.html'].includes(page)?'':`<div class="pro-global-search-wrap"><input class="pro-global-search" id="pro-global-search" type="search" placeholder="Поиск по системе…" aria-label="Глобальный поиск"><button type="button" id="pro-global-search-btn" aria-label="Найти">${searchIcon}</button></div>`;
   header.dataset.route=productSection()||'premises';
   document.body.dataset.slogiRoute=header.dataset.route;
-  header.innerHTML=`<div class="pro-shell-row"><div class="brand"><a class="logo-link" href="index.html" aria-label="СЛОГИ — главная"><div class="logo-word" aria-hidden="true"><span>С</span><span>Л</span><span>О</span><span>Г</span><span>И</span></div></a><span class="slogi-specialist-label">для специалистов</span></div><div class="pro-header-utilities">${searchUtility}<button type="button" class="pro-notification-btn" id="pro-notification-btn" aria-label="Уведомления">${bellIcon}</button><button type="button" class="pro-mobile-menu-trigger" id="pro-mobile-menu-trigger" aria-expanded="false" aria-controls="pro-mobile-menu" aria-label="Открыть меню разделов"><span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span></button></div></div><div class="pro-mobile-menu" id="pro-mobile-menu" hidden></div>`;
+  header.innerHTML=`<div class="pro-shell-row"><div class="brand"><a class="logo-link" href="index.html" aria-label="СЛОГИ — главная"><div class="logo-word" aria-hidden="true"><span>С</span><span>Л</span><span>О</span><span>Г</span><span>И</span></div></a></div><div class="pro-header-utilities">${searchUtility}<button type="button" class="pro-notification-btn" id="pro-notification-btn" aria-label="Уведомления">${bellIcon}</button><button type="button" class="pro-mobile-menu-trigger" id="pro-mobile-menu-trigger" aria-expanded="false" aria-controls="pro-mobile-menu" aria-label="Открыть меню разделов"><span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span></button></div></div><div class="pro-mobile-menu" id="pro-mobile-menu" hidden></div>`;
   document.title='СЛОГИ — '+configured[0];
 }
 function mobileMenuHtml(section){
@@ -76,24 +76,6 @@ function bindMobileMenu(header){
   panel.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();close();return}if(event.key!=='Tab')return;const items=focusable();if(!items.length)return;const first=items[0],last=items[items.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}});
   document.addEventListener('click',event=>{if(!panel.hidden&&!header.contains(event.target))close({restore:false})});
   window.addEventListener('resize',()=>{if(window.innerWidth>900&&!panel.hidden)close({restore:false})},{passive:true});
-}
-function placeWorkspaceControl(){
-  const button=document.getElementById('slogi-workspace-connect'),header=document.querySelector('.site-header');
-  if(!button||!header)return;
-  const mobile=header.querySelector('#pro-mobile-menu'),utilities=header.querySelector('.pro-header-utilities');
-  if(window.matchMedia('(max-width:900px)').matches&&mobile){
-    let group=mobile.querySelector('.pro-mobile-workspace');
-    if(!group){group=document.createElement('div');group.className='pro-mobile-workspace';mobile.appendChild(group)}
-    if(button.parentNode!==group)group.appendChild(button);
-    return;
-  }
-  if(utilities&&button.parentNode!==utilities)utilities.insertBefore(button,utilities.querySelector('#pro-notification-btn'));
-}
-function watchWorkspaceControl(){
-  placeWorkspaceControl();
-  const observer=new MutationObserver(()=>placeWorkspaceControl());
-  observer.observe(document.body,{childList:true});
-  window.addEventListener('resize',placeWorkspaceControl,{passive:true});
 }
 function addNav(){
   if(document.querySelector('.site-header .pro-nav'))return;
@@ -160,7 +142,7 @@ function runGlobalSearch(query){const q=String(query||'').trim().toLowerCase();i
 function toast(text){let t=document.getElementById('pro-toast');if(!t){t=document.createElement('div');t.id='pro-toast';t.className='pro-toast';document.body.appendChild(t)}t.textContent=text;t.classList.add('show');clearTimeout(t._timer);t._timer=setTimeout(()=>t.classList.remove('show'),2600)}
 function modal(opts){const previous=document.activeElement,backdrop=document.createElement('div');backdrop.className='pro-modal-backdrop open';backdrop.innerHTML=`<div class="pro-modal" role="dialog" aria-modal="true"><div class="pro-modal-head"><h2>${esc(opts.title||'')}</h2><button type="button" class="pro-modal-close" aria-label="Закрыть">×</button></div><div class="pro-modal-body">${opts.body||''}</div><div class="pro-modal-actions"><button type="button" class="pro-btn" data-cancel>Отмена</button><button type="button" class="pro-btn primary" data-save>${esc(opts.saveLabel||'Сохранить')}</button></div></div>`;document.body.appendChild(backdrop);const close=()=>{backdrop.remove();if(previous&&document.contains(previous))previous.focus()};backdrop.querySelector('.pro-modal-close').onclick=close;backdrop.querySelector('[data-cancel]').onclick=close;backdrop.addEventListener('click',e=>{if(e.target===backdrop)close()});backdrop.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();close();return}if(event.key!=='Tab')return;const items=Array.from(backdrop.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'));if(!items.length)return;const first=items[0],last=items[items.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}});backdrop.querySelector('[data-save]').onclick=async()=>{const button=backdrop.querySelector('[data-save]');button.disabled=true;try{const result=opts.onSave&&opts.onSave(backdrop);const resolved=result&&typeof result.then==='function'?await result:result;if(resolved!==false)close()}finally{if(document.body.contains(button))button.disabled=false}};requestAnimationFrame(()=>backdrop.querySelector('.pro-modal-close')?.focus());return backdrop}
 function syncShellHeight(header){const apply=()=>document.documentElement.style.setProperty('--app-shell-height',(header.offsetHeight||166)+'px');apply();if('ResizeObserver'in window){const ro=new ResizeObserver(()=>requestAnimationFrame(apply));ro.observe(header);header._slogiResizeObserver=ro}else window.addEventListener('resize',apply,{passive:true})}
-function init(){normalizeHeader();addNav();watchWorkspaceControl();addObjectContext();const header=document.querySelector('.site-header');if(header)syncShellHeight(header)}
+function init(){normalizeHeader();addNav();addObjectContext();const header=document.querySelector('.site-header');if(header)syncShellHeight(header)}
 window.SlogiUI={esc,toast,modal,page,activeProjectId,activeProject,stageLabel,stages:STAGES};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 window.addEventListener('slogi:professional-state',()=>{const count=document.querySelector('.pro-notification-count'),unread=P.read().notifications.filter(x=>!x.read).length;if(unread){if(count)count.textContent=unread;else{const b=document.getElementById('pro-notification-btn');if(b)b.insertAdjacentHTML('beforeend',`<span class="pro-notification-count">${unread}</span>`)}}else count?.remove()});

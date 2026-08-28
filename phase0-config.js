@@ -32,9 +32,9 @@ window.SLOGI_PHASE0_CONFIG={
     publishableKey:String(existingSupabase.publishableKey||defaultPublishableKey)
   },
   sharedWorkspace:{
-    inviteJoinEndpoint:functionEndpoint(existingWorkspace.inviteJoinEndpoint,'join-workspace-invite'),
-    inviteManageEndpoint:functionEndpoint(existingWorkspace.inviteManageEndpoint,'workspace-invites'),
+    passwordGateEndpoint:functionEndpoint(existingWorkspace.passwordGateEndpoint,'password-gate'),
     sessionStorageKey:'slogi_anonymous_session_v1',
+    grantStorageKey:'slogi_device_grant_v1',
     connectionStorageKey:'slogi_shared_workspace_connection_v1',
     stateCacheKey:'slogi_shared_workspace_cache_v1'
   },

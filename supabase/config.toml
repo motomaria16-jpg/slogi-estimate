@@ -1,3 +1,21 @@
+project_id = "slogi-v76-1-7-password-gate"
+
+[api]
+enabled = true
+port = 56021
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 56022
+shadow_port = 56020
+major_version = 17
+
+[studio]
+enabled = true
+port = 56023
+
 [functions.import-listing]
 verify_jwt = true
 
@@ -13,11 +31,5 @@ verify_jwt = true
 [functions.hydrate-listings]
 verify_jwt = true
 
-[functions.join-workspace]
-verify_jwt = true
-
-[functions.join-workspace-invite]
-verify_jwt = true
-
-[functions.workspace-invites]
+[functions.password-gate]
 verify_jwt = true
