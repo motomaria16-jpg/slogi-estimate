@@ -216,28 +216,74 @@ test('discovery advances the durable backfill cursor across runs and resets on o
   assert.equal(providerCalls,6);assert.equal(finished.length,3);assert.ok(finished.every(value=>value.status==='ok'));
 });
 
-test('partial hydration remains durable and continues on the next hourly run',async()=>{
-  const state=scanState();let runId=0,current=new Date('2026-08-21T09:00:00Z'),providerCalls=0;
-  const items=[
-    {...queueItem(1),listingUrl:'https://www.cian.ru/rent/commercial/222222222',externalId:'222222222'},
-    {...queueItem(2),listingUrl:'https://www.cian.ru/rent/commercial/111111111',externalId:'111111111'},
-  ];
+function partialListingHtml(freshnessAt:string|null):string{
+  const date=freshnessAt?`,"datePublished":"${freshnessAt}"`:'';
+  return `<script type="application/ld+json">{"@type":"Offer","name":"Неполное объявление"${date}}</script>`;
+}
+
+async function hydrateCase(options:{
+  html:string;
+  now?:Date;
+  initialAttemptCount?:number;
+  persistResult?:{inserted:number;updated:number};
+}){
+  const now=options.now||dateReference,state=scanState(),item={...queueItem(1),attemptCount:options.initialAttemptCount||0};
+  let providerCalls=0,persistCalls=0,queueFinish:any=null,runFinish:any=null;
+  const persisted:NormalizedListing[]=[];
   const store=inertStore({
-    async claimRun(){return{claimed:true,runId:++runId,recovered:false};},async getState(){return state;},async saveState(next){Object.assign(state,next);},async finishRun(){},
-    async claimQueue(_source,workerId,limit,claimedAt){const now=Date.parse(claimedAt);const due=items.filter(item=>(item.status==='pending'||item.status==='retry')&&Date.parse(item.nextAttemptAt)<=now).slice(0,limit);for(const item of due){item.status='processing';item.lockedBy=workerId;item.attemptCount+=1;}return due;},
-    async finishQueue(id,_workerId,update){const item=items.find(value=>value.id===id);if(!item||item.status!=='processing')return false;item.status=update.status;item.nextAttemptAt=update.nextAttemptAt||update.finishedAt;item.lockedBy=null;return true;},
-    async persistRecent(){return{inserted:1,updated:0};},async markRemoved(){},
+    async claimRun(){return{claimed:true,runId:1,recovered:false};},async getState(){return state;},
+    async saveState(next){Object.assign(state,next);},async finishRun(_id,update){runFinish=update;},
+    async claimQueue(_source,workerId){item.status='processing';item.lockedBy=workerId;item.attemptCount+=1;return[item];},
+    async finishQueue(_id,_workerId,update){queueFinish=update;item.status=update.status;item.nextAttemptAt=update.nextAttemptAt||update.finishedAt;item.lockedBy=null;return true;},
+    async persistRecent(_source,listings){persistCalls+=1;persisted.push(...listings);return options.persistResult||{inserted:1,updated:0};},
+    async markRemoved(){throw new Error('unexpected_removed');},
   });
-  const complete=`<script type="application/ld+json">{"datePublished":"2026-08-20T09:00:00Z"}</script>${fixture('cian-listing.html')}`;
-  const client={async fetchPage(){providerCalls++;return page(providerCalls===1?fixture('malformed-structured.html'):complete);}};
-  const invoke=async()=>{
-    const handler=createHydrateListingsHandler({store,client,environment:environment({SLOGI_LISTING_CRON_SECRET:'fixture'}),now:()=>current,workerId:()=> '11111111-1111-4111-8111-111111111111'});
-    const response=await handler(new Request('http://local/hydrate',{method:'POST',headers:{'x-slogi-listing-cron-secret':'fixture','Content-Type':'application/json'},body:'{"source":"cian"}'}));
-    assert.equal(response.status,200);return (await response.json()).outcome;
-  };
-  const first=await invoke();assert.equal(first.status,'partial');assert.equal(first.claimed,2);assert.equal(first.retry,1);assert.deepEqual(items.map(item=>item.status),['retry','completed']);
-  current=new Date('2026-08-21T10:00:00Z');const second=await invoke();assert.equal(second.status,'ok');assert.equal(second.claimed,1);assert.equal(second.completed,1);
-  assert.deepEqual(items.map(item=>item.status),['completed','completed']);assert.equal(providerCalls,3);
+  const handler=createHydrateListingsHandler({
+    store,client:{async fetchPage(){providerCalls+=1;return page(options.html);}},
+    environment:environment({SLOGI_LISTING_CRON_SECRET:'fixture'}),now:()=>now,
+    workerId:()=> '11111111-1111-4111-8111-111111111111',
+  });
+  const response=await handler(new Request('http://local/hydrate',{method:'POST',headers:{'x-slogi-listing-cron-secret':'fixture','Content-Type':'application/json'},body:'{"source":"cian"}'}));
+  assert.equal(response.status,200);
+  return{body:await response.json(),item,persisted,persistCalls,providerCalls,queueFinish,runFinish};
+}
+
+test('reliable recent partial listing persists nulls and warnings once, then completes terminally',async()=>{
+  const recent=new Date(dateReference.getTime()-86400000).toISOString();
+  const result=await hydrateCase({html:partialListingHtml(recent),persistResult:{inserted:1,updated:0}});
+  assert.equal(result.providerCalls,1);assert.equal(result.persistCalls,1);assert.equal(result.persisted.length,1);
+  const value=result.persisted[0];assert.equal(value.address,null);assert.equal(value.area,null);assert.equal(value.rentMonthly,null);assert.ok(value.parseWarnings.includes('partial_listing'));assert.ok(value.parseCompleteness<1);
+  assert.equal(result.item.status,'completed');assert.equal(result.queueFinish.status,'completed');assert.equal(result.queueFinish.nextAttemptAt,null);assert.equal(result.queueFinish.errorCode,'partial_listing_persisted');
+  assert.equal(result.body.outcome.status,'ok');assert.equal(result.body.outcome.completed,1);assert.equal(result.body.outcome.retry,0);
+  assert.deepEqual(result.runFinish.metrics,{claimed:1,attempted:1,parsed:1,partial:1,blocked:0,failed:0,inserted:1,updated:0,skipped_old:0,skipped_unknown_date:0});
+});
+
+test('reliable partial listing at the exact inclusive 30-day boundary persists',async()=>{
+  const boundary=new Date(dateReference.getTime()-30*86400000).toISOString();
+  const result=await hydrateCase({html:partialListingHtml(boundary),persistResult:{inserted:0,updated:1}});
+  assert.equal(result.persistCalls,1);assert.equal(result.item.status,'completed');assert.equal(result.queueFinish.errorCode,'partial_listing_persisted');
+  assert.equal(result.runFinish.metrics.parsed,1);assert.equal(result.runFinish.metrics.partial,1);assert.equal(result.runFinish.metrics.inserted,0);assert.equal(result.runFinish.metrics.updated,1);
+});
+
+test('unknown-date partial listing is never persisted and uses only the bounded date retry',async()=>{
+  const first=await hydrateCase({html:partialListingHtml(null),initialAttemptCount:0});
+  assert.equal(first.persistCalls,0);assert.equal(first.item.status,'retry');assert.equal(first.queueFinish.errorCode,'missing_or_invalid_freshness_date');assert.ok(first.queueFinish.nextAttemptAt);assert.equal(first.runFinish.metrics.parsed,1);assert.equal(first.runFinish.metrics.partial,1);
+  const terminal=await hydrateCase({html:partialListingHtml(null),initialAttemptCount:HYDRATION_LIMITS.unknownDateMaxAttempts-1});
+  assert.equal(terminal.persistCalls,0);assert.equal(terminal.providerCalls,1);assert.equal(terminal.item.attemptCount,HYDRATION_LIMITS.unknownDateMaxAttempts);assert.equal(terminal.item.status,'discarded_unknown_date');assert.equal(terminal.queueFinish.nextAttemptAt,null);assert.equal(terminal.body.outcome.retry,0);assert.equal(terminal.body.outcome.discardedUnknownDate,1);
+});
+
+test('old partial listing is terminal discarded_old and never persisted',async()=>{
+  const old=new Date(dateReference.getTime()-30*86400000-1).toISOString();
+  const result=await hydrateCase({html:partialListingHtml(old)});
+  assert.equal(result.persistCalls,0);assert.equal(result.providerCalls,1);assert.equal(result.item.status,'discarded_old');assert.equal(result.queueFinish.status,'discarded_old');assert.equal(result.queueFinish.nextAttemptAt,null);
+  assert.equal(result.runFinish.metrics.parsed,1);assert.equal(result.runFinish.metrics.partial,1);assert.equal(result.runFinish.metrics.skipped_old,1);
+});
+
+test('complete recent hydration behavior and counters remain unchanged',async()=>{
+  const freshComplete=`<script type="application/ld+json">{"datePublished":"2026-08-20T09:00:00Z"}</script>${fixture('cian-listing.html')}`;
+  const result=await hydrateCase({html:freshComplete,persistResult:{inserted:0,updated:1}});
+  assert.equal(result.persistCalls,1);assert.equal(result.persisted.length,1);assert.equal(result.item.status,'completed');assert.equal(result.queueFinish.errorCode,null);
+  assert.equal(result.body.outcome.status,'ok');assert.equal(result.body.outcome.completed,1);assert.deepEqual(result.runFinish.metrics,{claimed:1,attempted:1,parsed:1,partial:0,blocked:0,failed:0,inserted:0,updated:1,skipped_old:0,skipped_unknown_date:0});
 });
 
 test('queue SQL recovers stale processing rows without loss and claims deterministically',()=>{
