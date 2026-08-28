@@ -1,6 +1,12 @@
 # SLOGI v76.1.6 — Cian 30-day completeness hotfix
 
-Status: local candidate. Production, scheduler, Edge and Pages are unchanged.
+Status: released on GitHub. Production scheduler, Edge and data are unchanged by publication.
+
+## School SLOGI shell
+
+- shared desktop/mobile navigation and visual theme are unified across active product pages;
+- invite action remains integrated without restoring personal-account or workspace-code UI;
+- removed legacy tool routes remain absent and local href/src integrity is preserved.
 
 ## Fixed locally
 
@@ -14,4 +20,4 @@ Status: local candidate. Production, scheduler, Edge and Pages are unchanged.
 
 ## Production gate still required
 
-Deploying the three changed Edge functions, replacing scheduler cadence and publishing static assets require separate authorization. After activation, a read-only backlog/cursor/recent-count verification must prove ingestion completeness before the product is described as showing every qualifying Cian listing.
+Deploying the three changed Edge functions and replacing scheduler cadence require separate authorization. After activation, a read-only backlog/cursor/recent-count verification must prove ingestion completeness before the product is described as showing every qualifying Cian listing.

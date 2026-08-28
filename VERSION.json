@@ -4,7 +4,7 @@
   "releaseName": "School SLOGI and Cian 30-Day Feed",
   "releaseType": "hotfix",
   "releaseDate": "2026-08-28",
-  "status": "candidate",
+  "status": "released",
   "baseTag": "v76.1.5",
   "databaseBaseline": {
     "migrationPath": "supabase/migrations/20260814_7601_baseline.sql",
@@ -78,8 +78,8 @@
   },
   "releaseGate": {
     "canonicalGitCommit": "fbee5df0a71110f6ecac4bf820992460742f97ab",
-    "metadataGitCommit": null,
-    "gitTag": null,
+    "metadataGitCommit": "be80f5d17bdb2731c87ce249820c4ecf870d12c0",
+    "gitTag": "v76.1.6",
     "cleanEnvironmentApplyTested": true,
     "catalogAuditPassed": true,
     "unitFixtureTests": {
@@ -117,7 +117,7 @@
       "browserConsoleErrors": 0,
       "inheritedFromBaseTag": true
     },
-    "publicationAllowed": false,
+    "publicationAllowed": true,
     "testEnvironment": "isolated-local-supabase-postgresql-17",
     "hotfixLocalGate": {
       "headerPagesChecked": 16,
@@ -248,5 +248,5 @@
       "productionDeployed": false
     }
   },
-  "nextTarget": "owner-authorized GitHub release publication; production activation remains separate"
+  "nextTarget": "owner-authorized production activation and ingestion completeness verification"
 }
