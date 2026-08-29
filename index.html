@@ -11,7 +11,7 @@
   <link href="layout-v76-1-1.css?v=7611" rel="stylesheet"/>
   <link href="objects-visual-standard.css?v=33" rel="stylesheet"/>
   <link href="phase0.css?v=68" rel="stylesheet"/>
-<link href="schoolslogi-theme-v76-1-5.css?v=76171" rel="stylesheet"/><link href="password-gate.css?v=7617" rel="stylesheet"/><script src="phase0-config.js?v=7617"></script><script src="shared-workspace.js?v=7617"></script></head>
+<link href="schoolslogi-theme-v76-1-5.css?v=76114" rel="stylesheet"/><link href="password-gate.css?v=7617" rel="stylesheet"/><script src="phase0-config.js?v=7617"></script><script src="shared-workspace.js?v=7617"></script></head>
 <body class="slogi-search-page">
 <header class="site-header">
   <div class="top">
@@ -64,15 +64,15 @@
           </select></label>
         </div>
         <button class="phase0-filter-button" id="phase0-filter-button" type="button" data-action="toggle-filters" aria-expanded="false" aria-controls="phase0-core-filters phase0-extra-filters">Фильтры</button>
+        <button class="phase0-link-button phase0-reset-button" type="button" data-action="reset-filters">Сбросить</button>
         <div class="phase0-extra-filters" id="phase0-extra-filters" hidden>
           <label><span class="phase0-visually-hidden">Готовность</span><select id="phase0-readiness-filter" aria-label="Дополнительный фильтр"><option value="">Все объекты</option><option value="layout">С планировкой</option><option value="interest">С подтверждённым интересом</option><option value="measurement">Замер выполнен</option><option value="ready">Готовы к смете</option><option value="no-rating">Без рейтинга</option></select></label>
-          <button class="phase0-link-button" type="button" data-action="reset-filters">Сбросить</button>
         </div>
         <div class="phase0-active-filters" id="phase0-active-filters" hidden aria-live="polite"></div>
       </div>
       <div class="phase0-list-scroll" id="phase0-list-scroll">
         <div class="phase0-list-table-head" aria-hidden="true">
-          <span>Рейтинг</span><span>Объект</span><span>Аренда / мес</span><span>₽ / м² / мес</span><span>К кластеру</span><span>Статус</span><span>Следующий шаг</span><span></span>
+          <span>Рейтинг</span><span>Объект</span><span>Экономика</span><span>К кластеру</span><span>Статус</span><span>Следующий шаг</span><span></span>
         </div>
         <div class="phase0-object-list" id="phase0-object-list"></div>
       </div>
@@ -82,8 +82,9 @@
     <aside class="phase0-map-column" aria-labelledby="phase0-map-title">
       <div class="phase0-section-head">
         <div><h3 id="phase0-map-title">Карта</h3><p>Полигоны кластеров и потенциальные помещения</p></div>
+        <button class="phase0-map-expand" id="phase0-map-expand" type="button" data-action="toggle-map-expand" aria-expanded="false" aria-controls="phase0-map-stage">Развернуть карту</button>
       </div>
-      <div class="phase0-map-stage">
+      <div class="phase0-map-stage" id="phase0-map-stage">
         <div class="phase0-map" id="phase0-map"></div>
         <button class="phase0-map-clusters-toggle off" id="phase0-map-clusters-toggle" type="button" aria-pressed="false"><span class="phase0-layers-icon" aria-hidden="true">◇</span><span>Показать кластеры</span></button>
         <div class="phase0-map-loading" id="phase0-map-loading"><strong>Загружаем Яндекс Карту…</strong><span>Список объектов остаётся доступен.</span></div>
@@ -112,6 +113,6 @@
 <script src="pako-inflate.min.js?v=31"></script>
 <script src="xlsx-workflow.js?v=64"></script>
 <script src="phase0-services.js?v=7617"></script>
-<script src="phase0-app.js?v=67"></script>
+<script src="phase0-app.js?v=76114"></script>
 </body>
 </html>
