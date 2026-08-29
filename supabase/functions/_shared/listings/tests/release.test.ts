@@ -8,7 +8,7 @@ import { BROWSERLESS_LIMITS, resolveBrowserlessTimeoutProfile, resolveHourlyBrow
 import { extractListingDates, listingFreshnessDecision } from '../freshness.ts';
 import { pageBlockReason } from '../parsing.ts';
 import { CianListingProvider } from '../providers/cian.ts';
-import type { ListingServerStore, QueueItem, ScanState } from '../server-store.ts';
+import { SupabaseListingServerStore, type ListingServerStore, type QueueItem, type ScanState } from '../server-store.ts';
 import type { BrowserlessPage, NormalizedListing } from '../types.ts';
 import { createHydrateListingsHandler, HYDRATION_LIMITS } from '../../../hydrate-listings/index.ts';
 import { createImportListingHandler } from '../../../import-listing/index.ts';
@@ -133,7 +133,7 @@ test('search request allowlist accepts only Cian and rejects crawler actions',()
 });
 
 test('search requires a bearer session before any database read',async()=>{
-  let reads=0;const store:ListingReadStore={async readRecent(){reads++;return{items:[],total:0};},async readScanStates(){reads++;return[];}};
+  let reads=0;const store:ListingReadStore={async readRecent(){reads++;return{items:[],total:0,hasMore:false,nextCursor:null};},async readScanStates(){reads++;return[];}};
   const result=await createSearchListingsHandler({store})(new Request('http://local/search',{method:'POST',body:'{}'}));
   assert.equal(result.status,401);assert.equal(reads,0);
 });
@@ -142,30 +142,49 @@ test('search reads saved rows only and applies recent/removed filter',async()=>{
   const recent=listing({freshnessAt:new Date(dateReference.getTime()-29*86400000).toISOString()});
   const old=listing({listingUrl:'https://www.cian.ru/rent/commercial/222222222',freshnessAt:new Date(dateReference.getTime()-31*86400000).toISOString()});
   const removed=listing({listingUrl:'https://www.cian.ru/rent/commercial/333333333',marketStatus:'removed'});
-  let reads=0;const store:ListingReadStore={async readRecent(){reads++;return{items:[old,removed,recent],total:1};},async readScanStates(){reads++;return[];}};
+  let reads=0;const store:ListingReadStore={async readRecent(){reads++;return{items:[old,removed,recent],total:1,hasMore:false,nextCursor:null};},async readScanStates(){reads++;return[];}};
   const response=await createSearchListingsHandler({store,authorize:async()=>true,now:()=>dateReference})(new Request('http://local/search',{method:'POST',headers:{Authorization:'Bearer fixture','Content-Type':'application/json'},body:'{}'}));
   const body=await response.json();assert.equal(reads,2);assert.deepEqual(body.items.map((entry:NormalizedListing)=>entry.listingUrl),[recent.listingUrl]);assert.equal(body.meta.total,1);assert.equal(body.meta.snapshotAt,dateReference.toISOString());
 });
 
-test('search returns stable pagination metadata without triggering writes',async()=>{
+test('search returns stable keyset metadata without triggering writes',async()=>{
   let captured:any=null;const rows=Array.from({length:5},(_,index)=>listing({externalId:String(index+1),listingUrl:`https://www.cian.ru/rent/commercial/${100000000+index}`,freshnessAt:new Date(dateReference.getTime()-index*1000).toISOString()}));
-  const store:ListingReadStore={async readRecent(request){captured=request;return{items:rows.slice(2,4),total:5};},async readScanStates(){return[];}};
-  const response=await createSearchListingsHandler({store,authorize:async()=>true,now:()=>dateReference})(new Request('http://local/search',{method:'POST',headers:{Authorization:'Bearer fixture','Content-Type':'application/json'},body:JSON.stringify({sources:['cian'],page:2,limit:2,snapshotAt:dateReference.toISOString()})}));
-  const body=await response.json();assert.equal(response.status,200);assert.equal(captured.page,2);assert.equal(captured.limit,2);assert.equal(body.items.length,2);assert.equal(body.meta.total,5);assert.equal(body.meta.hasMore,true);assert.equal(body.meta.nextPage,3);
+  const cursor={firstSeenAt:observedAt,source:'cian' as const,listingUrl:rows[1].listingUrl};
+  const nextCursor={firstSeenAt:observedAt,source:'cian' as const,listingUrl:rows[3].listingUrl};
+  const store:ListingReadStore={async readRecent(request){captured=request;return{items:rows.slice(2,4),total:5,hasMore:true,nextCursor};},async readScanStates(){return[];}};
+  const response=await createSearchListingsHandler({store,authorize:async()=>true,now:()=>dateReference})(new Request('http://local/search',{method:'POST',headers:{Authorization:'Bearer fixture','Content-Type':'application/json'},body:JSON.stringify({sources:['cian'],page:2,limit:2,snapshotAt:dateReference.toISOString(),cursor})}));
+  const body=await response.json();assert.equal(response.status,200);assert.equal(captured.page,2);assert.equal(captured.limit,2);assert.deepEqual(captured.cursor,cursor);assert.equal(body.items.length,2);assert.equal(body.meta.total,5);assert.equal(body.meta.hasMore,true);assert.equal(body.meta.nextPage,3);assert.deepEqual(body.meta.nextCursor,nextCursor);
 });
 
-test('Supabase listing read uses exact count, inclusive cutoff and stable read-only ordering',async()=>{
+test('Supabase listing read uses snapshot eligibility, inclusive cutoff and stable keyset ordering',async()=>{
   let requested='';let method='GET';let prefer='';
   const fetchImpl:typeof fetch=async(input,init)=>{
     requested=String(input);method=String(init?.method||'GET');prefer=new Headers(init?.headers).get('Prefer')||'';
     return new Response(JSON.stringify([{
       source:'cian',listing_url:'https://www.cian.ru/rent/commercial/111111111',external_id:'111111111',address:'fixture',freshness_at:dateReference.toISOString(),freshness_kind:'published',first_seen_at:observedAt,last_seen_at:observedAt,market_status:'active',parse_warnings:[],parse_completeness:1,
-    }]),{status:200,headers:{'Content-Range':'0-0/205'}});
+    },{
+      source:'cian',listing_url:'https://www.cian.ru/rent/commercial/222222222',external_id:'222222222',address:'fixture',freshness_at:dateReference.toISOString(),freshness_kind:'published',first_seen_at:'2026-08-19T09:00:00.000Z',last_seen_at:observedAt,market_status:'active',parse_warnings:[],parse_completeness:1,
+    }]),{status:200,headers:{'Content-Range':'0-1/205'}});
   };
   const store=new SupabaseListingReadStore(environment({SUPABASE_URL:'https://fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture'}),fetchImpl);
-  const result=await store.readRecent({sources:['cian'],page:3,limit:100,snapshotAt:dateReference.toISOString(),areaMin:null,areaMax:null,floor:null},dateReference);
-  assert.equal(method,'GET');assert.equal(prefer,'count=exact');assert.equal(result.total,205);assert.equal(result.items.length,1);
-  assert.match(requested,/freshness_at=gte\./);assert.match(requested,/freshness_at=lte\./);assert.match(requested,/updated_at=lte\./);assert.match(requested,/market_status=neq\.removed/);assert.match(requested,/order=freshness_at\.desc,source\.asc,external_id\.asc\.nullslast,listing_url\.asc/);assert.match(requested,/offset=200/);
+  const result=await store.readRecent({sources:['cian'],page:1,limit:1,snapshotAt:dateReference.toISOString(),cursor:null,areaMin:null,areaMax:null,floor:null},dateReference);
+  assert.equal(method,'GET');assert.equal(prefer,'count=exact');assert.equal(result.total,205);assert.equal(result.items.length,1);assert.equal(result.hasMore,true);assert.equal(result.nextCursor?.listingUrl,'https://www.cian.ru/rent/commercial/111111111');
+  assert.match(requested,/freshness_at=gte\./);assert.match(requested,/freshness_at=lte\./);assert.match(requested,/first_seen_at=lte\./);assert.match(requested,/freshness_kind=in\.\(published,updated\)/);assert.match(requested,/market_status=neq\.removed/);assert.match(requested,/order=first_seen_at\.desc,source\.asc,listing_url\.asc/);assert.match(requested,/limit=2/);assert.doesNotMatch(requested,/updated_at=lte\.|offset=/);
+});
+
+test('keyset snapshot has no gap or duplicate when hydration mutates updated_at between pages',async()=>{
+  const snapshot=dateReference.toISOString(),rows=[
+    {source:'cian',listing_url:'https://www.cian.ru/rent/commercial/300000003',external_id:'300000003',address:'A',freshness_at:observedAt,freshness_kind:'published',first_seen_at:'2026-08-20T12:00:00.000Z',last_seen_at:observedAt,updated_at:observedAt,market_status:'active',parse_warnings:[],parse_completeness:1},
+    {source:'cian',listing_url:'https://www.cian.ru/rent/commercial/300000002',external_id:'300000002',address:'B',freshness_at:observedAt,freshness_kind:'published',first_seen_at:'2026-08-20T11:00:00.000Z',last_seen_at:observedAt,updated_at:observedAt,market_status:'active',parse_warnings:[],parse_completeness:1},
+    {source:'cian',listing_url:'https://www.cian.ru/rent/commercial/300000001',external_id:'300000001',address:'C',freshness_at:observedAt,freshness_kind:'published',first_seen_at:'2026-08-20T10:00:00.000Z',last_seen_at:observedAt,updated_at:observedAt,market_status:'active',parse_warnings:[],parse_completeness:1},
+  ];
+  const requested:string[]=[];let call=0;
+  const fetchImpl:typeof fetch=async(input)=>{requested.push(String(input));call+=1;if(call===1)return new Response(JSON.stringify(rows),{status:200,headers:{'Content-Range':'0-2/3'}});rows[1].updated_at='2026-08-21T09:00:01.000Z';const inserted={...rows[0],listing_url:'https://www.cian.ru/rent/commercial/300000004',external_id:'300000004',first_seen_at:'2026-08-21T09:00:01.000Z'};return new Response(JSON.stringify([rows[2]]),{status:200,headers:{'Content-Range':'0-0/1','X-Fixture-New-Row':inserted.external_id}});};
+  const store=new SupabaseListingReadStore(environment({SUPABASE_URL:'https://fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture'}),fetchImpl);
+  const first=await store.readRecent({sources:['cian'],page:1,limit:2,snapshotAt:snapshot,cursor:null,areaMin:null,areaMax:null,floor:null},dateReference);
+  const second=await store.readRecent({sources:['cian'],page:2,limit:2,snapshotAt:snapshot,cursor:first.nextCursor,areaMin:null,areaMax:null,floor:null},dateReference);
+  assert.deepEqual([...first.items,...second.items].map(item=>item.externalId),['300000003','300000002','300000001']);assert.equal(new Set([...first.items,...second.items].map(item=>item.externalId)).size,3);
+  assert.doesNotMatch(requested.join('\n'),/updated_at=lte\.|offset=/);assert.match(requested[0],/first_seen_at=lte\./);assert.match(requested[1],/or=\(first_seen_at\.lt\./);assert.equal(requested.join('\n').includes('300000004'),false);
 });
 
 test('duplicate daily discovery slot exits before Browserless',async()=>{
@@ -263,6 +282,28 @@ test('reliable partial listing at the exact inclusive 30-day boundary persists',
   const result=await hydrateCase({html:partialListingHtml(boundary),persistResult:{inserted:0,updated:1}});
   assert.equal(result.persistCalls,1);assert.equal(result.item.status,'completed');assert.equal(result.queueFinish.errorCode,'partial_listing_persisted');
   assert.equal(result.runFinish.metrics.parsed,1);assert.equal(result.runFinish.metrics.partial,1);assert.equal(result.runFinish.metrics.inserted,0);assert.equal(result.runFinish.metrics.updated,1);
+});
+
+test('real server store preserves partial-over-complete fields without widening complete merge semantics',async()=>{
+  const existing={
+    source:'cian',listing_url:'https://www.cian.ru/rent/commercial/111111111',external_id:'111111111',title:'Надёжный офис',address:'Москва, Тверская улица, 12',description:'Проверенное описание',cluster_name:'Тверской',area:180,floor:3,total_floors:9,ceiling_height:3.4,rent_monthly:450000,previous_rent_monthly:430000,latitude:55.7641,longitude:37.6045,first_seen_at:'2026-08-01T09:00:00.000Z',published_at:observedAt,source_updated_at:observedAt,freshness_at:observedAt,freshness_kind:'published',date_confidence:'high',price_changed:true,
+  };
+  let upsert:any[]=[],historyCalls=0;
+  const fetchImpl:typeof fetch=async(input,init)=>{
+    const url=String(input),method=String(init?.method||'GET');
+    if(method==='GET'&&url.includes('slogi_market_listings?'))return new Response(JSON.stringify([existing]),{status:200});
+    if(method==='POST'&&url.includes('slogi_market_listings?on_conflict=')){upsert=JSON.parse(String(init?.body||'[]'));return new Response('',{status:201});}
+    if(method==='POST'&&url.includes('slogi_market_price_history')){historyCalls+=1;return new Response('',{status:201});}
+    throw new Error('unexpected_store_request');
+  };
+  const store=new SupabaseListingServerStore(environment({SUPABASE_URL:'https://fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture'}),fetchImpl);
+  const partial=listing({title:null,address:'',description:null,clusterName:'',area:null,floor:null,totalFloors:null,ceilingHeight:null,rentMonthly:null,latitude:null,longitude:null,parseCompleteness:.35,parseWarnings:['partial_listing','missing_address','missing_area','missing_rent'],dateWarnings:[]});
+  const result=await store.persistRecent('cian',[partial],'2026-08-21T10:00:00.000Z');
+  assert.deepEqual(result,{inserted:0,updated:1});assert.equal(upsert.length,1);assert.equal(historyCalls,0);
+  const row=upsert[0];assert.equal(row.title,existing.title);assert.equal(row.address,existing.address);assert.equal(row.description,existing.description);assert.equal(row.cluster_name,existing.cluster_name);assert.equal(row.area,existing.area);assert.equal(row.floor,existing.floor);assert.equal(row.total_floors,existing.total_floors);assert.equal(row.ceiling_height,existing.ceiling_height);assert.equal(row.rent_monthly,existing.rent_monthly);assert.equal(row.latitude,existing.latitude);assert.equal(row.longitude,existing.longitude);assert.equal(row.first_seen_at,existing.first_seen_at);assert.equal(row.previous_rent_monthly,existing.previous_rent_monthly);assert.equal(row.price_changed,true);assert.equal(row.parse_completeness,.35);assert.deepEqual(row.parse_warnings,partial.parseWarnings);
+  const complete=listing({description:null,latitude:null,longitude:null,previousRentMonthly:null,parseWarnings:[],dateWarnings:[]});
+  await store.persistRecent('cian',[complete],'2026-08-21T11:00:00.000Z');
+  const completeRow=upsert[0];assert.equal(completeRow.description,null);assert.equal(completeRow.latitude,null);assert.equal(completeRow.longitude,null);assert.equal(completeRow.previous_rent_monthly,null);assert.equal(completeRow.price_changed,false);
 });
 
 test('unknown-date partial listing is never persisted and uses only the bounded date retry',async()=>{

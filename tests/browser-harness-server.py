@@ -3,8 +3,8 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
-MOCK_TAG = '<script src="/tests/browser-fixture-mocks.js"></script>'
-TARGET_TAG = '<script src="cian-workspace.js?v=7617"></script>'
+MOCK_TAG = '<script src="/tests/browser-fixture-mocks.js?v=76112"></script>'
+TARGET_TAG = '<script src="shared-workspace.js?v=7617"></script>'
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -14,7 +14,7 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         if urlsplit(self.path).path == '/available-spaces.html':
             source = (ROOT / 'available-spaces.html').read_text(encoding='utf-8')
-            body = source.replace(TARGET_TAG, MOCK_TAG + TARGET_TAG).encode('utf-8')
+            body = source.replace(TARGET_TAG, MOCK_TAG).encode('utf-8')
             self.send_response(200)
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.send_header('Content-Length', str(len(body)))

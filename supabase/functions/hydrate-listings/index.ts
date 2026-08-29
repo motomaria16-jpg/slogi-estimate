@@ -239,10 +239,7 @@ async function processItem(
     }
 
     if (runtimeSignal.aborted) throw new HydrationRuntimeError();
-    const recentListing = complete ? listing : {
-      ...listing,
-      address: listing.address || null,
-    } as NormalizedListing;
+    const recentListing = complete ? listing : { ...listing, address: listing.address || null } as NormalizedListing;
     const persisted = await store.persistRecent(source, [recentListing], finishedAt, runtimeSignal);
     await finish(store, item, workerId, 'completed', finishedAt, null, complete ? null : 'partial_listing_persisted', {
       attemptCount: item.attemptCount, completeness: listing.parseCompleteness, partial: !complete,

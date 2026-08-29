@@ -675,9 +675,12 @@ class Phase0Service{
 class GeocodingService{
   constructor(){this.lastError=null}
   config(){return(window.SLOGI_PHASE0_CONFIG&&window.SLOGI_PHASE0_CONFIG.geocoding)||{}}
-  apiKey(){return String(window.SLOGI_CONFIG&&(
-    window.SLOGI_CONFIG.yandexGeocoderApiKey||window.SLOGI_CONFIG.yandexMapsApiKey
-  )||'').trim()}
+  edgeEndpoint(){
+    const cfg=this.config(),projectCfg=window.SLOGI_PHASE0_CONFIG&&window.SLOGI_PHASE0_CONFIG.supabase||{};let endpoint,project;
+    try{endpoint=new URL(String(cfg.endpoint||''));project=new URL(String(projectCfg.url||''));}catch(_error){throw new Phase0Error('Серверный геокодер не настроен.','GEOCODER_PROXY_MISSING')}
+    if(project.protocol!=='https:'||project.username||project.password||project.search||project.hash||!/^\/?$/.test(project.pathname)||endpoint.protocol!=='https:'||endpoint.origin!==project.origin||endpoint.username||endpoint.password||endpoint.search||endpoint.hash||endpoint.pathname!=='/functions/v1/geocode-address')throw new Phase0Error('Серверный геокодер не прошёл проверку проекта.','GEOCODER_PROXY_UNTRUSTED');
+    return endpoint.toString()
+  }
   queryVariants(value){
     const raw=String(value||'').trim();if(!raw)return[];const variants=[];const push=v=>{v=String(v||'').replace(/\s+/g,' ').replace(/\s*,\s*/g,', ').trim();if(v&&!variants.includes(v))variants.push(v)};
     push(raw);
@@ -712,16 +715,9 @@ class GeocodingService{
       return payload;
     }finally{clearTimeout(timer)}
   }
-  buildDirectUrl(query){
-    const cfg=this.config(),key=this.apiKey();if(!key)throw new Phase0Error('Не указан ключ API Геокодера Яндекс.','GEOCODER_KEY_MISSING');
-    const base=String(cfg.directBaseUrl||'https://geocode-maps.yandex.ru/v1/');const u=new URL(base,location.href);
-    u.searchParams.set('apikey',key);u.searchParams.set('geocode',query);u.searchParams.set('lang','ru_RU');u.searchParams.set('format','json');u.searchParams.set('results','10');
-    if(cfg.searchCenter)u.searchParams.set('ll',String(cfg.searchCenter));if(cfg.searchSpan)u.searchParams.set('spn',String(cfg.searchSpan));u.searchParams.set('rspn','0');return u.toString();
-  }
-  async direct(query){return this.parsePayload(await this.fetchJson(this.buildDirectUrl(query)),query)}
   async server(query){
-    const cfg=this.config(),endpoint=String(cfg.endpoint||'').trim();if(!endpoint)throw new Phase0Error('Резервный серверный геокодер не настроен.','GEOCODER_PROXY_MISSING');
-    const payload=await this.fetchJson(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({address:query,apikey:this.apiKey(),ll:cfg.searchCenter||'',spn:cfg.searchSpan||''})});
+    const cfg=this.config(),endpoint=this.edgeEndpoint();
+    const payload=await this.fetchJson(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({address:query,ll:cfg.searchCenter||'',spn:cfg.searchSpan||''})});
     if(payload&&Array.isArray(payload.results))return payload.results.map(item=>({address:String(item.address||query),geo:{lat:Number(item.lat),lng:Number(item.lng)},precision:item.precision||'',raw:item.raw||null})).filter(item=>Number.isFinite(item.geo.lat)&&Number.isFinite(item.geo.lng));
     if(payload&&payload.data&&payload.data.geo)return[{address:String(payload.data.address||query),geo:payload.data.geo,precision:payload.data.precision||'',raw:payload.data.raw||null}];return[];
   }
@@ -730,7 +726,7 @@ class GeocodingService{
     const value=String(address||'').trim();if(value.length<5)return null;this.lastError=null;const errors=[];
     for(const query of this.queryVariants(value)){
       let candidates=[];
-      try{candidates=await this.direct(query)}catch(error){errors.push(error);if(this.config().useServerFallback!==false){try{candidates=await this.server(query)}catch(proxyError){errors.push(proxyError)}}}
+      try{candidates=await this.server(query)}catch(error){errors.push(error)}
       const selected=this.choose(candidates);if(selected)return selected;
     }
     const last=errors[errors.length-1];this.lastError=last||new Phase0Error('Адрес не найден API Геокодера.','GEOCODER_NOT_FOUND');

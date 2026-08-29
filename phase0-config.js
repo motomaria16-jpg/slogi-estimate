@@ -39,12 +39,8 @@ window.SLOGI_PHASE0_CONFIG={
     stateCacheKey:'slogi_shared_workspace_cache_v1'
   },
   geocoding:{
-    provider:String(existingGeocoding.provider||'yandexHttp'),
-    directBaseUrl:String(existingGeocoding.directBaseUrl||'https://geocode-maps.yandex.ru/v1/'),
-    // Резервный серверный маршрут на случай, если браузер блокирует CORS к HTTP Геокодеру.
     endpoint:functionEndpoint(existingGeocoding.endpoint,'geocode-address'),
     timeoutMs:Number(existingGeocoding.timeoutMs)||12000,
-    useServerFallback:existingGeocoding.useServerFallback!==false,
     searchCenter:String(existingGeocoding.searchCenter||'37.6176,55.7558'),
     searchSpan:String(existingGeocoding.searchSpan||'4.2,3.0')
   },

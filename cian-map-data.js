@@ -30,6 +30,19 @@
     return source+':'+(externalId||canonicalUrl(item&&(item.listingUrl||item.listing_url)));
   }
 
+  function deduplicate(items){
+    const externalIds=new Set(),urls=new Set(),result=[];
+    (items||[]).forEach(item=>{
+      const source=String(item&&item.source||''),externalId=String(item&&(item.externalId||item.external_id)||'').trim();
+      const url=canonicalUrl(item&&(item.listingUrl||item.listing_url));
+      const externalKey=externalId?source+':'+externalId:'',urlKey=url?source+':'+url:'';
+      if((externalKey&&externalIds.has(externalKey))||(urlKey&&urls.has(urlKey)))return;
+      if(!externalKey&&!urlKey)return;
+      if(externalKey)externalIds.add(externalKey);if(urlKey)urls.add(urlKey);result.push(item);
+    });
+    return result;
+  }
+
   function clusterState(value,clusterService){
     const geo=coordinates(value);
     if(!geo)return{clusterId:'',clusterName:'',clusterStatus:'not_computed',clusterBoundary:false};
@@ -49,9 +62,7 @@
   function classify(value,clusterService){return Object.assign(value,clusterState(value,clusterService));}
 
   function projection(items){
-    const unique=new Map();
-    (items||[]).forEach(item=>{const id=listingId(item);if(id!==':'&&!unique.has(id))unique.set(id,item);});
-    const listings=[...unique.values()],markers=listings.filter(item=>coordinates(item));
+    const listings=deduplicate(items),markers=listings.filter(item=>coordinates(item));
     const failed=listings.filter(item=>['failed','timeout','rate_limited','not_found'].includes(item.geocodeStatus)).length;
     return{
       listings,markers,
@@ -90,9 +101,17 @@
     return Math.min(5000,Math.max(0,Number(baseDelayMs)||250)*Math.pow(2,attempt-1));
   }
 
-  function createServerGeocoder({endpoint,token='',fetchImpl=globalThis.fetch,timeoutMs=12000,maxAttempts=3,baseDelayMs=250,sleepImpl}={}){
-    const url=String(endpoint||'').trim(),attemptLimit=Math.max(1,Math.min(5,Math.trunc(Number(maxAttempts)||3)));
-    if(!url||typeof fetchImpl!=='function')throw new Error('geocoder_unavailable');
+  function configuredEdgeEndpoint(endpoint,projectUrl){
+    let target,project;
+    try{target=new URL(String(endpoint||''));project=new URL(String(projectUrl||''));}catch(_error){throw new Error('geocoder_endpoint_untrusted');}
+    if(project.protocol!=='https:'||project.username||project.password||project.search||project.hash||!/^\/?$/.test(project.pathname))throw new Error('geocoder_project_untrusted');
+    if(target.protocol!=='https:'||target.origin!==project.origin||target.username||target.password||target.search||target.hash||target.pathname!=='/functions/v1/geocode-address')throw new Error('geocoder_endpoint_untrusted');
+    return target.toString();
+  }
+
+  function createServerGeocoder({endpoint,projectUrl,token='',fetchImpl=globalThis.fetch,timeoutMs=12000,maxAttempts=3,baseDelayMs=250,sleepImpl}={}){
+    const url=configuredEdgeEndpoint(endpoint,projectUrl),attemptLimit=Math.max(1,Math.min(5,Math.trunc(Number(maxAttempts)||3)));
+    if(typeof fetchImpl!=='function')throw new Error('geocoder_unavailable');
     return async function geocode(address,{signal}={}){
       const normalized=String(address||'').trim();if(normalized.length<5)return{status:'not_found',attempts:0,diagnostic:'address_invalid'};
       let lastStatus='failed';
@@ -166,5 +185,5 @@
     return{completed,total:tasks.length,cached,projection:projection(items)};
   }
 
-  return{SUCCESS_TTL_MS,FAILURE_TTL_MS,coordinates,normalizeAddress,canonicalUrl,listingId,clusterState,classify,projection,createAddressCache,createServerGeocoder,geocodeMissingListings};
+  return{SUCCESS_TTL_MS,FAILURE_TTL_MS,coordinates,normalizeAddress,canonicalUrl,listingId,deduplicate,clusterState,classify,projection,createAddressCache,configuredEdgeEndpoint,createServerGeocoder,geocodeMissingListings};
 });
