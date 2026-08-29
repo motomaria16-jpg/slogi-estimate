@@ -367,7 +367,7 @@ test('scheduler activation changes only the two guarded Cian cadences and has an
 
 test('frontend search sends Auth, reads only, and exposes disabled future source',()=>{
   const js=readFileSync(join(repositoryDirectory,'cian-workspace.js'),'utf8');const html=readFileSync(join(repositoryDirectory,'available-spaces.html'),'utf8');
-  assert.match(js,/Authorization/);assert.match(js,/getAccessToken/);assert.match(js,/feed\.loadAllPages/);assert.match(html,/cian-listing-feed\.js/);assert.equal(/persist|update-clusters|refresh-listings|hydrate-listings/.test(js),false);assert.match(html,/Авито — подключение готовится/);assert.equal(/data-source="avito"|available-source/.test(html),false);
+  assert.match(js,/Authorization/);assert.match(js,/getAccessToken/);assert.match(js,/feed\.loadAllPages/);assert.match(html,/cian-listing-feed\.js/);assert.equal(/persist|update-clusters|refresh-listings|hydrate-listings/.test(js),false);assert.match(html,/<h2>Авито<\/h2><p>Подключение готовится<\/p>/);assert.equal(/data-source="avito"|available-source/.test(html),false);
 });
 
 test('hotfix navigation exposes the four product sections in the approved order',()=>{
