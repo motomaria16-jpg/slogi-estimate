@@ -4,15 +4,15 @@
   "releaseName": "Cian Queue Convergence",
   "releaseType": "reliability-hotfix",
   "releaseDate": "2026-08-29",
-  "status": "candidate",
-  "tag": null,
-  "gitTag": null,
+  "status": "released",
+  "tag": "v76.1.13",
+  "gitTag": "v76.1.13",
   "baseTag": "v76.1.12",
   "baseCommit": "a5c3b39540ca8fd77b262f6a23c9e758cfea4cf1",
   "canonicalContentCommit": "4dda6b348fe9c7c5fe887383848f65d56fa356d1",
   "canonicalGitCommit": "4dda6b348fe9c7c5fe887383848f65d56fa356d1",
-  "metadataGitCommit": null,
-  "mergeCommit": null,
+  "metadataGitCommit": "a43394bf172cc5df4b948e37b9610a01734bf605",
+  "mergeCommit": "72f1a67850c1706513a4c21df209e6bb13b6871a",
   "databaseBaseline": {
     "migrationPath": "supabase/migrations/20260814_7601_baseline.sql",
     "recordedV7601WorkingTreeSha256": "a4ab16221f6c76c21b6f541c7780111afcbcc72b8726cdac75c0d0adea656bc3",
@@ -596,9 +596,9 @@
     "baseTag": "v76.1.12",
     "baseCommit": "a5c3b39540ca8fd77b262f6a23c9e758cfea4cf1",
     "canonicalGitCommit": "4dda6b348fe9c7c5fe887383848f65d56fa356d1",
-    "metadataGitCommit": null,
-    "mergeCommit": null,
-    "gitTag": null,
+    "metadataGitCommit": "a43394bf172cc5df4b948e37b9610a01734bf605",
+    "mergeCommit": "72f1a67850c1706513a4c21df209e6bb13b6871a",
+    "gitTag": "v76.1.13",
     "productionDeployed": false,
     "publicationAllowed": true,
     "discoveryExistingRowsObservationOnly": true,
@@ -651,5 +651,5 @@
     "sqlRegressionSha256": "f03742337e62480b2539a6cc916258783459c3702e931e25a7e2be50737c45ce",
     "concurrencyRegressionSha256": "99bbb7c599b5d1064ae2ee28e8b5d4c97847ceff13f48614d0b9392df7ed54ed"
   },
-  "nextTarget": "GitHub review and v76.1.13 publication; production deployment remains out of scope"
+  "nextTarget": "Production deployment remains a separate owner-authorized action"
 }
