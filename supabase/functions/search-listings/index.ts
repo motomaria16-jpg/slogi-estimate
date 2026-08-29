@@ -16,11 +16,18 @@ const corsHeaders = {
 
 export const READ_LIMITS = Object.freeze({ maxItems: 100 });
 
+export interface ListingReadCursor {
+  firstSeenAt: string;
+  source: ListingSource;
+  listingUrl: string;
+}
+
 export interface ListingReadRequest {
   sources: ListingSource[];
   page: number;
   limit: number;
   snapshotAt: string | null;
+  cursor: ListingReadCursor | null;
   areaMin: number | null;
   areaMax: number | null;
   floor: number | null;
@@ -29,6 +36,8 @@ export interface ListingReadRequest {
 export interface ListingReadPage {
   items: NormalizedListing[];
   total: number;
+  hasMore: boolean;
+  nextCursor: ListingReadCursor | null;
 }
 
 export interface ListingScanStateView {
@@ -72,6 +81,23 @@ function integerInRange(value: unknown, fallback: number, min: number, max: numb
   return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback;
 }
 
+function readCursor(value: unknown, sources: ListingSource[]): ListingReadCursor | null {
+  if (value == null) return null;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('cursor must be an object');
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).some((key) => !['firstSeenAt', 'source', 'listingUrl'].includes(key))) throw new Error('cursor contains unsupported fields');
+  const firstSeenAt = String(record.firstSeenAt || '');
+  const source = String(record.source || '') as ListingSource;
+  const listingUrl = String(record.listingUrl || '');
+  if (!Number.isFinite(new Date(firstSeenAt).getTime())) throw new Error('cursor firstSeenAt must be an ISO date');
+  if (!sources.includes(source)) throw new Error('cursor source must be requested');
+  try {
+    const parsed = new URL(listingUrl);
+    if (parsed.protocol !== 'https:' || !/(^|\.)cian\.ru$/i.test(parsed.hostname)) throw new Error();
+  } catch { throw new Error('cursor listingUrl must be a Cian HTTPS URL'); }
+  return { firstSeenAt: new Date(firstSeenAt).toISOString(), source, listingUrl };
+}
+
 export function parseSearchRequest(body: Record<string, unknown>): { ok: true; request: ListingReadRequest } | { ok: false; error: string } {
   if (body.persist != null || body.action != null || body.updateClusters != null) return { ok: false, error: 'search-listings is read-only' };
   const allowed = new Set<ListingSource>(['cian']);
@@ -84,11 +110,17 @@ export function parseSearchRequest(body: Record<string, unknown>): { ok: true; r
   const limit = integerInRange(body.limit ?? body.limitPerSource, 50, 1, READ_LIMITS.maxItems);
   const snapshotAt = body.snapshotAt == null ? null : String(body.snapshotAt);
   if (snapshotAt != null && !Number.isFinite(new Date(snapshotAt).getTime())) return { ok: false, error: 'snapshotAt must be an ISO date' };
+  let cursor: ListingReadCursor | null;
+  try { cursor = readCursor(body.cursor, sources); }
+  catch (error) { return { ok: false, error: error instanceof Error ? error.message : 'cursor is invalid' }; }
+  if (cursor && snapshotAt == null) return { ok: false, error: 'snapshotAt is required with cursor' };
+  if (page > 1 && !cursor) return { ok: false, error: 'cursor is required after the first page' };
+  if (page === 1 && cursor) return { ok: false, error: 'cursor is not allowed on the first page' };
   const areaMin = numeric(body.areaMin);
   const areaMax = numeric(body.areaMax);
   const floor = numeric(body.floor);
   if (areaMin != null && areaMax != null && areaMin > areaMax) return { ok: false, error: 'areaMin must be less than or equal to areaMax' };
-  return { ok: true, request: { sources, page, limit, snapshotAt, areaMin, areaMax, floor } };
+  return { ok: true, request: { sources, page, limit, snapshotAt, cursor, areaMin, areaMax, floor } };
 }
 
 function safeCode(value: unknown): string | null {
@@ -184,17 +216,34 @@ export class SupabaseListingReadStore implements ListingReadStore {
     const parts = [
       'select=*', `freshness_at=gte.${encodeURIComponent(cutoff)}`, 'freshness_at=not.is.null',
       `freshness_at=lte.${encodeURIComponent(snapshot.toISOString())}`,
-      `updated_at=lte.${encodeURIComponent(snapshot.toISOString())}`,
-      'market_status=neq.removed', 'order=freshness_at.desc,source.asc,external_id.asc.nullslast,listing_url.asc', `limit=${request.limit}`,
-      `offset=${(request.page - 1) * request.limit}`,
+      `first_seen_at=lte.${encodeURIComponent(snapshot.toISOString())}`,
+      'freshness_kind=in.(published,updated)',
+      'market_status=neq.removed', 'order=first_seen_at.desc,source.asc,listing_url.asc', `limit=${request.limit + 1}`,
     ];
     if (request.sources.length === 1) parts.push(`source=eq.${request.sources[0]}`);
     else parts.push(`source=in.(${request.sources.join(',')})`);
     if (request.areaMin != null) parts.push(`area=gte.${request.areaMin}`);
     if (request.areaMax != null) parts.push(`area=lte.${request.areaMax}`);
     if (request.floor != null) parts.push(`floor=eq.${request.floor}`);
+    if (request.cursor) {
+      const at = encodeURIComponent(request.cursor.firstSeenAt);
+      const source = encodeURIComponent(request.cursor.source);
+      const url = encodeURIComponent(request.cursor.listingUrl);
+      parts.push(`or=(first_seen_at.lt.${at},and(first_seen_at.eq.${at},source.gt.${source}),and(first_seen_at.eq.${at},source.eq.${source},listing_url.gt.${url}))`);
+    }
     const result = await this.#readPage(`slogi_market_listings?${parts.join('&')}`);
-    return { items: result.rows.map((row) => rowToListing(row as Record<string, unknown>)), total: result.total };
+    const rows = result.rows.slice(0, request.limit) as Array<Record<string, unknown>>;
+    const last = rows.at(-1);
+    const nextCursor = result.rows.length > request.limit && last ? {
+      firstSeenAt: String(last.first_seen_at || ''),
+      source: last.source as ListingSource,
+      listingUrl: String(last.listing_url || ''),
+    } : null;
+    if (nextCursor && (!Number.isFinite(new Date(nextCursor.firstSeenAt).getTime()) || !nextCursor.listingUrl)) throw new Error('market_read_cursor_invalid');
+    return {
+      items: rows.map((row) => rowToListing(row)), total: result.total,
+      hasMore: nextCursor != null, nextCursor,
+    };
   }
 
   async readScanStates(sources: ListingSource[]): Promise<ListingScanStateView[]> {
@@ -239,6 +288,9 @@ export function createSearchListingsHandler(dependencies: SearchHandlerDependenc
     const now = dependencies.now?.() || new Date();
     const snapshot = parsed.request.snapshotAt ? new Date(parsed.request.snapshotAt) : now;
     if (snapshot.getTime() > now.getTime() + 5 * 60_000) return response({ status: 'invalid_request', error: 'snapshotAt is in the future' }, 400);
+    if (parsed.request.cursor && new Date(parsed.request.cursor.firstSeenAt).getTime() > snapshot.getTime()) {
+      return response({ status: 'invalid_request', error: 'cursor is after snapshotAt' }, 400);
+    }
     const readRequest = { ...parsed.request, snapshotAt: snapshot.toISOString() };
     let store = dependencies.store;
     if (!store) {
@@ -250,11 +302,8 @@ export function createSearchListingsHandler(dependencies: SearchHandlerDependenc
       const items = storedPage.items
         .filter((item) => item.marketStatus !== 'removed' && listingFreshnessDecision(item, snapshot) === 'recent')
         .sort((left, right) => {
-          const freshness = new Date(right.freshnessAt || 0).getTime() - new Date(left.freshnessAt || 0).getTime();
-          if (freshness) return freshness;
-          const leftKey = `${left.source}:${left.externalId || left.listingUrl}`;
-          const rightKey = `${right.source}:${right.externalId || right.listingUrl}`;
-          return leftKey.localeCompare(rightKey);
+          const firstSeen = new Date(right.firstSeenAt).getTime() - new Date(left.firstSeenAt).getTime();
+          return firstSeen || left.source.localeCompare(right.source) || left.listingUrl.localeCompare(right.listingUrl);
         });
       const stateBySource = new Map(states.map((state) => [state.source, state]));
       const sourceMeta = Object.fromEntries(parsed.request.sources.map((source) => {
@@ -271,12 +320,12 @@ export function createSearchListingsHandler(dependencies: SearchHandlerDependenc
           errorCode: state?.errorCode || null,
         }];
       }));
-      const offset = (parsed.request.page - 1) * parsed.request.limit;
-      const hasMore = offset + items.length < storedPage.total;
+      const hasMore = storedPage.hasMore === true;
       const meta = {
         sources: sourceMeta, page: parsed.request.page, limit: parsed.request.limit, fetchedAt: now.toISOString(),
         total: storedPage.total, returned: items.length, hasMore,
         nextPage: hasMore ? parsed.request.page + 1 : null,
+        nextCursor: hasMore ? storedPage.nextCursor : null,
         snapshotAt: snapshot.toISOString(),
         freshnessCutoff: new Date(snapshot.getTime() - LISTING_FRESHNESS_MS).toISOString(),
         freshnessDays: LISTING_FRESHNESS_DAYS, persistence: 'disabled',

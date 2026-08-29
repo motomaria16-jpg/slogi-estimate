@@ -97,6 +97,12 @@ function nullable(value: unknown): string | null {
   return value == null || value === '' ? null : String(value);
 }
 
+function reliable<T>(incoming: T | null | undefined, existing: unknown): T | unknown | null {
+  if (incoming == null) return existing ?? null;
+  if (typeof incoming === 'string' && incoming.trim() === '') return existing ?? null;
+  return incoming;
+}
+
 function stateFromRow(row: Record<string, unknown>, source: ListingSource): ScanState {
   return {
     source,
@@ -268,7 +274,7 @@ export class SupabaseListingServerStore implements ListingServerStore {
     if (!listings.length) return { inserted: 0, updated: 0 };
     const encoded = listings.map((item) => `"${item.listingUrl.replace(/"/g, '\\"')}"`).join(',');
     const existingResult = await this.#request(
-      `slogi_market_listings?source=eq.${source}&listing_url=in.(${encodeURIComponent(encoded)})&select=listing_url,rent_monthly,first_seen_at`,
+      `slogi_market_listings?source=eq.${source}&listing_url=in.(${encodeURIComponent(encoded)})&select=*`,
       {}, [200], signal,
     );
     const existing = Array.isArray(existingResult.data) ? existingResult.data as Array<Record<string, unknown>> : [];
@@ -278,19 +284,36 @@ export class SupabaseListingServerStore implements ListingServerStore {
       const previous = byUrl.get(item.listingUrl);
       const previousRent = previous?.rent_monthly == null ? null : Number(previous.rent_monthly);
       const changed = previousRent != null && item.rentMonthly != null && previousRent !== item.rentMonthly;
+      const preserveMissing = (item.parseWarnings || []).includes('partial_listing');
+      const merged = <T>(incoming: T | null | undefined, existing: unknown): T | unknown | null =>
+        preserveMissing ? reliable(incoming, existing) : incoming == null || (typeof incoming === 'string' && incoming.trim() === '') ? null : incoming;
+      const incomingCoordinates = item.latitude != null && item.longitude != null;
       if (item.rentMonthly != null && (!previous || changed)) {
         history.push({ source, listing_url: item.listingUrl, rent_monthly: item.rentMonthly, recorded_at: observedAt });
       }
       return {
-        source, listing_url: item.listingUrl, external_id: item.externalId, title: item.title,
-        address: item.address || null, description: item.description, cluster_name: item.clusterName || null,
-        area: item.area, floor: item.floor, total_floors: item.totalFloors,
-        ceiling_height: item.ceilingHeight, rent_monthly: item.rentMonthly,
-        previous_rent_monthly: changed ? previousRent : null, latitude: item.latitude, longitude: item.longitude,
+        source, listing_url: item.listingUrl,
+        external_id: merged(item.externalId, previous?.external_id),
+        title: merged(item.title, previous?.title),
+        address: merged(item.address, previous?.address),
+        description: merged(item.description, previous?.description),
+        cluster_name: merged(item.clusterName, previous?.cluster_name),
+        area: merged(item.area, previous?.area),
+        floor: merged(item.floor, previous?.floor),
+        total_floors: merged(item.totalFloors, previous?.total_floors),
+        ceiling_height: merged(item.ceilingHeight, previous?.ceiling_height),
+        rent_monthly: merged(item.rentMonthly, previous?.rent_monthly),
+        previous_rent_monthly: changed ? previousRent : preserveMissing ? reliable(item.previousRentMonthly, previous?.previous_rent_monthly) : null,
+        latitude: incomingCoordinates || !preserveMissing ? item.latitude : previous?.latitude ?? null,
+        longitude: incomingCoordinates || !preserveMissing ? item.longitude : previous?.longitude ?? null,
         first_seen_at: String(previous?.first_seen_at || item.firstSeenAt || observedAt), last_seen_at: observedAt,
-        last_checked_at: observedAt, market_status: previous ? 'active' : 'new', price_changed: changed, missed_scans: 0,
-        published_at: item.publishedAt, source_updated_at: item.sourceUpdatedAt, freshness_at: item.freshnessAt,
-        freshness_kind: item.freshnessKind, date_confidence: item.dateConfidence,
+        last_checked_at: observedAt, market_status: previous ? 'active' : 'new',
+        price_changed: preserveMissing ? changed || previous?.price_changed === true : changed, missed_scans: 0,
+        published_at: merged(item.publishedAt, previous?.published_at),
+        source_updated_at: merged(item.sourceUpdatedAt, previous?.source_updated_at),
+        freshness_at: merged(item.freshnessAt, previous?.freshness_at),
+        freshness_kind: merged(item.freshnessKind, previous?.freshness_kind),
+        date_confidence: merged(item.dateConfidence, previous?.date_confidence),
         parse_completeness: item.parseCompleteness,
         parse_warnings: [...new Set([...(item.parseWarnings || []), ...(item.dateWarnings || [])])], updated_at: observedAt,
       };

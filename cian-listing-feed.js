@@ -21,6 +21,18 @@
     const listingUrl=canonicalUrl(item&&(item.listingUrl||item.listing_url));
     return source+':'+(externalId||listingUrl);
   }
+  function deduplicate(items){
+    const externalIds=new Set(),urls=new Set(),result=[];
+    (items||[]).forEach(item=>{
+      const source=String(item&&item.source||''),externalId=String(item&&(item.externalId||item.external_id)||'').trim();
+      const url=canonicalUrl(item&&(item.listingUrl||item.listing_url));
+      const externalKey=externalId?source+':'+externalId:'',urlKey=url?source+':'+url:'';
+      if((externalKey&&externalIds.has(externalKey))||(urlKey&&urls.has(urlKey)))return;
+      if(!externalKey&&!urlKey)return;
+      if(externalKey)externalIds.add(externalKey);if(urlKey)urls.add(urlKey);result.push(item);
+    });
+    return result;
+  }
   function freshnessTime(item){
     if(!item||(item.freshnessKind!=='published'&&item.freshnessKind!=='updated'))return null;
     const time=new Date(item&&item.freshnessAt||'').getTime();
@@ -56,39 +68,44 @@
     }).sort((left,right)=>compareStable(left,right,criteria.sort));
   }
   function abortError(){const error=new Error('aborted');error.name='AbortError';return error;}
+  function cursorKey(value){
+    if(!value||typeof value!=='object'||Array.isArray(value))return'';
+    const firstSeenAt=String(value.firstSeenAt||''),source=String(value.source||''),listingUrl=String(value.listingUrl||'');
+    return Number.isFinite(new Date(firstSeenAt).getTime())&&source&&listingUrl?JSON.stringify({firstSeenAt,source,listingUrl}):'';
+  }
   async function loadAllPages(fetchPage,{limit=100,maxPages=10000,signal}={}){
     const pageSize=Math.max(1,Math.min(100,Math.trunc(number(limit)||100)));
     const pageLimit=Math.max(1,Math.min(10000,Math.trunc(number(maxPages)||10000)));
-    const unique=new Map();const seenPages=new Set();
-    let page=1,snapshotAt=null,serverTotal=null,meta=null,partial=false,errorCode=null,received=0;
+    const receivedItems=[],seenCursors=new Set(['start']);
+    let page=1,cursor=null,snapshotAt=null,freshnessCutoff=null,serverTotal=null,meta=null,partial=false,errorCode=null,received=0;
     for(;;){
       if(signal&&signal.aborted)throw abortError();
-      if(seenPages.size>=pageLimit){partial=true;errorCode='page_limit';break;}
-      if(seenPages.has(page)){partial=true;errorCode='pagination_cycle';break;}
-      seenPages.add(page);
+      if(page>pageLimit){partial=true;errorCode='page_limit';break;}
       let result;
-      try{result=await fetchPage({page,limit:pageSize,snapshotAt});}
+      try{result=await fetchPage({page,limit:pageSize,snapshotAt,cursor});}
       catch(error){if(error&&error.name==='AbortError')throw error;if(page===1)throw error;partial=true;errorCode='page_failed';break;}
       if(!result||!Array.isArray(result.items)||!result.meta){if(page===1)throw new Error('listing_page_invalid');partial=true;errorCode='page_shape';break;}
       meta=result.meta;
       const metaPage=Number(meta.page);if(Number.isSafeInteger(metaPage)&&metaPage!==page){partial=true;errorCode='page_mismatch';break;}
-      if(page===1){snapshotAt=String(meta.snapshotAt||'');if(!snapshotAt||!Number.isFinite(new Date(snapshotAt).getTime()))throw new Error('listing_snapshot_invalid');}
-      else if(String(meta.snapshotAt||'')!==snapshotAt){partial=true;errorCode='snapshot_changed';break;}
+      if(page===1){
+        snapshotAt=String(meta.snapshotAt||'');freshnessCutoff=String(meta.freshnessCutoff||'');
+        const snapshotTime=new Date(snapshotAt).getTime(),cutoffTime=new Date(freshnessCutoff).getTime();
+        if(!Number.isFinite(snapshotTime))throw new Error('listing_snapshot_invalid');
+        if(!Number.isFinite(cutoffTime)||cutoffTime!==snapshotTime-30*DAY)throw new Error('listing_cutoff_invalid');
+      }else if(String(meta.snapshotAt||'')!==snapshotAt){partial=true;errorCode='snapshot_changed';break;}
+      else if(String(meta.freshnessCutoff||'')!==freshnessCutoff){partial=true;errorCode='cutoff_changed';break;}
       const candidateTotal=Number(meta.total);
-      if(Number.isSafeInteger(candidateTotal)&&candidateTotal>=0){
-        if(serverTotal==null)serverTotal=candidateTotal;
-        else if(candidateTotal!==serverTotal){partial=true;errorCode='total_changed';break;}
-      }
+      if(serverTotal==null&&Number.isSafeInteger(candidateTotal)&&candidateTotal>=0)serverTotal=candidateTotal;
       const returned=Number(meta.returned);received+=Number.isSafeInteger(returned)&&returned>=0?returned:result.items.length;
-      result.items.forEach(item=>{const key=identity(item);if(key!==':'&&!unique.has(key))unique.set(key,item);});
+      receivedItems.push(...result.items);
       if(meta.hasMore!==true){if(serverTotal!=null&&received!==serverTotal){partial=true;errorCode='total_mismatch';}break;}
       if(result.items.length===0){partial=true;errorCode='empty_page';break;}
-      const next=Number(meta.nextPage);if(!Number.isSafeInteger(next)||next<=page){partial=true;errorCode='pagination_invalid';break;}
-      if(serverTotal!=null&&next>Math.max(1,Math.ceil(serverTotal/pageSize))){partial=true;errorCode='pagination_exceeds_total';break;}
-      page=next;
+      const nextKey=cursorKey(meta.nextCursor);if(!nextKey){partial=true;errorCode='cursor_invalid';break;}
+      if(seenCursors.has(nextKey)){partial=true;errorCode='pagination_cycle';break;}
+      seenCursors.add(nextKey);cursor=meta.nextCursor;page+=1;
     }
-    const items=[...unique.values()].sort((left,right)=>compareStable(left,right));
-    return {items,total:partial?(serverTotal??items.length):items.length,serverTotal,partial,errorCode,meta,pages:seenPages.size,received};
+    const items=deduplicate(receivedItems).sort((left,right)=>compareStable(left,right));
+    return {items,total:partial?(serverTotal??items.length):items.length,serverTotal,partial,errorCode,meta,pages:page,received,snapshotAt,freshnessCutoff};
   }
-  return{canonicalUrl,identity,freshnessTime,isRecent,compareStable,filterAndSort,loadAllPages};
+  return{canonicalUrl,identity,deduplicate,freshnessTime,isRecent,compareStable,filterAndSort,loadAllPages};
 });

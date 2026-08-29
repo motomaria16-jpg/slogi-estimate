@@ -2,6 +2,7 @@
   'use strict';
 
   const cfg=(window.SLOGI_PHASE0_CONFIG&&window.SLOGI_PHASE0_CONFIG.listingSearch)||{};
+  const supabaseCfg=(window.SLOGI_PHASE0_CONFIG&&window.SLOGI_PHASE0_CONFIG.supabase)||{};
   const feed=window.SlogiCianFeed;
   const mapData=window.SlogiCianMapData;
   if(!feed)throw new Error('cian_listing_feed_unavailable');
@@ -10,7 +11,7 @@
   const MAX_FRESH_DAYS=30;
   const $=id=>document.getElementById(id);
   const fields={cluster:$('available-cluster'),areaMin:$('available-area-min'),areaMax:$('available-area-max'),rentMin:$('available-rent-min'),rentMax:$('available-rent-max'),sqmMin:$('available-sqm-min'),sqmMax:$('available-sqm-max'),days:$('available-date'),sort:$('available-sort')};
-  const nodes={button:$('available-search'),reset:$('available-reset'),count:$('available-count'),updated:$('available-last-update'),source:$('cian-source-state'),badge:$('cian-source-badge'),summary:$('available-summary'),loading:$('available-loading'),list:$('available-list'),empty:$('available-empty'),map:$('cian-map'),mapLoading:$('cian-map-loading'),mapMessage:$('cian-map-message'),mapCount:$('cian-map-count'),mapMissing:$('cian-map-missing'),mapFailed:$('cian-map-failed'),mapPending:$('cian-map-pending'),clusterToggle:$('cian-clusters-toggle'),dialog:$('cian-listing-dialog'),dialogContent:$('cian-dialog-content')};
+  const nodes={button:$('available-search'),reset:$('available-reset'),count:$('available-count'),updated:$('available-last-update'),source:$('cian-source-state'),badge:$('cian-source-badge'),summary:$('available-summary'),loading:$('available-loading'),list:$('available-list'),empty:$('available-empty'),map:$('cian-map'),mapLoading:$('cian-map-loading'),mapMessage:$('cian-map-message'),mapCount:$('cian-map-count'),mapMissing:$('cian-map-missing'),mapNoAddress:$('cian-map-no-address'),mapFailed:$('cian-map-failed'),mapPending:$('cian-map-pending'),clusterToggle:$('cian-clusters-toggle'),dialog:$('cian-listing-dialog'),dialogContent:$('cian-dialog-content')};
   let all=[];
   let visible=[];
   let loading=false;
@@ -25,6 +26,7 @@
   let loadPartial=false;
   let serverTotal=null;
   let loadedPages=0;
+  let listingSnapshotTime=NaN;
   let activeLoadController=null;
   let loadGeneration=0;
   const geocodeCache=(()=>{try{return mapData.createAddressCache(window.localStorage);}catch(_error){return mapData.createAddressCache(null);}})();
@@ -80,7 +82,7 @@
 
   function applyFilters(){
     const c=criteria();
-    visible=feed.filterAndSort(all,c);
+    visible=feed.filterAndSort(all,c,Number.isFinite(listingSnapshotTime)?listingSnapshotTime:Date.now());
     render();focusSelectedCluster(c.cluster);
   }
 
@@ -171,7 +173,7 @@
       const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'X-Slogi-Client':'cian-workspace'},body:JSON.stringify(request),signal:controller.signal});
       const payload=await response.json().catch(()=>null);
       if(!response.ok)throw new Error(payload&&payload.error||'listing_search_failed');
-      return{items:(Array.isArray(payload&&payload.items)?payload.items:[]).map(normalize).filter(item=>isRecent(item,MAX_FRESH_DAYS)),meta:payload&&payload.meta};
+      return{items:(Array.isArray(payload&&payload.items)?payload.items:[]).map(normalize),meta:payload&&payload.meta};
     }catch(error){if(timedOut){const timeoutError=new Error('listing_page_timeout');timeoutError.code='listing_page_timeout';throw timeoutError;}throw error;}
     finally{clearTimeout(timeout);signal&&signal.removeEventListener('abort',abort);}
   }
@@ -185,17 +187,18 @@
       const endpoint=String(cfg.endpoint||'');if(!endpoint)throw new Error('listing_search_unavailable');
       const token=await window.SlogiCloud.getAccessToken();
       const pageSize=Math.max(1,Math.min(100,Math.trunc(Number(cfg.limit)||100)));
-      const loaded=await feed.loadAllPages(async({page,limit,snapshotAt})=>{
-        const request={sources:['cian'],page,limit};if(snapshotAt)request.snapshotAt=snapshotAt;
+      const loaded=await feed.loadAllPages(async({page,limit,snapshotAt,cursor})=>{
+        const request={sources:['cian'],page,limit};if(snapshotAt)request.snapshotAt=snapshotAt;if(cursor)request.cursor=cursor;
         return fetchListingPage(endpoint,token,request,controller.signal);
       },{limit:pageSize,signal:controller.signal});
       if(generation!==loadGeneration||controller.signal.aborted)return;
+      listingSnapshotTime=new Date(loaded.snapshotAt||'').getTime();if(!Number.isFinite(listingSnapshotTime))throw new Error('listing_snapshot_invalid');
       all=loaded.items;loadPartial=loaded.partial;serverTotal=loaded.serverTotal;loadedPages=loaded.pages;
       setSource(loaded.meta);
       if(loadPartial){nodes.badge.textContent='Частично';nodes.badge.dataset.state='partial';}
       applyFilters();
       const geocodingCfg=window.SLOGI_PHASE0_CONFIG&&window.SLOGI_PHASE0_CONFIG.geocoding||{};
-      let geocode=null;try{geocode=mapData.createServerGeocoder({endpoint:geocodingCfg.endpoint,token,timeoutMs:Number(geocodingCfg.timeoutMs)||12000,maxAttempts:3});}catch(_error){geocode=null;}
+      let geocode=null;try{geocode=mapData.createServerGeocoder({endpoint:geocodingCfg.endpoint,projectUrl:supabaseCfg.url,token,timeoutMs:Number(geocodingCfg.timeoutMs)||12000,maxAttempts:3});}catch(_error){geocode=null;}
       await mapData.geocodeMissingListings(all,{geocode,clusterService:clusterService(),cache:geocodeCache,signal:controller.signal,concurrency:2,onProgress:progress=>{
         if(generation!==loadGeneration||controller.signal.aborted)return;
         if(progress.completed===progress.total||progress.completed%5===0)applyFilters();
@@ -206,7 +209,7 @@
     }catch(error){
       if(error&&error.name==='AbortError')return;
       if(generation!==loadGeneration)return;
-      all=[];visible=[];loadPartial=false;serverTotal=null;loadedPages=0;render();
+      all=[];visible=[];loadPartial=false;serverTotal=null;loadedPages=0;listingSnapshotTime=NaN;render();
       nodes.summary.textContent='Сохранённые предложения временно недоступны.';
       nodes.source.textContent=error&&error.name==='AbortError'?'Чтение заняло слишком много времени.':'Не удалось прочитать сохранённую базу.';
       nodes.badge.textContent='Недоступно';nodes.badge.dataset.state='error';
@@ -262,6 +265,7 @@
     const total=state.listings.length;
     nodes.mapCount.textContent=`${state.markerCount} из ${total} на карте`;
     nodes.mapMissing.textContent=`Без координат: ${state.withoutCoordinatesCount}`;
+    nodes.mapNoAddress.textContent=`Без адреса: ${state.missingAddressCount}`;
     nodes.mapFailed.textContent=`Не прошли геокодирование: ${state.geocodeFailedCount}`;
     nodes.mapPending.textContent=`Ожидают геокодирования: ${state.geocodePendingCount}`;
     if(state.withoutCoordinatesCount)nodes.mapMessage.textContent=`На карте ${state.markerCount} объектов. Ещё ${state.withoutCoordinatesCount} без координат остаются в списке.`;

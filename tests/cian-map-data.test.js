@@ -12,6 +12,8 @@ const ROOT=path.join(__dirname,'..');
 const POLYGONS=JSON.parse(fs.readFileSync(path.join(ROOT,'clusters.geojson'),'utf8'));
 const NOW=Date.parse('2026-08-28T12:00:00.000Z');
 const clusterService={locate:(lat,lng)=>geometry.locate(POLYGONS,lat,lng)};
+const PROJECT_URL='https://fixture-ref.supabase.co';
+const GEOCODE_ENDPOINT=PROJECT_URL+'/functions/v1/geocode-address';
 
 function listing(id,overrides={}){return{source:'cian',externalId:String(id),listingUrl:`https://www.cian.ru/rent/commercial/${id}`,address:'Москва, тестовый адрес, 1',freshnessAt:new Date(NOW-86400000).toISOString(),freshnessKind:'published',marketStatus:'active',area:100,rentMonthly:300000,pricePerSquareMeter:3000,clusterId:'',clusterName:'',clusterStatus:'not_computed',...overrides};}
 function memoryStorage(){const values=new Map();return{getItem:key=>values.has(key)?values.get(key):null,setItem:(key,value)=>values.set(key,String(value))};}
@@ -54,10 +56,18 @@ test('reload reuses the address cache and does not call the geocoder again',asyn
 });
 
 test('geocoder HTTP failure and timeout are explicit and never invent coordinates',async()=>{
-  const failed=mapData.createServerGeocoder({endpoint:'https://example.test/geocode',maxAttempts:1,fetchImpl:async()=>response(502,{error:'upstream'})});
+  const failed=mapData.createServerGeocoder({endpoint:GEOCODE_ENDPOINT,projectUrl:PROJECT_URL,maxAttempts:1,fetchImpl:async()=>response(502,{error:'upstream'})});
   const failure=await failed('Москва, Тверская, 1');assert.equal(failure.status,'failed');assert.equal(mapData.coordinates(failure),null);
-  const timeout=mapData.createServerGeocoder({endpoint:'https://example.test/geocode',timeoutMs:100,maxAttempts:1,fetchImpl:(_url,options)=>new Promise((_resolve,reject)=>options.signal.addEventListener('abort',()=>{const error=new Error('timeout');error.name='AbortError';reject(error);},{once:true}))});
+  const timeout=mapData.createServerGeocoder({endpoint:GEOCODE_ENDPOINT,projectUrl:PROJECT_URL,timeoutMs:100,maxAttempts:1,fetchImpl:(_url,options)=>new Promise((_resolve,reject)=>options.signal.addEventListener('abort',()=>{const error=new Error('timeout');error.name='AbortError';reject(error);},{once:true}))});
   const timedOut=await timeout('Москва, Тверская, 2');assert.equal(timedOut.status,'timeout');assert.equal(mapData.coordinates(timedOut),null);
+});
+
+test('bearer is sent only to the configured same-project Edge endpoint',async()=>{
+  let calls=0,authorization='';
+  assert.throws(()=>mapData.createServerGeocoder({endpoint:'https://attacker.example/geocode',projectUrl:PROJECT_URL,token:'fixture-bearer',fetchImpl:async()=>{calls++;return response(200,{results:[]});}}),/geocoder_endpoint_untrusted/);
+  assert.equal(calls,0);
+  const trusted=mapData.createServerGeocoder({endpoint:GEOCODE_ENDPOINT,projectUrl:PROJECT_URL,token:'fixture-bearer',maxAttempts:1,fetchImpl:async(url,options)=>{calls++;assert.equal(url,GEOCODE_ENDPOINT);authorization=options.headers.Authorization;return response(200,{results:[]});}});
+  await trusted('Москва, Тверская, 3');assert.equal(calls,1);assert.equal(authorization,'Bearer fixture-bearer');
 });
 
 test('marker and missing-coordinate counts equal the filtered canonical listing set',async()=>{
@@ -66,6 +76,12 @@ test('marker and missing-coordinate counts equal the filtered canonical listing 
   const filtered=feed.filterAndSort(items,{days:30},NOW),state=mapData.projection(filtered);
   assert.equal(calls,2);assert.equal(state.listings.length,4);assert.equal(state.markerCount,2);assert.equal(state.withoutCoordinatesCount,2);assert.equal(state.geocodeFailedCount,1);assert.equal(state.missingAddressCount,1);assert.equal(state.markerCount,filtered.filter(item=>mapData.coordinates(item)).length);
   assert.equal(items[1].clusterStatus,'outside');assert.equal(items[2].clusterStatus,'not_computed');
+});
+
+test('marker count is the coordinate-capable canonical set across both identity keys',()=>{
+  const base=[listing(1,{latitude:55.84,longitude:37.36}),listing(2,{latitude:55.85,longitude:37.37}),listing(3,{latitude:null,longitude:null})];
+  const duplicates=[listing(1,{listingUrl:'https://www.cian.ru/rent/commercial/999999999',latitude:56,longitude:38}),listing(4,{listingUrl:'https://www.cian.ru/rent/commercial/2?tracking=duplicate',latitude:56,longitude:38})];
+  const state=mapData.projection([...base,...duplicates]);assert.equal(state.listings.length,3);assert.equal(state.markerCount,2);assert.deepEqual(state.markers.map(item=>item.externalId),['1','2']);
 });
 
 test('cluster filter drives list and map from one filtered collection',()=>{
@@ -83,4 +99,15 @@ test('UI binds marker-card selection and list listeners once',()=>{
   assert.match(bind,/nodes\.list\.addEventListener\('click'/);assert.match(bind,/selectListing\(button\.dataset\.listingId\)/);
   assert.match(source,/marker\.events\.add\('click',[\s\S]*selectListing/);assert.match(source,/fields\.cluster\.value=cluster\.id;applyFilters\(\)/);
   assert.match(source,/marker\.events\.removeAll/);
+});
+
+test('UI exposes separate missing-address, missing-coordinate, failed and pending DOM counters',()=>{
+  const html=fs.readFileSync(path.join(ROOT,'available-spaces.html'),'utf8'),source=fs.readFileSync(path.join(ROOT,'cian-workspace.js'),'utf8');
+  for(const id of ['cian-map-missing','cian-map-no-address','cian-map-failed','cian-map-pending'])assert.match(html,new RegExp(`id=["']${id}["']`));
+  assert.match(source,/mapNoAddress\.textContent=`Без адреса: \$\{state\.missingAddressCount\}`/);
+});
+
+test('legacy phase0 geocoding has no browser-to-Yandex direct fallback or client API key payload',()=>{
+  const config=fs.readFileSync(path.join(ROOT,'phase0-config.js'),'utf8'),services=fs.readFileSync(path.join(ROOT,'phase0-services.js'),'utf8');
+  assert.doesNotMatch(config,/directBaseUrl|useServerFallback|geocode-maps\.yandex\.ru\/v1/);assert.doesNotMatch(services,/buildDirectUrl|async direct\(|apikey:this\.apiKey|yandexGeocoderApiKey/);assert.match(services,/edgeEndpoint\(\)/);assert.match(services,/endpoint\.origin!==project\.origin/);
 });

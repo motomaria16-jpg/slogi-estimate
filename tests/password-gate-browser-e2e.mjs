@@ -29,13 +29,14 @@ const configSource=`window.SLOGI_PHASE0_CONFIG=${JSON.stringify({
   },
 })};`;
 const snapshot=new Date().toISOString();
+const freshnessCutoff=new Date(new Date(snapshot).getTime()-30*86400000).toISOString();
 const freshness=new Date(Date.now()-86400000).toISOString();
 const cianListing=id=>({
   source:'cian',externalId:String(id),listingUrl:`https://www.cian.ru/rent/commercial/${id}`,
   title:`Помещение ${id}`,address:id>51?'':`Москва, Митино, тестовый адрес, ${id}`,
   latitude:id>51?null:55.84+(id%5)*0.0001,longitude:id>51?null:37.36+(id%7)*0.0001,
   area:100+id,rentMonthly:300000+id*1000,pricePerSquareMeter:3000,
-  floor:1,totalFloors:5,ceilingHeight:3.2,freshnessAt:freshness,freshnessKind:'published',
+  floor:1,totalFloors:5,ceilingHeight:3.2,firstSeenAt:new Date(new Date(snapshot).getTime()-id*1000).toISOString(),freshnessAt:freshness,freshnessKind:'published',
   publishedAt:freshness,marketStatus:'active',clusterName:id>51?'':'Митино',parseCompleteness:1,parseWarnings:[],
 });
 const listingPages={1:Array.from({length:50},(_,index)=>cianListing(index+1)),2:[cianListing(51),cianListing(52),cianListing(53)]};
@@ -126,8 +127,9 @@ async function mockSupabase(route,identity){
   }
   if(path==='/functions/v1/search-listings'){
     const body=request.postDataJSON(),page=Number(body.page)||1,items=listingPages[page]||[];
+    if(page===2)assert.deepEqual(body.cursor,{firstSeenAt:listingPages[1].at(-1).firstSeenAt,source:'cian',listingUrl:listingPages[1].at(-1).listingUrl});
     identity.searchPages.push(page);
-    return json(route,{items,meta:{sources:{cian:{status:'ok',lastSucceededAt:snapshot}},page,limit:Number(body.limit)||50,total:53,returned:items.length,hasMore:page===1,nextPage:page===1?2:null,snapshotAt:snapshot}});
+    const hasMore=page===1,last=items.at(-1);return json(route,{items,meta:{sources:{cian:{status:'ok',lastSucceededAt:snapshot}},page,limit:Number(body.limit)||50,total:53,returned:items.length,hasMore,nextPage:hasMore?2:null,nextCursor:hasMore?{firstSeenAt:last.firstSeenAt,source:last.source,listingUrl:last.listingUrl}:null,snapshotAt:snapshot,freshnessCutoff}});
   }
   if(path==='/functions/v1/geocode-address')return json(route,{results:[],diagnostic:{status:'not_found',cacheHit:false,attempts:1}});
   if(path==='/functions/v1/import-listing')return json(route,{ok:true});
@@ -176,6 +178,7 @@ async function assertAvailableSpace(device,label){
       cards:cards.length,unique:new Set(cards.map(card=>card.dataset.listingCard)).size,
       mapCount:document.querySelector('#cian-map-count')?.textContent,
       missing:document.querySelector('#cian-map-missing')?.textContent,
+      noAddress:document.querySelector('#cian-map-no-address')?.textContent,
       markers:window.__slogiFixtureMarkerCount,polygons:window.__slogiFixturePolygonCount,
       headerHeight:document.querySelector('.site-header').getBoundingClientRect().height,
       h1,sourceHeading,invites:[...document.querySelectorAll('button,a,dialog')].some(node=>/приглас|личный кабинет|регистрац|войти/i.test(node.textContent||'')),
@@ -183,7 +186,7 @@ async function assertAvailableSpace(device,label){
     };
   });
   assert.equal(metrics.cards,53,label+': all listings');assert.equal(metrics.unique,53,label+': unique listings');
-  assert.equal(metrics.mapCount,'51 из 53 на карте',label+': honest map count');assert.equal(metrics.missing,'Без координат: 2',label+': honest missing count');
+  assert.equal(metrics.mapCount,'51 из 53 на карте',label+': honest map count');assert.equal(metrics.missing,'Без координат: 2',label+': honest missing count');assert.equal(metrics.noAddress,'Без адреса: 2',label+': honest missing-address count');
   assert.equal(metrics.markers,51,label+': all coordinate-capable markers');assert.equal(metrics.polygons,58,label+': canonical polygons');
   assert.ok(metrics.headerHeight<=80,label+': compact header');assert.ok(metrics.sourceHeading<metrics.h1,label+': source heading hierarchy');
   assert.equal(metrics.invites,false,label+': legacy access UI');assert.equal(metrics.overflow,0,label+': horizontal overflow');
