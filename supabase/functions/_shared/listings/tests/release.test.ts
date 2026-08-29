@@ -216,14 +216,16 @@ test('discovery and hydration slots advance within the same UTC day without prov
   assert.equal(await capture('hydration','2026-08-28T08:01:00Z'),'2026-08-28T08:00:00.000Z');
 });
 
-test('discovery advances the durable backfill cursor across runs and resets on old-only pages',async()=>{
+test('discovery advances the durable backfill cursor and resets on old-only or empty pages',async()=>{
   const state=scanState(2);let runId=0,providerCalls=0;const finished:any[]=[];
   const store=inertStore({
     async claimRun(){return{claimed:true,runId:++runId,recovered:false};},async getState(){return state;},
     async saveState(next){Object.assign(state,next);},async finishRun(_id,update){finished.push(update);},
     async enqueue(_source,priority,items){return items.map(entry=>({listingUrl:entry.listingUrl,queueStatus:priority==='backfill'&&state.nextPage===4?'discarded_old':'pending',queuedNew:true}));},
   });
-  const client={async fetchPage(){providerCalls++;return page('',[`https://www.cian.ru/rent/commercial/${200000000+providerCalls}`]);}};
+  const client={async fetchPage(){providerCalls++;return providerCalls===8
+    ?page('<p>По вашему запросу ничего не найдено</p>')
+    :page('',[`https://www.cian.ru/rent/commercial/${200000000+providerCalls}`]);}};
   const invoke=async(at:string)=>{
     const handler=createRefreshListingsHandler({store,client,environment:environment({SLOGI_LISTING_CRON_SECRET:'fixture'}),now:()=>new Date(at)});
     const response=await handler(new Request('http://local/refresh',{method:'POST',headers:{'x-slogi-listing-cron-secret':'fixture','Content-Type':'application/json'},body:'{"source":"cian"}'}));
@@ -232,7 +234,8 @@ test('discovery advances the durable backfill cursor across runs and resets on o
   const first=await invoke('2026-08-28T00:10:00Z');assert.equal(first.cursorBefore,2);assert.equal(first.cursorAfter,3);
   const second=await invoke('2026-08-28T06:10:00Z');assert.equal(second.cursorBefore,3);assert.equal(second.cursorAfter,4);
   const oldOnly=await invoke('2026-08-28T12:10:00Z');assert.equal(oldOnly.cursorBefore,4);assert.equal(oldOnly.cursorAfter,2);assert.equal(oldOnly.cursorResetReason,'deep_page_old_only');
-  assert.equal(providerCalls,6);assert.equal(finished.length,3);assert.ok(finished.every(value=>value.status==='ok'));
+  const empty=await invoke('2026-08-28T18:10:00Z');assert.equal(empty.cursorBefore,2);assert.equal(empty.cursorAfter,2);assert.equal(empty.cursorResetReason,'deep_page_empty');
+  assert.equal(providerCalls,8);assert.equal(finished.length,4);assert.ok(finished.every(value=>value.status==='ok'));
 });
 
 function partialListingHtml(freshnessAt:string|null):string{

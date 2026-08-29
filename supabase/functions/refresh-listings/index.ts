@@ -180,9 +180,9 @@ function queueInputs(source: ListingSource, urls: string[]): Array<{ listingUrl:
   });
 }
 
-function countQueue(results: QueueEnqueueResult[]): { queuedNew: number; queuedExisting: number } {
+function countQueue(results: QueueEnqueueResult[]): { queuedNew: number; observedExisting: number } {
   const queuedNew = results.filter((entry) => entry.queuedNew).length;
-  return { queuedNew, queuedExisting: results.length - queuedNew };
+  return { queuedNew, observedExisting: results.length - queuedNew };
 }
 
 function safePageDiagnostic(page: DiscoveredPage): Record<string, unknown> {
@@ -297,7 +297,9 @@ export function createRefreshListingsHandler(dependencies: RefreshDependencies =
         metrics: {
           discovered: hotInputs.length + backfillInputs.length,
           queued_new: counts.queuedNew,
-          queued_existing: counts.queuedExisting,
+          // The historical column name is retained for schema compatibility;
+          // its value is the number of known URLs observed, not a queue delta.
+          queued_existing: counts.observedExisting,
           hot: hotInputs.length,
           backfill: backfillInputs.length,
           attempted: browserlessAttempts,
@@ -312,6 +314,7 @@ export function createRefreshListingsHandler(dependencies: RefreshDependencies =
           cursorResetReason,
           durationMs: Math.max(0, Date.now() - now.getTime()),
           browserlessAttempts,
+          observedExisting: counts.observedExisting,
           staleRunRecovered: claim.recovered,
           pages: pages.map(safePageDiagnostic),
         },
@@ -320,7 +323,7 @@ export function createRefreshListingsHandler(dependencies: RefreshDependencies =
         status: 'completed', runSlot, source,
         outcome: {
           status, discovered: hotInputs.length + backfillInputs.length,
-          queuedNew: counts.queuedNew, queuedExisting: counts.queuedExisting,
+          queuedNew: counts.queuedNew, observedExisting: counts.observedExisting,
           hot: hotInputs.length, backfill: backfillInputs.length,
           cursorBefore: backfillPage, cursorAfter: state.nextPage,
           cursorResetReason, browserlessAttempts, errorCode, strategy: policy.strategy,
