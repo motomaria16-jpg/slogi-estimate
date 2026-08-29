@@ -1,13 +1,16 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
-import { dirname, extname, join, normalize } from 'node:path';
+import { mkdir, readFile } from 'node:fs/promises';
+import { dirname, extname, join, normalize, resolve } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 
-const root=dirname(dirname(fileURLToPath(import.meta.url)));
+const scriptRoot=dirname(dirname(fileURLToPath(import.meta.url)));
+const root=resolve(String(process.env.SLOGI_BROWSER_ROOT||scriptRoot));
 const chromePath=String(process.env.SLOGI_LOCAL_CHROME||'');
 const nodeModules=String(process.env.SLOGI_NODE_MODULES||'');
+const visualStage=String(process.env.SLOGI_VISUAL_STAGE||'').trim();
+const visualOutput=String(process.env.SLOGI_VISUAL_OUTPUT||'').trim();
 assert.ok(chromePath&&nodeModules,'browser_runtime_missing');
 const {chromium}=await import(pathToFileURL(join(nodeModules,'playwright','index.mjs')).href);
 
@@ -195,6 +198,153 @@ async function assertAvailableSpace(device,label){
   assert.equal(await device.page.locator('[data-listing-card].selected').count(),1,label+': marker/card sync');
 }
 
+async function seedLayoutProjects(device){
+  await device.page.evaluate(async()=>{
+    const S=window.SlogiPhase0,stamp=new Date().toISOString(),criteria=Object.fromEntries(S.CRITERIA_KEYS.map(key=>[key,true]));
+    const phase=(overrides={})=>Object.assign(S.defaultPhase0(),{
+      source:'manual',listingAddedAt:stamp,rent:{amount:420000,period:'month',currency:'RUB'},roomsCount:8,windowsCount:10,
+      status:S.STATUS.SUITABLE,selectionCriteria:criteria,layout:{received:true,fileName:'plan.pdf',mime:'application/pdf',size:1024,updatedAt:stamp,updatedBy:'fixture'},
+      interest:{confirmed:true,confirmedAt:stamp,updatedAt:stamp,updatedBy:'fixture'},measurement:{status:'Выполнен',date:stamp.slice(0,10),comment:''}
+    },overrides);
+    const projects=[
+      {id:'layout-ready',address:'Москва, Петровский бульвар, 12',area:186,ceilingHeight:3.4,clusterId:'mitino',clusterName:'Митино',geo:{lat:55.842,lng:37.362},stage:4,lifecyclePhase:2,createdAt:stamp,updatedAt:stamp,phase0:phase()},
+      {id:'layout-partial',address:'Москва, Большая Дмитровка, 7',area:124,ceilingHeight:null,clusterId:'mitino',clusterName:'Митино',geo:{lat:55.843,lng:37.364},stage:1,lifecyclePhase:0,createdAt:stamp,updatedAt:stamp,phase0:phase({status:S.STATUS.ANALYSING,selectionCriteria:Object.fromEntries(S.CRITERIA_KEYS.map(key=>[key,null])),layout:{received:false,fileName:'',mime:'',size:null,updatedAt:'',updatedBy:null},interest:{confirmed:false,confirmedAt:'',updatedAt:'',updatedBy:null},measurement:{status:'Не назначен',date:'',comment:''}})},
+      {id:'layout-rejected',address:'Москва, Улица Свободы, 18',area:98,ceilingHeight:3.1,clusterId:'mitino',clusterName:'Митино',geo:{lat:55.844,lng:37.366},stage:1,lifecyclePhase:0,createdAt:stamp,updatedAt:stamp,phase0:phase({status:S.STATUS.REJECTED,rejection:{reason:'Не подходит по условиям тестового сценария',date:stamp,user:'fixture'}})}
+    ];
+    localStorage.setItem('slogi_locations_v1',JSON.stringify(projects));
+    window.dispatchEvent(new CustomEvent('slogi:locations-updated',{detail:{source:'layout-fixture'}}));
+    await window.SlogiCloud.sync();
+  });
+}
+
+async function navigateAuditPage(device,origin,path,kind){
+  await device.page.goto(origin+path,{waitUntil:'domcontentloaded'});
+  await device.page.waitForFunction(()=>window.SlogiCloud?.ready===true);
+  if(kind==='search')await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53);
+  if(kind==='premises')await device.page.waitForFunction(()=>document.querySelectorAll('.phase0-card').length>=3);
+  if(kind==='estimate')await device.page.waitForFunction(()=>document.querySelectorAll('.stage-card').length>=3);
+  if(kind==='repair')await device.page.waitForFunction(()=>document.querySelectorAll('.stage-card').length>=1);
+  await device.page.waitForTimeout(60);
+}
+
+async function auditVisibleLayout(device,label,viewport,kind){
+  const metrics=await device.page.evaluate(()=>{
+    const visible=node=>{const style=getComputedStyle(node),rect=node.getBoundingClientRect();return style.display!=='none'&&style.visibility!=='hidden'&&rect.width>0&&rect.height>0};
+    const controls=[...document.querySelectorAll('button,input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),select,textarea,summary')]
+      .filter(node=>visible(node)&&!node.classList.contains('fixture-map-marker'))
+      .map(node=>({name:node.id||node.className||node.tagName,height:node.getBoundingClientRect().height}))
+      .filter(item=>item.height<43.5);
+    const header=document.querySelector('.site-header'),h1=document.querySelector('h1'),hero=document.querySelector('.cian-hero,.phase0-page-toolbar,.stage-toolbar');
+    return{
+      overflow:Math.max(0,document.documentElement.scrollWidth-document.documentElement.clientWidth,document.body.scrollWidth-document.body.clientWidth),
+      headerHeight:header?.getBoundingClientRect().height||0,h1Size:h1?Number.parseFloat(getComputedStyle(h1).fontSize):0,
+      heroHeight:hero?.getBoundingClientRect().height||0,controls,
+      heroParts:hero?[...hero.children].map(node=>({className:node.className,height:node.getBoundingClientRect().height,width:node.getBoundingClientRect().width})):[],
+      nav:[...document.querySelectorAll('.pro-product-nav>a')].map(node=>({text:node.textContent.trim(),href:node.getAttribute('href')})),
+    };
+  });
+  assert.equal(metrics.overflow,0,label+': horizontal overflow');
+  assert.deepEqual(metrics.nav.map(item=>item.text),['Поиск помещенийПоиск','Мои помещенияОбъекты','Смета и КПСмета','РемонтРемонт'],label+': navigation order');
+  if(visualStage==='after'){
+    const expected=viewport.width>1180?72:viewport.width>900?64:60;
+    assert.ok(Math.abs(metrics.headerHeight-expected)<1.1,`${label}: header ${metrics.headerHeight}/${expected}`);
+    if(viewport.width>900){assert.ok(metrics.h1Size>=48&&metrics.h1Size<=52,`${label}: desktop H1 ${metrics.h1Size}`);assert.ok(metrics.heroHeight>=149&&metrics.heroHeight<=171,`${label}: compact hero ${metrics.heroHeight} ${JSON.stringify(metrics.heroParts)}`)}
+    else assert.ok(metrics.h1Size<=44,`${label}: responsive H1 ${metrics.h1Size}`);
+    assert.deepEqual(metrics.controls,[],label+': controls below 44px');
+  }
+  if(kind==='search'&&visualStage==='after'){
+    const search=await device.page.evaluate(()=>{const workspace=document.querySelector('.cian-workspace'),results=document.querySelector('.cian-results'),map=document.querySelector('.cian-map-card'),list=document.querySelector('.cian-list');return{source:Number.parseFloat(getComputedStyle(document.querySelector('.cian-source-card h2')).fontSize),workspaceHeight:workspace.getBoundingClientRect().height,resultWidth:results.getBoundingClientRect().width,mapWidth:map.getBoundingClientRect().width,listScroll:list.scrollHeight>list.clientHeight,mapVisible:map.getBoundingClientRect().height>0}});
+    assert.ok(search.source<=14.5,label+': source labels subordinate');
+    assert.equal(search.mapVisible,true,label+': map visible');
+    if(viewport.width>1180){assert.ok(Math.abs(search.workspaceHeight-620)<2,label+': controlled workspace height');assert.ok(search.resultWidth>search.mapWidth,label+': 55/45 list-map');assert.equal(search.listScroll,true,label+': independent listing scroll')}
+  }
+  return metrics;
+}
+
+async function screenshotAudit(device,slug,viewport){
+  if(!visualOutput)return;
+  const suffix=`${viewport.width}x${viewport.height}`;
+  await device.page.screenshot({path:join(visualOutput,`${slug}-${suffix}.jpg`),type:'jpeg',quality:80,fullPage:false});
+}
+
+async function openAddObject(device){
+  const desktop=device.page.locator('#phase0-add'),mobile=device.page.locator('#phase0-mobile-add');
+  if(await desktop.isVisible())await desktop.click();else await mobile.click();
+  await device.page.locator('#phase0-object-overlay:not([hidden])').waitFor();
+}
+
+async function runLayoutAudit(device,origin){
+  if(!visualStage)return;
+  if(visualOutput)await mkdir(visualOutput,{recursive:true});
+  await seedLayoutProjects(device);
+  const viewports=[{width:1440,height:900},{width:1536,height:960},{width:1280,height:800},{width:1024,height:768},{width:768,height:1024},{width:390,height:844}];
+  const pages=[
+    {slug:'search',path:'/available-spaces.html',kind:'search'},
+    {slug:'my-premises',path:'/index.html',kind:'premises'},
+    {slug:'estimate-and-proposal',path:'/workspace.html?section=estimate',kind:'estimate'},
+    {slug:'repair',path:'/workspace.html?section=repair',kind:'repair'},
+  ];
+  const screenshotSizes=visualStage==='before'?new Set(['1440x900','390x844']):new Set(['1440x900','768x1024','390x844']);
+  for(const viewport of viewports){
+    await device.page.setViewportSize(viewport);
+    const headerHeights=[];
+    for(const entry of pages){
+      await navigateAuditPage(device,origin,entry.path,entry.kind);
+      const metrics=await auditVisibleLayout(device,`${visualStage}/${entry.slug}/${viewport.width}x${viewport.height}`,viewport,entry.kind);
+      headerHeights.push(metrics.headerHeight);
+      if(screenshotSizes.has(`${viewport.width}x${viewport.height}`))await screenshotAudit(device,entry.slug,viewport);
+    }
+    if(visualStage==='after')assert.ok(Math.max(...headerHeights)-Math.min(...headerHeights)<1,`${viewport.width}: identical header geometry`);
+    if(screenshotSizes.has(`${viewport.width}x${viewport.height}`)){
+      await navigateAuditPage(device,origin,'/index.html','premises');
+      await openAddObject(device);
+      if(visualStage==='after'){
+        assert.deepEqual(await device.page.locator('.phase0-editor-section-title h3').allTextContents(),['Основное','Проверка','Решение']);
+        const modal=await device.page.evaluate(()=>{const body=document.querySelector('.phase0-card-editor-body'),footer=document.querySelector('.phase0-card-editor-actions');body.scrollTop=body.scrollHeight;return{scrollable:body.scrollHeight>body.clientHeight,scrolled:body.scrollTop>0,overlap:Math.max(0,body.getBoundingClientRect().bottom-footer.getBoundingClientRect().top)}});
+        assert.equal(modal.scrollable,true,`${viewport.width}: modal body scroll`);assert.equal(modal.scrolled,true,`${viewport.width}: modal scroll operates`);assert.ok(modal.overlap<1,`${viewport.width}: footer overlap`);
+        await device.page.locator('.phase0-card-editor-body').evaluate(node=>{node.scrollTop=0});
+      }
+      await screenshotAudit(device,'add-object',viewport);
+      await device.page.locator('[data-action="close-editor"]').first().click();
+    }
+  }
+  if(visualStage!=='after')return;
+  await device.page.setViewportSize({width:1440,height:900});
+  await navigateAuditPage(device,origin,'/available-spaces.html','search');
+  await device.page.locator('#available-area-min').fill('140');
+  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length<53);
+  await device.page.locator('#available-reset').click();
+  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53);
+  await device.page.locator('.cian-add-object').first().click();
+  await device.page.waitForFunction(()=>document.querySelector('.cian-add-object')?.disabled===true);
+  await navigateAuditPage(device,origin,'/index.html','premises');
+  await device.page.locator('#phase0-search').fill('Петровский');
+  await device.page.waitForFunction(()=>document.querySelectorAll('.phase0-card').length===1);
+  await device.page.locator('.phase0-reset-button').click();
+  await device.page.selectOption('#phase0-status-filter',{label:'Подошло'});
+  await device.page.waitForFunction(()=>document.querySelectorAll('.phase0-card').length>=1&&document.querySelectorAll('.phase0-card').length<5);
+  await device.page.locator('.phase0-reset-button').click();
+  const collapsed=await device.page.locator('.phase0-map-column').evaluate(node=>node.getBoundingClientRect().height);
+  await device.page.locator('#phase0-map-expand').click();
+  assert.equal(await device.page.locator('#phase0-map-expand').getAttribute('aria-expanded'),'true');
+  assert.ok(await device.page.locator('.phase0-map-column').evaluate(node=>node.getBoundingClientRect().height)>collapsed,'map presentation toggle expands');
+  await openAddObject(device);
+  const countBefore=await device.page.locator('.phase0-card').count();
+  await device.page.locator('[name="address"]').fill('Москва, тестовое помещение интерфейса');
+  await device.page.locator('#phase0-save').click();
+  await device.page.waitForFunction(expected=>document.querySelectorAll('.phase0-card').length>expected,countBefore);
+  assert.equal(await device.page.locator('#phase0-object-overlay').getAttribute('hidden'),null,'saved card remains open in the existing edit workflow');
+  await device.page.locator('[data-action="close-editor"]').first().click();
+  for(const id of ['layout-ready','layout-partial','layout-rejected'])assert.equal(await device.page.evaluate(projectId=>JSON.parse(localStorage.getItem('slogi_locations_v1')||'[]').some(item=>item.id===projectId),id),true,id+': existing fixture preserved');
+  await navigateAuditPage(device,origin,'/workspace.html?section=estimate','estimate');
+  await device.page.locator('.stage-card.ready a').first().click();
+  await device.page.waitForURL(/source-specification\.html\?location=/);
+  assert.ok(device.page.url().includes('layout-ready'),'estimate transition keeps selected object');
+  await device.page.setViewportSize({width:768,height:1024});
+  await navigateAuditPage(device,origin,'/workspace.html?section=repair','repair');
+  const menu=device.page.locator('#pro-mobile-menu-trigger');await menu.click();assert.equal(await menu.getAttribute('aria-expanded'),'true');await device.page.keyboard.press('Escape');assert.equal(await menu.getAttribute('aria-expanded'),'false');
+}
+
 const server=await fixtureServer();
 const origin=`http://127.0.0.1:${server.address().port}`;
 const browser=await chromium.launch({headless:true,executablePath:chromePath});
@@ -241,14 +391,19 @@ try{
   await unlock(tablet);
   await assertAvailableSpace(tablet,'tablet');
 
+  await runLayoutAudit(desktop,origin);
+
   const replay=await openDevice(browser,origin,{width:390,height:844},desktopGrant);devices.push(replay);
   await replay.page.getByRole('dialog',{name:'Доступ к SLOGI'}).waitFor();
   assert.equal(replay.identity.requests.length,0,'copied grant under another anonymous user reached workspace data');
 
+  await desktop.page.evaluate(()=>window.SlogiCloud.sync());
+  const requestCountBeforeTamper=desktop.identity.requests.length;
   await desktop.page.evaluate(({key,envelope})=>localStorage.setItem(key,JSON.stringify({...envelope,grant:envelope.grant+'x'})),{key:grantKey,envelope:desktopGrant});
   await desktop.page.reload({waitUntil:'domcontentloaded'});
   await desktop.page.getByRole('dialog',{name:'Доступ к SLOGI'}).waitFor();
-  assert.equal(desktop.identity.requests.slice(originalRequestCount).some(item=>!item.valid),false,'tampered grant reached a data endpoint');
+  const invalidAfterTamper=desktop.identity.requests.slice(requestCountBeforeTamper).filter(item=>!item.valid);
+  assert.deepEqual(invalidAfterTamper,[],'tampered grant reached a data endpoint: '+JSON.stringify(invalidAfterTamper));
   await unlock(desktop);
   const revoked=await desktop.page.evaluate(key=>JSON.parse(localStorage.getItem(key)),grantKey);
   const countBeforeRevoke=desktop.identity.requests.length;
