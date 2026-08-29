@@ -4,15 +4,15 @@
   "releaseName": "Cian Listing Integrity",
   "releaseType": "security-hotfix",
   "releaseDate": "2026-08-29",
-  "status": "candidate",
-  "tag": null,
-  "gitTag": null,
+  "status": "released",
+  "tag": "v76.1.12",
+  "gitTag": "v76.1.12",
   "baseTag": "v76.1.11",
   "baseCommit": "c2593071d427419054a1feff9d504e1edc97e42e",
   "canonicalContentCommit": "ea99ff19d9cfac46eb0d50324bc0565ad6998560",
   "canonicalGitCommit": "ea99ff19d9cfac46eb0d50324bc0565ad6998560",
-  "metadataGitCommit": null,
-  "mergeCommit": null,
+  "metadataGitCommit": "a9764d43adcb64d4d85cdc54db848b44dcd4cc7b",
+  "mergeCommit": "de94107c8fc38e202da7c7257a310e6a614e0664",
   "databaseBaseline": {
     "migrationPath": "supabase/migrations/20260814_7601_baseline.sql",
     "recordedV7601WorkingTreeSha256": "a4ab16221f6c76c21b6f541c7780111afcbcc72b8726cdac75c0d0adea656bc3",
@@ -524,8 +524,9 @@
     "baseTag": "v76.1.11",
     "baseCommit": "c2593071d427419054a1feff9d504e1edc97e42e",
     "canonicalGitCommit": "ea99ff19d9cfac46eb0d50324bc0565ad6998560",
-    "metadataGitCommit": null,
-    "gitTag": null,
+    "metadataGitCommit": "a9764d43adcb64d4d85cdc54db848b44dcd4cc7b",
+    "mergeCommit": "de94107c8fc38e202da7c7257a310e6a614e0664",
+    "gitTag": "v76.1.12",
     "productionDeployed": false,
     "publicationAllowed": true,
     "partialMergePreservesExistingReliableValues": true,
@@ -586,5 +587,5 @@
     "listingMigrationSha256": "efdeb03e49eb8ae93b19ab4fdf0000f2d2b47e45368e68a1f1cdf227fd820f25",
     "inactiveScheduleSha256": "adac103fc606566c1fb15b711e1ea00085408700516a0f4298c7d5107fda39e7"
   },
-  "nextTarget": "GitHub review and v76.1.12 publication; production deployment remains a separate owner-authorized action"
+  "nextTarget": "Production deployment remains a separate owner-authorized action"
 }
