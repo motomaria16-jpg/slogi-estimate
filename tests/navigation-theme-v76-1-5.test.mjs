@@ -26,8 +26,13 @@ const removedPages=[
   'analytics.html',
   'catalog.html'
 ];
-const removedScripts=['professional-catalog.js','finance-extensions.js'];
-const removedTargets=[...removedPages,...removedScripts];
+const removedAssets=[
+  'professional-catalog.js',
+  'finance-extensions.js',
+  'portfolio-map.js',
+  'portfolio-map.css'
+];
+const removedTargets=[...removedPages,...removedAssets];
 const removedSpecialistCopy=['для','специалистов'].join(' ');
 const read=name=>readFileSync(resolve(root,name),'utf8');
 const localTarget=value=>{
@@ -38,7 +43,7 @@ const localTarget=value=>{
   return decodeURIComponent(clean.replace(/^\.\//,''));
 };
 
-test('removed tools pages and isolated scripts are absent',()=>{
+test('removed tools pages and isolated assets are absent',()=>{
   for(const target of removedTargets)assert.equal(existsSync(resolve(root,target)),false,target);
 });
 
