@@ -26,8 +26,13 @@ const removedPages=[
   'analytics.html',
   'catalog.html'
 ];
-const removedScripts=['professional-catalog.js','finance-extensions.js'];
-const removedTargets=[...removedPages,...removedScripts];
+const removedAssets=[
+  'professional-catalog.js',
+  'finance-extensions.js',
+  'portfolio-map.js',
+  'portfolio-map.css'
+];
+const removedTargets=[...removedPages,...removedAssets];
 const read=name=>readFileSync(resolve(root,name),'utf8');
 const localTarget=value=>{
   const raw=String(value||'').trim();
@@ -37,7 +42,7 @@ const localTarget=value=>{
   return decodeURIComponent(clean.replace(/^\.\//,''));
 };
 
-test('removed tools pages and isolated scripts are absent',()=>{
+test('removed tools pages and isolated assets are absent',()=>{
   for(const target of removedTargets)assert.equal(existsSync(resolve(root,target)),false,target);
 });
 
@@ -90,7 +95,6 @@ test('active application sources do not link to removed targets',()=>{
     'professional-pages.js',
     'passport-v4.js',
     'passport.html',
-    'portfolio-map.js',
     ...workPages
   ];
   for(const source of new Set(activeSources)){
