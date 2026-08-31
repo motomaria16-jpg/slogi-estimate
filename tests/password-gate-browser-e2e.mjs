@@ -36,9 +36,9 @@ const freshnessCutoff=new Date(new Date(snapshot).getTime()-30*86400000).toISOSt
 const freshness=new Date(Date.now()-86400000).toISOString();
 const cianListing=id=>({
   source:'cian',externalId:String(id),listingUrl:`https://www.cian.ru/rent/commercial/${id}`,
-  title:`Помещение ${id}`,address:id>51?'':`Москва, Митино, тестовый адрес, ${id}`,
+  title:`Офисное помещение ${id}`,address:id>51?'':`Москва, Митино, тестовый адрес, ${id}`,
   latitude:id>51?null:55.84+(id%5)*0.0001,longitude:id>51?null:37.36+(id%7)*0.0001,
-  area:100+id,rentMonthly:300000+id*1000,pricePerSquareMeter:3000,
+  area:100+((id-1)%51),rentMonthly:300000+id*1000,pricePerSquareMeter:3000,premiseType:'office',hasBasementOrSocle:false,
   floor:1,totalFloors:5,ceilingHeight:3.2,firstSeenAt:new Date(new Date(snapshot).getTime()-id*1000).toISOString(),freshnessAt:freshness,freshnessKind:'published',
   publishedAt:freshness,marketStatus:'active',clusterName:id>51?'':'Митино',parseCompleteness:1,parseWarnings:[],
 });
@@ -130,6 +130,7 @@ async function mockSupabase(route,identity){
   }
   if(path==='/functions/v1/search-listings'){
     const body=request.postDataJSON(),page=Number(body.page)||1,items=listingPages[page]||[];
+    assert.equal(body.areaMin,100);assert.equal(body.areaMax,150);assert.equal(body.floor,1);assert.deepEqual(body.premiseTypes,['office','retail','free_purpose']);
     if(page===2)assert.deepEqual(body.cursor,{firstSeenAt:listingPages[1].at(-1).firstSeenAt,source:'cian',listingUrl:listingPages[1].at(-1).listingUrl});
     identity.searchPages.push(page);
     const hasMore=page===1,last=items.at(-1);return json(route,{items,meta:{sources:{cian:{status:'ok',lastSucceededAt:snapshot}},page,limit:Number(body.limit)||50,total:53,returned:items.length,hasMore,nextPage:hasMore?2:null,nextCursor:hasMore?{firstSeenAt:last.firstSeenAt,source:last.source,listingUrl:last.listingUrl}:null,snapshotAt:snapshot,freshnessCutoff}});
@@ -196,6 +197,15 @@ async function assertAvailableSpace(device,label){
   assert.deepEqual(device.identity.searchPages.slice(-2),[1,2],label+': complete pagination');
   await device.page.locator('.fixture-map-marker').first().click();
   assert.equal(await device.page.locator('[data-listing-card].selected').count(),1,label+': marker/card sync');
+  const removedId=await device.page.locator('[data-listing-card]').first().getAttribute('data-listing-card');
+  await device.page.locator('.cian-remove-listing').first().click();
+  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===52&&window.__slogiFixtureMarkerCount===50);
+  assert.equal(await device.page.evaluate(id=>JSON.parse(localStorage.getItem('slogi_cian_hidden_listing_ids_v1')||'[]').includes(id),removedId),true,label+': stable hidden listing id');
+  await device.page.reload({waitUntil:'domcontentloaded'});
+  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===52&&window.__slogiFixtureMarkerCount===50);
+  await device.page.evaluate(()=>localStorage.removeItem('slogi_cian_hidden_listing_ids_v1'));
+  await device.page.reload({waitUntil:'domcontentloaded'});
+  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53&&window.__slogiFixtureMarkerCount===51);
 }
 
 async function seedLayoutProjects(device){
@@ -311,10 +321,9 @@ async function runLayoutAudit(device,origin){
   if(visualStage!=='after')return;
   await device.page.setViewportSize({width:1440,height:900});
   await navigateAuditPage(device,origin,'/available-spaces.html','search');
-  await device.page.locator('#available-area-min').fill('140');
-  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length<53);
-  await device.page.locator('#available-reset').click();
-  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53);
+  assert.equal(await device.page.locator('.cian-filter-card').count(),0);
+  await device.page.locator('.cian-remove-listing').first().click();
+  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===52&&document.querySelector('#cian-map-count')?.textContent==='50 из 52 на карте');
   await device.page.locator('.cian-add-object').first().click();
   await device.page.waitForFunction(()=>document.querySelector('.cian-add-object')?.disabled===true);
   await navigateAuditPage(device,origin,'/index.html','premises');

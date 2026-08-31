@@ -1,4 +1,4 @@
-import type { BrowserlessPage, NormalizedListing } from './types.ts';
+import type { BrowserlessPage, ListingPremiseType, NormalizedListing } from './types.ts';
 
 export interface StructuredCandidate {
   externalId?: string | null;
@@ -10,6 +10,8 @@ export interface StructuredCandidate {
   rentMonthly?: number | null;
   pricePerSquareMeter?: number | null;
   floor?: number | null;
+  premiseType?: ListingPremiseType | null;
+  hasBasementOrSocle?: boolean;
   totalFloors?: number | null;
   ceilingHeight?: number | null;
   windowsCount?: number | null;
@@ -111,6 +113,39 @@ export function parseMoney(value: unknown): number | null {
 const AREA_NUMBER_SOURCE = '[0-9]+(?:[\\s\\u00a0][0-9]{3})*(?:[.,][0-9]+)?';
 const AREA_UNIT_SOURCE = '(?:м²|м2|м\\^2|кв\\.?\\s*м)';
 const ENGINEERING_AREA_CONTEXT = /энерговооруж|электрическ|мощност|нагрузк|ватт|\bквт\b|вентиляц|теплов|холодоснаб|инженерн|процент|коэффициент/i;
+const BASEMENT_OR_SOCLE = /(?:^|[^А-Яа-яЁё])(?:подвал(?:е|а|у|ом|ьн(?:ый|ое|ая|ом|ые|ых)?)?|цокол(?:ь|е|я|ю|ем|ьн(?:ый|ое|ая|ом|ые|ых)?))(?=$|[^А-Яа-яЁё])/iu;
+
+export interface PremiseTypeDetection {
+  premiseType: ListingPremiseType | null;
+  ambiguous: boolean;
+}
+
+export function detectPremiseType(values: unknown[]): PremiseTypeDetection {
+  const matches = new Set<ListingPremiseType>();
+  for (const value of values) {
+    const text = cleanText(value, 2_000).toLowerCase();
+    if (!text) continue;
+    if (/офис(?:ное|ная|ный|ные|ных|ов|ы)?(?:\s+помещени[ея])?|(?:^|[^a-z])offices?(?=$|[^a-z])/iu.test(text)) matches.add('office');
+    if (/торгов(?:ая|ое|ые|ых)\s+(?:площад(?:ь|и|ей)|помещени[ея])|стрит[-\s]?ритейл|магазин|(?:^|[^a-z])retail(?=$|[^a-z])|shopping[-_\s]?area/iu.test(text)) matches.add('retail');
+    if (/помещени[ея]\s+свободного\s+назначения|(?:^|[^А-Яа-яЁё])псн(?=$|[^А-Яа-яЁё])|free[-_\s]?(?:purpose|appointment)/iu.test(text)) matches.add('free_purpose');
+  }
+  return { premiseType: matches.size === 1 ? [...matches][0] : null, ambiguous: matches.size > 1 };
+}
+
+export function hasBasementOrSocle(value: unknown): boolean {
+  return BASEMENT_OR_SOCLE.test(cleanText(value, 500_000));
+}
+
+export function floorNumberFromText(value: unknown): number | null {
+  const text = cleanText(value, 2_000);
+  const token = '(?:-?\\d{1,3}|1\\s*[-–—]?\\s*(?:й|ый)|перв(?:ый|ом))';
+  if (/^(?:1\s*[-–—]?\s*(?:й|ый)|перв(?:ый|ом))$/iu.test(text)) return 1;
+  const labeled = text.match(new RegExp(`(?:Этаж|Этаж помещения)\\s*[:—-]?\\s*(${token})`, 'iu'));
+  const compact = labeled || text.match(new RegExp(`(?:^|[\\s,;])(${token})\\s+(?:этаж(?:е|а)?|эт\\.)(?=$|[^А-Яа-яЁё])`, 'iu'));
+  const raw = compact?.[1] || '';
+  if (/^\s*(?:1\s*[-–—]?\s*(?:й|ый)|перв(?:ый|ом))\s*$/iu.test(raw)) return 1;
+  return parseNumber(raw);
+}
 
 function forbiddenAreaCandidate(text: string, numberIndex: number, matchedText: string, labeled: boolean): boolean {
   const tail = text.slice(numberIndex, numberIndex + Math.max(100, matchedText.length + 50));
@@ -157,9 +192,9 @@ function rentFromOfferSegment(segment: string): number | null {
 }
 
 function floorFromOfferSegment(segment: string): { floor: number | null; totalFloors: number | null } {
-  const labeled = segment.match(/(?:Этаж|Этаж помещения)\s*[:—-]?\s*(-?\d{1,3})(?:\s*(?:из|\/)\s*(\d{1,3}))?/i);
-  const compact = labeled || segment.match(/(?:^|[\s,;])(-?\d{1,3})(?:\s*(?:из|\/)\s*(\d{1,3}))?\s+этаж(?:е|а)?\b/i);
-  return { floor: parseNumber(compact?.[1]), totalFloors: parseNumber(compact?.[2]) };
+  const floor = floorNumberFromText(segment);
+  const total = segment.match(/(?:Этаж|Этаж помещения)\s*[:—-]?\s*(?:-?\d{1,3}|1\s*[-–—]?\s*(?:й|ый)|перв(?:ый|ом))\s*(?:из|\/)\s*(\d{1,3})/iu);
+  return { floor, totalFloors: parseNumber(total?.[1]) };
 }
 
 function rateFromOfferSegment(segment: string): { pricePerSquareMeter: number | null; ratePeriod: 'month' | 'year' | null } {
@@ -350,6 +385,7 @@ function scalar(value: unknown): unknown {
 export function extractStructured(html: string): StructuredExtraction {
   const { roots, warnings } = structuredRoots(html);
   const candidate: StructuredCandidate = {};
+  const typeValues: unknown[] = [];
   for (const root of roots) {
     walkJson(root, (key, value, parent) => {
       if (!candidate.title && /^(name|headline|title)$/i.test(key) && typeof value === 'string') candidate.title = cleanText(value, 500) || null;
@@ -364,7 +400,11 @@ export function extractStructured(html: string): StructuredExtraction {
         if (price != null && !/(м²|m2|sqm|кв)/i.test(unit)) candidate.rentMonthly = price;
       }
       if (candidate.pricePerSquareMeter == null && /^(pricePerSquareMeter|pricePerSqm|squareMeterPrice)$/i.test(key)) candidate.pricePerSquareMeter = boundedNumber(scalar(value), 1, 100_000_000);
-      if (candidate.floor == null && /^(floor|floorNumber|floorNum|objectFloor)$/i.test(key)) candidate.floor = boundedNumber(scalar(value), -5, 300);
+      if (/^(category|categoryName|propertyType|commercialType|premiseType|offerType|objectType|objectTypeName)$/i.test(key)) typeValues.push(scalar(value));
+      if (/^(floor|floorNumber|floorNum|objectFloor)$/i.test(key)) {
+        if (candidate.floor == null) candidate.floor = boundedNumber(scalar(value), -5, 300) ?? floorNumberFromText(scalar(value));
+        if (hasBasementOrSocle(scalar(value))) candidate.hasBasementOrSocle = true;
+      }
       if (candidate.totalFloors == null && /^(numberOfFloors|totalFloors|floorsTotal|buildingFloors)$/i.test(key)) candidate.totalFloors = boundedNumber(scalar(value), 1, 300);
       if (candidate.ceilingHeight == null && /^(ceilingHeight|ceiling)$/i.test(key)) candidate.ceilingHeight = boundedNumber(scalar(value), 1.5, 30);
       if (candidate.windowsCount == null && /^(numberOfWindows|windowsCount)$/i.test(key)) candidate.windowsCount = boundedNumber(scalar(value), 0, 1_000);
@@ -376,6 +416,14 @@ export function extractStructured(html: string): StructuredExtraction {
       }
     });
   }
+  const titleType = detectPremiseType([candidate.title]);
+  const structuredType = detectPremiseType(typeValues);
+  const preferred = structuredType.premiseType || titleType.premiseType;
+  const conflict = structuredType.ambiguous || titleType.ambiguous
+    || Boolean(structuredType.premiseType && titleType.premiseType && structuredType.premiseType !== titleType.premiseType);
+  candidate.premiseType = conflict ? null : preferred;
+  candidate.hasBasementOrSocle = Boolean(candidate.hasBasementOrSocle || hasBasementOrSocle([candidate.title, candidate.description].filter(Boolean).join(' ')));
+  if (conflict) warnings.push('ambiguous_premise_type');
   return { candidate, warnings };
 }
 
@@ -412,6 +460,8 @@ export function listingCompleteness(listing: Partial<NormalizedListing>): number
     listing.rentMonthly,
     listing.pricePerSquareMeter,
     listing.floor,
+    listing.premiseType,
+    listing.hasBasementOrSocle,
     listing.totalFloors,
     listing.ceilingHeight,
     listing.description,

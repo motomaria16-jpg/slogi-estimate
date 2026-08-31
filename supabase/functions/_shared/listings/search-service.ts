@@ -1,6 +1,7 @@
 import type { BrowserlessPageClient } from './browserless.ts';
 import { isCompleteListing, pageDiscoveryDiagnostics, uniqueWarnings } from './parsing.ts';
 import { providerBySource } from './providers/index.ts';
+import { isListingSelected } from './selection.ts';
 import type {
   ListingProvider,
   ListingSource,
@@ -49,6 +50,7 @@ export interface ListingSearchDependencies {
 }
 
 function passesFilters(listing: NormalizedListing, request: ListingSearchRequest): boolean {
+  if (!isListingSelected(listing)) return false;
   if (request.areaMin != null && (listing.area == null || listing.area < request.areaMin)) return false;
   if (request.areaMax != null && (listing.area == null || listing.area > request.areaMax)) return false;
   if (request.floor != null && (listing.floor == null || listing.floor !== request.floor)) return false;

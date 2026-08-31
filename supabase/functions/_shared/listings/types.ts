@@ -1,4 +1,5 @@
 export type ListingSource = 'cian' | 'avito';
+export type ListingPremiseType = 'office' | 'retail' | 'free_purpose';
 
 export type BrowserlessStrategy = 'smart-scrape' | 'content' | 'unblock';
 export type BrowserlessPageStatus = 'ok' | 'blocked' | 'error';
@@ -47,6 +48,8 @@ export interface NormalizedListing {
   rentMonthly: number | null;
   pricePerSquareMeter: number | null;
   floor: number | null;
+  premiseType: ListingPremiseType | null;
+  hasBasementOrSocle: boolean;
   totalFloors: number | null;
   ceilingHeight: number | null;
   description: string | null;

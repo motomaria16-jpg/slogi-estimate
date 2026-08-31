@@ -130,16 +130,23 @@ export abstract class BaseListingProvider implements ListingProvider {
     const text = visibleText(page.html || '', page.markdown || '');
     const dates = extractListingDates(page.html || '', page.markdown || '', observedAt);
     const authoritative = Object.fromEntries((fallback.authoritativeFields || []).map((field) => [field, fallback.candidate[field]]));
+    const parsedPremiseTypes = [...new Set([fallback.candidate.premiseType, structured.candidate.premiseType].filter(Boolean))];
+    const premiseTypeConflict = parsedPremiseTypes.length > 1
+      || fallback.warnings.includes('ambiguous_premise_type')
+      || structured.warnings.includes('ambiguous_premise_type');
     const candidate: Partial<NormalizedListing> = {
       ...defined(fallback.candidate),
       ...defined(structured.candidate as Partial<NormalizedListing>),
       ...authoritative,
+      premiseType: premiseTypeConflict ? null : parsedPremiseTypes[0] || null,
+      hasBasementOrSocle: Boolean(fallback.candidate.hasBasementOrSocle || structured.candidate.hasBasementOrSocle),
       externalId: urlResult.externalId || structured.candidate.externalId || fallback.candidate.externalId || null,
       ...dates,
       marketStatus: structured.candidate.marketStatus || (removedFromText(text) ? 'removed' : 'active'),
       parseWarnings: uniqueWarnings([
         ...structured.warnings,
         ...fallback.warnings,
+        premiseTypeConflict ? 'ambiguous_premise_type' : null,
         ...(page.warnings || []),
         pageBlockReason(page.html || '', page.markdown || '') ? 'blocked_content_detected' : null,
         !text ? 'empty_page' : null,
@@ -186,6 +193,8 @@ export abstract class BaseListingProvider implements ListingProvider {
       rentMonthly,
       pricePerSquareMeter,
       floor: boundedNumber(candidate.floor, -5, 300),
+      premiseType: candidate.premiseType || null,
+      hasBasementOrSocle: candidate.hasBasementOrSocle === true,
       totalFloors: boundedNumber(candidate.totalFloors, 1, 300),
       ceilingHeight: boundedNumber(candidate.ceilingHeight, 1.5, 30),
       description: candidate.description ? cleanText(candidate.description, 10_000) : null,
@@ -208,6 +217,8 @@ export abstract class BaseListingProvider implements ListingProvider {
     if (!listing.address) warnings.push('missing_address');
     if (listing.area == null) warnings.push('missing_area');
     if (listing.rentMonthly == null) warnings.push('missing_rent_monthly');
+    if (listing.premiseType == null && !warnings.includes('ambiguous_premise_type')) warnings.push('missing_premise_type');
+    if (listing.hasBasementOrSocle) warnings.push('basement_or_socle_detected');
     if (!isCompleteListing(listing)) warnings.push('partial_listing');
     listing.parseCompleteness = listingCompleteness(listing);
     listing.parseWarnings = uniqueWarnings(warnings);

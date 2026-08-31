@@ -1,6 +1,7 @@
 import { LISTING_FRESHNESS_DAYS, LISTING_FRESHNESS_MS, listingFreshnessDecision } from '../_shared/listings/freshness.ts';
 import { validateSupabaseServiceUrl } from '../_shared/listings/supabase-url.ts';
-import type { ListingSource, NormalizedListing } from '../_shared/listings/types.ts';
+import { isListingSelected, LISTING_SELECTION } from '../_shared/listings/selection.ts';
+import type { ListingPremiseType, ListingSource, NormalizedListing } from '../_shared/listings/types.ts';
 import { authorizeDeviceGrant } from '../_shared/password-gate.ts';
 
 interface EnvironmentReader {
@@ -31,6 +32,7 @@ export interface ListingReadRequest {
   areaMin: number | null;
   areaMax: number | null;
   floor: number | null;
+  premiseTypes: ListingPremiseType[];
 }
 
 export interface ListingReadPage {
@@ -76,6 +78,15 @@ function numeric(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+const allowedPremiseTypes = new Set<ListingPremiseType>(LISTING_SELECTION.premiseTypes);
+
+function premiseTypes(value: unknown): ListingPremiseType[] | null {
+  const raw = value == null ? [...LISTING_SELECTION.premiseTypes] : value;
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const unique = [...new Set(raw.map((entry) => String(entry) as ListingPremiseType))];
+  return unique.every((entry) => allowedPremiseTypes.has(entry)) ? unique : null;
+}
+
 function integerInRange(value: unknown, fallback: number, min: number, max: number): number {
   const parsed = Math.trunc(Number(value));
   return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback;
@@ -116,11 +127,21 @@ export function parseSearchRequest(body: Record<string, unknown>): { ok: true; r
   if (cursor && snapshotAt == null) return { ok: false, error: 'snapshotAt is required with cursor' };
   if (page > 1 && !cursor) return { ok: false, error: 'cursor is required after the first page' };
   if (page === 1 && cursor) return { ok: false, error: 'cursor is not allowed on the first page' };
-  const areaMin = numeric(body.areaMin);
-  const areaMax = numeric(body.areaMax);
-  const floor = numeric(body.floor);
-  if (areaMin != null && areaMax != null && areaMin > areaMax) return { ok: false, error: 'areaMin must be less than or equal to areaMax' };
-  return { ok: true, request: { sources, page, limit, snapshotAt, cursor, areaMin, areaMax, floor } };
+  const requestedAreaMin = numeric(body.areaMin);
+  const requestedAreaMax = numeric(body.areaMax);
+  const requestedFloor = numeric(body.floor);
+  if (body.areaMin != null && requestedAreaMin !== LISTING_SELECTION.areaMin) return { ok: false, error: 'areaMin is fixed at 100' };
+  if (body.areaMax != null && requestedAreaMax !== LISTING_SELECTION.areaMax) return { ok: false, error: 'areaMax is fixed at 150' };
+  if (body.floor != null && requestedFloor !== LISTING_SELECTION.floor) return { ok: false, error: 'floor is fixed at 1' };
+  const requestedPremiseTypes = premiseTypes(body.premiseTypes);
+  if (!requestedPremiseTypes) return { ok: false, error: 'premiseTypes accepts office, retail and free_purpose' };
+  return { ok: true, request: {
+    sources, page, limit, snapshotAt, cursor,
+    areaMin: LISTING_SELECTION.areaMin,
+    areaMax: LISTING_SELECTION.areaMax,
+    floor: LISTING_SELECTION.floor,
+    premiseTypes: requestedPremiseTypes,
+  } };
 }
 
 function safeCode(value: unknown): string | null {
@@ -145,6 +166,8 @@ function rowToListing(row: Record<string, unknown>): NormalizedListing {
     rentMonthly: row.rent_monthly == null ? null : Number(row.rent_monthly),
     pricePerSquareMeter: row.area && row.rent_monthly ? Math.round((Number(row.rent_monthly) / Number(row.area)) * 100) / 100 : null,
     floor: row.floor == null ? null : Number(row.floor),
+    premiseType: allowedPremiseTypes.has(row.premise_type as ListingPremiseType) ? row.premise_type as ListingPremiseType : null,
+    hasBasementOrSocle: row.has_basement_or_socle === true,
     totalFloors: row.total_floors == null ? null : Number(row.total_floors),
     ceilingHeight: row.ceiling_height == null ? null : Number(row.ceiling_height),
     description: row.description ? String(row.description) : null,
@@ -225,6 +248,8 @@ export class SupabaseListingReadStore implements ListingReadStore {
     if (request.areaMin != null) parts.push(`area=gte.${request.areaMin}`);
     if (request.areaMax != null) parts.push(`area=lte.${request.areaMax}`);
     if (request.floor != null) parts.push(`floor=eq.${request.floor}`);
+    parts.push(`premise_type=in.(${request.premiseTypes.join(',')})`);
+    parts.push('has_basement_or_socle=eq.false');
     if (request.cursor) {
       const at = encodeURIComponent(request.cursor.firstSeenAt);
       const source = encodeURIComponent(request.cursor.source);
@@ -299,8 +324,13 @@ export function createSearchListingsHandler(dependencies: SearchHandlerDependenc
     }
     try {
       const [storedPage, states] = await Promise.all([store.readRecent(readRequest, now), store.readScanStates(parsed.request.sources)]);
+      const requestedPremiseTypes = new Set(parsed.request.premiseTypes);
       const items = storedPage.items
-        .filter((item) => item.marketStatus !== 'removed' && listingFreshnessDecision(item, snapshot) === 'recent')
+        .filter((item) => item.marketStatus !== 'removed'
+          && listingFreshnessDecision(item, snapshot) === 'recent'
+          && isListingSelected(item)
+          && item.premiseType != null
+          && requestedPremiseTypes.has(item.premiseType))
         .sort((left, right) => {
           const firstSeen = new Date(right.firstSeenAt).getTime() - new Date(left.firstSeenAt).getTime();
           return firstSeen || left.source.localeCompare(right.source) || left.listingUrl.localeCompare(right.listingUrl);

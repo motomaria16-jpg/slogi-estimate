@@ -11,7 +11,7 @@
   <link href="layout-v76-1-1.css?v=7611" rel="stylesheet"/>
   <link href="objects-visual-standard.css?v=33" rel="stylesheet"/>
   <link href="phase0.css?v=68" rel="stylesheet"/>
-  <link href="cian-workspace.css?v=7617" rel="stylesheet"/>
+  <link href="cian-workspace.css?v=761151" rel="stylesheet"/>
 <link href="schoolslogi-theme-v76-1-5.css?v=76114" rel="stylesheet"/><link href="password-gate.css?v=7617" rel="stylesheet"/><script src="phase0-config.js?v=76112"></script><script src="shared-workspace.js?v=7617"></script></head>
 <body class="slogi-search-page available-spaces-page">
 <header class="site-header"><div class="top"><div class="brand"><a class="logo-link" href="index.html" aria-label="СЛОГИ — главная"><div class="logo-word" aria-hidden="true"><span>С</span><span>Л</span><span>О</span><span>Г</span><span>И</span></div></a></div></div></header>
@@ -23,27 +23,15 @@
   </section>
 
   <section class="cian-database-summary" aria-label="Состояние базы и источников">
-    <article class="cian-source-card active" data-source="cian"><div class="cian-source-mark">Ц</div><div><span>Активный источник</span><h2>ЦИАН</h2><p id="cian-source-state">Получаем состояние сохранённой базы…</p></div><span class="cian-status" id="cian-source-badge">Проверка</span></article>
+    <article class="cian-source-card active" data-source="cian"><div class="cian-source-mark">Ц</div><div><span>Активный источник</span><h2>ЦИАН</h2><p id="cian-source-state">Получаем состояние предложений…</p></div><span class="cian-status" id="cian-source-badge">Проверка</span></article>
     <article class="cian-summary-stat"><span>Период актуальности</span><strong>30 суток</strong></article>
     <article class="cian-source-card disabled" aria-disabled="true"><div class="cian-source-mark">А</div><div><span>Будущий источник</span><h2>Авито</h2><p>Подключение готовится</p></div><span class="cian-status">Неактивно</span></article>
   </section>
 
-  <section class="cian-filter-card" aria-labelledby="available-filter-title">
-    <div class="cian-section-heading"><div><p class="cian-eyebrow">Отбор</p><h2 id="available-filter-title">Фильтры предложений</h2></div><button id="available-reset" class="cian-text-button" type="button">Сбросить</button></div>
-    <div class="cian-filters">
-      <label class="wide"><span>Кластер</span><select id="available-cluster" aria-label="Кластер"><option value="">Все кластеры</option><option value="__outside">Вне кластеров</option><option value="__unresolved">Кластер не определён (нет координат)</option></select></label>
-      <fieldset><legend>Площадь, м²</legend><input id="available-area-min" type="number" min="0" step="1" placeholder="От" aria-label="Минимальная площадь"/><input id="available-area-max" type="number" min="0" step="1" placeholder="До" aria-label="Максимальная площадь"/></fieldset>
-      <fieldset><legend>Аренда в месяц, ₽</legend><input id="available-rent-min" type="number" min="0" step="1000" placeholder="От" aria-label="Минимальная аренда"/><input id="available-rent-max" type="number" min="0" step="1000" placeholder="До" aria-label="Максимальная аренда"/></fieldset>
-      <fieldset><legend>Цена за м², ₽</legend><input id="available-sqm-min" type="number" min="0" step="100" placeholder="От" aria-label="Минимальная цена за квадратный метр"/><input id="available-sqm-max" type="number" min="0" step="100" placeholder="До" aria-label="Максимальная цена за квадратный метр"/></fieldset>
-      <label><span>Дата</span><select id="available-date"><option value="30">Последние 30 суток</option><option value="14">Последние 14 суток</option><option value="7">Последние 7 суток</option></select></label>
-      <label><span>Сортировка</span><select id="available-sort"><option value="freshness-desc">Сначала новые</option><option value="rent-asc">Аренда — дешевле</option><option value="area-asc">Площадь — меньше</option><option value="sqm-asc">Цена за м² — ниже</option></select></label>
-    </div>
-  </section>
-
   <section class="cian-workspace" aria-label="Предложения и карта">
     <div class="cian-results">
-      <div class="cian-section-heading"><div><p class="cian-eyebrow">Сохранённая база</p><h2>Список подходящих помещений</h2><p id="available-summary" aria-live="polite">Загрузка предложений…</p></div></div>
-      <div id="available-loading" class="cian-loading" role="status"><span></span><p>Читаем сохранённые предложения…</p></div>
+      <div class="cian-section-heading"><div><h2>Список подходящих помещений</h2><p id="available-summary" aria-live="polite">Загрузка предложений…</p></div></div>
+      <div id="available-loading" class="cian-loading" role="status"><span></span><p>Загружаем предложения…</p></div>
       <div class="cian-list-table-head" aria-hidden="true"><span>Объект</span><span>Аренда</span><span>Действия</span></div>
       <div id="available-list" class="cian-list" aria-live="polite"></div>
       <div id="available-empty" class="cian-empty" hidden><span aria-hidden="true">⌕</span><h3>Предложений пока нет</h3><p>После планового обновления здесь появятся актуальные помещения ЦИАН.</p></div>
@@ -61,6 +49,6 @@
 <dialog class="cian-dialog" id="cian-listing-dialog" aria-labelledby="cian-dialog-title"><div id="cian-dialog-content"></div></dialog>
 <div id="available-toast" class="phase0-toast" role="status" aria-live="polite"></div>
 
-<script src="professional-core.js?v=31"></script><script src="workflow-storage.js?v=31"></script><script src="professional-shell.js?v=76171"></script><script src="yandex-map-config.js?v=62"></script><script src="clusters-data.js?v=31"></script><script src="cluster-geometry.js?v=7617"></script><script src="phase0-services.js?v=76112"></script><script src="cian-listing-feed.js?v=76112"></script><script src="cian-map-data.js?v=76112"></script><script src="cian-workspace.js?v=76112"></script>
+<script src="professional-core.js?v=31"></script><script src="workflow-storage.js?v=31"></script><script src="professional-shell.js?v=76171"></script><script src="yandex-map-config.js?v=62"></script><script src="clusters-data.js?v=31"></script><script src="cluster-geometry.js?v=7617"></script><script src="phase0-services.js?v=76112"></script><script src="cian-listing-feed.js?v=761151"></script><script src="cian-map-data.js?v=76112"></script><script src="cian-workspace.js?v=761151"></script>
 </body>
 </html>

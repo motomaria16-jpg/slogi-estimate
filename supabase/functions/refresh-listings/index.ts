@@ -8,6 +8,7 @@ import {
 } from '../_shared/listings/browserless.ts';
 import { pageDiscoveryDiagnostics } from '../_shared/listings/parsing.ts';
 import { providerBySource } from '../_shared/listings/providers/index.ts';
+import { LISTING_SELECTION } from '../_shared/listings/selection.ts';
 import { validateSupabaseServiceUrl } from '../_shared/listings/supabase-url.ts';
 import {
   SupabaseListingServerStore,
@@ -132,7 +133,10 @@ async function discoverPage(
 ): Promise<DiscoveredPage> {
   const provider = providerBySource(source);
   const searchUrl = provider.buildSearchUrl(pageNumber, {
-    areaMin: null, areaMax: null, floor: null, searchBaseUrl,
+    areaMin: LISTING_SELECTION.areaMin,
+    areaMax: LISTING_SELECTION.areaMax,
+    floor: LISTING_SELECTION.floor,
+    searchBaseUrl,
   });
   const page: BrowserlessPage = await client.fetchPage(searchUrl, {
     includeLinks: true,

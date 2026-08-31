@@ -1,7 +1,10 @@
 import { BaseListingProvider, type ProviderFallback } from '../provider.ts';
 import {
   extractLinkedOfferUnits,
+  detectPremiseType,
   firstMatch,
+  floorNumberFromText,
+  hasBasementOrSocle,
   labeledAreaValue,
   markedText,
   metaContent,
@@ -9,6 +12,7 @@ import {
   parseNumber,
   visibleText,
 } from '../parsing.ts';
+import { LISTING_SELECTION } from '../selection.ts';
 import type { BrowserlessPage, ListingSearchFilters, NormalizedListing } from '../types.ts';
 
 export class CianListingProvider extends BaseListingProvider {
@@ -44,6 +48,7 @@ export class CianListingProvider extends BaseListingProvider {
     url.searchParams.set('p', String(page));
     if (filters.areaMin != null) url.searchParams.set('minarea', String(filters.areaMin));
     if (filters.areaMax != null) url.searchParams.set('maxarea', String(filters.areaMax));
+    if (filters.floor != null) url.searchParams.set('floor', String(filters.floor));
   }
 
   protected parseFallback(page: BrowserlessPage, _canonicalUrl: string): ProviderFallback {
@@ -82,7 +87,9 @@ export class CianListingProvider extends BaseListingProvider {
       .filter((unit) => unit.area != null && unit.rentMonthly != null)
       .sort((left, right) => left.area - right.area || left.sourceIndex - right.sourceIndex);
     const multipleUnits = linkedUnits.length > 1;
-    const representative = multipleUnits ? completeUnits[0] || null : null;
+    const selectedUnits = completeUnits.filter((unit) => unit.area >= LISTING_SELECTION.areaMin
+      && unit.area <= LISTING_SELECTION.areaMax && unit.floor === LISTING_SELECTION.floor);
+    const representative = multipleUnits ? selectedUnits[0] || completeUnits[0] || null : null;
 
     const areaLabel = labeledAreaValue(text);
     const rentLabel = firstMatch(text, [
@@ -93,12 +100,19 @@ export class CianListingProvider extends BaseListingProvider {
     if (representative || rentLabel) warnings.push('rent_from_visible_text');
     if (multipleUnits) warnings.push('multiple_units_detected');
     if (representative) warnings.push('representative_unit_selected');
+    if (selectedUnits.length) warnings.push('selection_unit_selected');
     if (representative?.ratePeriod === 'year') warnings.push('price_per_square_meter_annual_converted');
     if (multipleUnits && !representative) warnings.push('semantic_linked_pair_missing', 'semantic_offer_association_failed');
 
-    const floorMatch = text.match(/(?:Этаж|Этаж помещения)\s*[:—-]?\s*(-?\d{1,3})(?:\s*(?:из|\/)\s*(\d{1,3}))?/i);
+    const floorValue = floorNumberFromText(text);
+    const totalFloorsMatch = text.match(/(?:Этаж|Этаж помещения)\s*[:—-]?\s*(?:-?\d{1,3}|1\s*[-–—]?\s*(?:й|ый)|перв(?:ый|ом))\s*(?:из|\/)\s*(\d{1,3})/iu);
     const ceilingLabel = firstMatch(text, [/(?:Высота потолк(?:а|ов))\s*[:—-]?\s*([0-9]+(?:[.,][0-9]+)?)\s*м/i]);
     const windowsLabel = firstMatch(text, [/(?:Количество окон|Окон)\s*[:—-]?\s*([0-9]+)/i, /([0-9]+)\s+окон(?:а|о)?\b/i]);
+    const titleType = detectPremiseType([title]);
+    const descriptionType = titleType.premiseType || titleType.ambiguous ? { premiseType: null, ambiguous: false } : detectPremiseType([description]);
+    const premiseType = titleType.premiseType || descriptionType.premiseType;
+    const premiseTypeAmbiguous = titleType.ambiguous || descriptionType.ambiguous;
+    if (premiseTypeAmbiguous) warnings.push('ambiguous_premise_type');
 
     const candidate: Partial<NormalizedListing> = {
       title: title || null,
@@ -106,8 +120,10 @@ export class CianListingProvider extends BaseListingProvider {
       area: multipleUnits ? representative?.area ?? null : parseNumber(areaLabel),
       rentMonthly: multipleUnits ? representative?.rentMonthly ?? null : parseMoney(rentLabel),
       pricePerSquareMeter: multipleUnits ? representative?.pricePerSquareMeter ?? null : null,
-      floor: multipleUnits ? representative?.floor ?? null : parseNumber(floorMatch?.[1]),
-      totalFloors: multipleUnits ? representative?.totalFloors ?? null : parseNumber(floorMatch?.[2]),
+      floor: multipleUnits ? representative?.floor ?? null : floorValue,
+      premiseType: premiseTypeAmbiguous ? null : premiseType,
+      hasBasementOrSocle: hasBasementOrSocle(text),
+      totalFloors: multipleUnits ? representative?.totalFloors ?? null : parseNumber(totalFloorsMatch?.[1]),
       ceilingHeight: parseNumber(ceilingLabel),
       windowsCount: parseNumber(windowsLabel),
       description: description || null,

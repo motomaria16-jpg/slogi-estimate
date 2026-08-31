@@ -6,7 +6,30 @@
 })(typeof window!=='undefined'?window:globalThis,function(){
   'use strict';
   const DAY=24*60*60*1000;
+  const ALLOWED_PREMISE_TYPES=Object.freeze(['office','retail','free_purpose']);
   const number=value=>{if(value==null||String(value).trim()==='')return null;const parsed=Number(value);return Number.isFinite(parsed)?parsed:null;};
+  const text=value=>String(value==null?'':value).trim().toLocaleLowerCase('ru-RU').replace(/ё/g,'е');
+  function normalizePremiseType(value,item={}){
+    const raw=text(value??item.premiseType??item.premise_type);
+    if(raw){
+      if(['office','offices','офис','офисы','офисное помещение'].includes(raw))return'office';
+      if(['retail','trade','shop','shopping_area','торговая площадь','торговое помещение','магазин'].includes(raw))return'retail';
+      if(['free_purpose','free-purpose','free purpose','psn','псн','помещение свободного назначения','свободное назначение'].includes(raw))return'free_purpose';
+      return raw.replace(/[^a-zа-я0-9]+/gi,'_').replace(/^_+|_+$/g,'');
+    }
+    const description=text([item.title,item.description].filter(Boolean).join(' '));
+    if(/офис|office/.test(description))return'office';
+    if(/торгов|магазин|ритейл|retail|shop/.test(description))return'retail';
+    if(/свободн[а-я]*\s+назнач|(?:^|\s)псн(?:\s|$)|free[\s_-]*purpose/.test(description))return'free_purpose';
+    return'';
+  }
+  function hasBasementOrSocle(item={}){
+    const explicit=item.hasBasementOrSocle??item.has_basement_or_socle;
+    const normalized=text(explicit);
+    if(explicit===true||explicit===1||['true','1','yes','да'].includes(normalized))return true;
+    const description=text([item.title,item.description].filter(Boolean).join(' '));
+    return /подвал|подваль|цокол|цоколь|basement|semi[\s_-]*basement/.test(description);
+  }
   function canonicalUrl(value){
     try{
       const url=new URL(String(value||''));
@@ -56,6 +79,8 @@
   function within(value,min,max){if(min!=null&&(value==null||value<min))return false;if(max!=null&&(value==null||value>max))return false;return true;}
   function filterAndSort(items,criteria={},now=Date.now()){
     const cluster=String(criteria.cluster||'');
+    const requiredFloor=number(criteria.floor);
+    const premiseTypes=Array.isArray(criteria.premiseTypes)?criteria.premiseTypes.map(value=>normalizePremiseType(value)).filter(Boolean):[];
     return items.filter(item=>{
       if(!isRecent(item,criteria.days||30,now))return false;
       const clusterMatch=!cluster
@@ -63,6 +88,9 @@
           :cluster==='__unresolved'?item.clusterStatus!=='inside'&&item.clusterStatus!=='outside'
             :cluster==='__unassigned'?!item.clusterId:item.clusterId===cluster);
       return clusterMatch&&within(item.area,criteria.areaMin,criteria.areaMax)
+        &&(requiredFloor==null||number(item.floor)===requiredFloor)
+        &&(!premiseTypes.length||premiseTypes.includes(normalizePremiseType(null,item)))
+        &&(criteria.excludeBasementOrSocle!==true||!hasBasementOrSocle(item))
         &&within(item.rentMonthly,criteria.rentMin,criteria.rentMax)
         &&within(item.pricePerSquareMeter,criteria.sqmMin,criteria.sqmMax);
     }).sort((left,right)=>compareStable(left,right,criteria.sort));
@@ -107,5 +135,5 @@
     const items=deduplicate(receivedItems).sort((left,right)=>compareStable(left,right));
     return {items,total:partial?(serverTotal??items.length):items.length,serverTotal,partial,errorCode,meta,pages:page,received,snapshotAt,freshnessCutoff};
   }
-  return{canonicalUrl,identity,deduplicate,freshnessTime,isRecent,compareStable,filterAndSort,loadAllPages};
+  return{ALLOWED_PREMISE_TYPES,canonicalUrl,identity,deduplicate,freshnessTime,isRecent,compareStable,normalizePremiseType,hasBasementOrSocle,filterAndSort,loadAllPages};
 });

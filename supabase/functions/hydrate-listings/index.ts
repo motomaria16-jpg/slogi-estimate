@@ -9,6 +9,7 @@ import {
 import { listingFreshnessDecision } from '../_shared/listings/freshness.ts';
 import { isCompleteListing } from '../_shared/listings/parsing.ts';
 import { providerBySource } from '../_shared/listings/providers/index.ts';
+import { listingSelectionRejection } from '../_shared/listings/selection.ts';
 import {
   SupabaseListingServerStore,
   type ListingServerStore,
@@ -58,6 +59,8 @@ interface ItemOutcome {
   updated: number;
   skippedOld: number;
   skippedUnknownDate: number;
+  skippedSelection?: number;
+  selectionRejection?: string | null;
   errorCode: string | null;
   attemptSummaries?: BrowserlessAttemptSummary[];
 }
@@ -238,6 +241,22 @@ async function processItem(
       return { status, parsed: 1, partial, blocked: 0, failed: 0, inserted: 0, updated: 0, skippedOld: 0, skippedUnknownDate: 1, errorCode: retry ? 'missing_or_invalid_freshness_date' : null, attemptSummaries };
     }
 
+    const selectionRejection = listingSelectionRejection(listing);
+    if (selectionRejection) {
+      await finish(store, item, workerId, 'completed', finishedAt, null, selectionRejection, {
+        attemptCount: item.attemptCount,
+        completeness: listing.parseCompleteness,
+        selectionRejection,
+        premiseType: listing.premiseType || '',
+        hasBasementOrSocle: listing.hasBasementOrSocle,
+        attemptSummaries,
+      });
+      return {
+        status: 'completed', parsed: 1, partial, blocked: 0, failed: 0, inserted: 0, updated: 0,
+        skippedOld: 0, skippedUnknownDate: 0, skippedSelection: 1, selectionRejection, errorCode: null, attemptSummaries,
+      };
+    }
+
     if (runtimeSignal.aborted) throw new HydrationRuntimeError();
     const recentListing = complete ? listing : { ...listing, address: listing.address || null } as NormalizedListing;
     const persisted = await store.persistRecent(source, [recentListing], finishedAt, runtimeSignal);
@@ -338,6 +357,8 @@ export function createHydrateListingsHandler(dependencies: HydrateDependencies =
         diagnostic: {
           browserlessAttempts: items.length,
           queueRetry: retrying,
+          selectionRejected: sum('skippedSelection'),
+          selectionRejections: outcomes.map((value) => value.selectionRejection).filter(Boolean),
           durationMs: Math.max(0, Date.now() - now.getTime()),
           staleRunRecovered: claim.recovered,
           attemptSummaries: outcomes.flatMap((value) => value.attemptSummaries || []),
@@ -351,6 +372,7 @@ export function createHydrateListingsHandler(dependencies: HydrateDependencies =
           retry: retrying, blocked, failed,
           discardedOld: outcomes.filter((value) => value.status === 'discarded_old').length,
           discardedUnknownDate: outcomes.filter((value) => value.status === 'discarded_unknown_date').length,
+          discardedSelection: sum('skippedSelection'),
           attempts: outcomes.flatMap((value) => value.attemptSummaries || []),
         },
       });

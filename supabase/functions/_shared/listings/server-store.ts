@@ -300,6 +300,8 @@ export class SupabaseListingServerStore implements ListingServerStore {
         cluster_name: merged(item.clusterName, previous?.cluster_name),
         area: merged(item.area, previous?.area),
         floor: merged(item.floor, previous?.floor),
+        premise_type: merged(item.premiseType, previous?.premise_type),
+        has_basement_or_socle: item.hasBasementOrSocle === true,
         total_floors: merged(item.totalFloors, previous?.total_floors),
         ceiling_height: merged(item.ceilingHeight, previous?.ceiling_height),
         rent_monthly: merged(item.rentMonthly, previous?.rent_monthly),

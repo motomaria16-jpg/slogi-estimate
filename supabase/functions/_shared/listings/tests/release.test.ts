@@ -25,7 +25,7 @@ const dateReference=new Date('2026-08-21T09:00:00.000Z');
 function fixture(name:string):string{return readFileSync(join(testDirectory,'fixtures',name),'utf8');}
 function page(html:string,links:string[]=[]):BrowserlessPage{return{status:'ok',html,markdown:'',links,strategy:'smart-scrape',attempted:['smart-scrape'],statusCode:200,durationMs:1,blockReason:null,warnings:[]};}
 function listing(overrides:Partial<NormalizedListing>={}):NormalizedListing{return{
-  source:'cian',listingUrl:'https://www.cian.ru/rent/commercial/111111111',externalId:'111111111',title:'Офис',address:'Москва, Тверская улица, 12',latitude:55.76,longitude:37.6,area:180,rentMonthly:450000,pricePerSquareMeter:2500,floor:3,totalFloors:9,ceilingHeight:3.4,description:null,publishedAt:observedAt,sourceUpdatedAt:null,freshnessAt:observedAt,freshnessKind:'published',dateConfidence:'high',dateWarnings:[],firstSeenAt:observedAt,lastSeenAt:observedAt,marketStatus:'active',parseCompleteness:.9,parseWarnings:[],...overrides,
+  source:'cian',listingUrl:'https://www.cian.ru/rent/commercial/111111111',externalId:'111111111',title:'Офис',address:'Москва, Тверская улица, 12',latitude:55.76,longitude:37.6,area:120,rentMonthly:450000,pricePerSquareMeter:3750,floor:1,premiseType:'office',hasBasementOrSocle:false,totalFloors:9,ceilingHeight:3.4,description:null,publishedAt:observedAt,sourceUpdatedAt:null,freshnessAt:observedAt,freshnessKind:'published',dateConfidence:'high',dateWarnings:[],firstSeenAt:observedAt,lastSeenAt:observedAt,marketStatus:'active',parseCompleteness:.9,parseWarnings:[],...overrides,
 };}
 function environment(values:Record<string,string>={}){return{get(name:string){return values[name];}};}
 function inertStore(overrides:Partial<ListingServerStore>={}):ListingServerStore{return Object.assign({
@@ -66,6 +66,11 @@ test('Cian discovery returns only canonical unique commercial cards',()=>{
   ]);
 });
 
+test('Cian discovery URL carries the mandatory area and first-floor contract',()=>{
+  const url=new URL(new CianListingProvider().buildSearchUrl(2,{areaMin:100,areaMax:150,floor:1}));
+  assert.equal(url.searchParams.get('minarea'),'100');assert.equal(url.searchParams.get('maxarea'),'150');assert.equal(url.searchParams.get('floor'),'1');assert.equal(url.searchParams.get('p'),'2');
+});
+
 test('Cian JSON-LD produces the expected complete normalized listing',()=>{
   const value=new CianListingProvider().parseListing(page(fixture('cian-listing.html')),'https://www.cian.ru/rent/commercial/111111111',observedAt);
   assert.equal(value.externalId,'111111111');assert.equal(value.title,'Офис 180 м² на Тверской');assert.equal(value.address,'Москва, Тверская улица, 12');assert.equal(value.area,180);assert.equal(value.rentMonthly,450000);assert.equal(value.pricePerSquareMeter,2500);assert.equal(value.floor,3);assert.equal(value.totalFloors,9);assert.equal(value.ceilingHeight,3.4);assert.equal(value.latitude,55.7641);assert.ok(value.parseCompleteness>=.8);
@@ -74,6 +79,38 @@ test('Cian JSON-LD produces the expected complete normalized listing',()=>{
 test('multi-unit semantic parsing does not mix premises',()=>{
   const value=new CianListingProvider().parseListing(page(fixture('cian-multi-unit.html')),'https://www.cian.ru/rent/commercial/326369393',observedAt);
   assert.equal(value.area,2156.2);assert.notEqual(value.area,100);assert.equal(value.floor,13);assert.equal(value.totalFloors,20);assert.equal(value.rentMonthly,9648994);assert.equal(value.pricePerSquareMeter,4475);assert.ok(value.parseWarnings.includes('representative_unit_selected'));assert.equal(value.parseWarnings.includes('semantic_price_per_square_meter_mismatch'),false);
+});
+
+test('multi-unit parsing selects an eligible unit instead of the smallest unit',()=>{
+  const html=`<h1 data-name="OfferTitle">Офисные помещения</h1><div data-name="AddressContainer">Москва, Тестовая улица, 1</div>
+    <section><div>Площадь: 90 м²</div><div>Этаж: 2 из 5</div><div>Аренда: 200 000 ₽/мес</div></section>
+    <section><div>Площадь: 120 м²</div><div>Этаж: первый из 5</div><div>Аренда: 300 000 ₽/мес</div></section>`;
+  const value=new CianListingProvider().parseListing(page(html),'https://www.cian.ru/rent/commercial/326369394',observedAt);
+  assert.equal(value.area,120);assert.equal(value.floor,1);assert.equal(value.rentMonthly,300000);assert.equal(value.premiseType,'office');assert.ok(value.parseWarnings.includes('selection_unit_selected'));
+});
+
+test('premise types and first-floor wording are canonicalized conservatively',()=>{
+  const provider=new CianListingProvider();
+  const cases=[
+    ['Офис на первом этаже','office'],
+    ['Торговая площадь, 1-й этаж','retail'],
+    ['ПСН, 1 этаж','free_purpose'],
+    ['Стрит-ритейл, первый этаж','retail'],
+    ['Магазин, 1 этаж','retail'],
+  ] as const;
+  for(const [title,premiseType] of cases){
+    const html=`<h1 data-name="OfferTitle">${title}</h1><div>Площадь: 120 м²</div><div>Аренда: 300 000 ₽/мес</div><div>Этаж: ${/1(?:-|\s)й|1 этаж/.test(title)?'1': 'первый'} из 5</div>`;
+    const value=provider.parseListing(page(html),'https://www.cian.ru/rent/commercial/123456789',observedAt);
+    assert.equal(value.premiseType,premiseType,title);assert.equal(value.floor,1,title);
+  }
+});
+
+test('ambiguous premise type and explicit basement or socle are preserved for rejection',()=>{
+  const provider=new CianListingProvider();
+  const ambiguous=provider.parseListing(page('<h1 data-name="OfferTitle">Офис-магазин</h1><div>Площадь: 120 м²</div><div>Этаж: 1</div>'),'https://www.cian.ru/rent/commercial/123456780',observedAt);
+  assert.equal(ambiguous.premiseType,null);assert.ok(ambiguous.parseWarnings.includes('ambiguous_premise_type'));
+  const basement=provider.parseListing(page('<h1 data-name="OfferTitle">ПСН</h1><div>Площадь: 120 м²</div><div>Этаж: 1</div><p>Цокольное помещение</p>'),'https://www.cian.ru/rent/commercial/123456781',observedAt);
+  assert.equal(basement.hasBasementOrSocle,true);assert.ok(basement.parseWarnings.includes('basement_or_socle_detected'));
 });
 
 test('engineering W/m² value is never interpreted as area',()=>{
@@ -129,7 +166,9 @@ test('manual import uses one Cian smart-scrape call without unblock or retry',as
 });
 
 test('search request allowlist accepts only Cian and rejects crawler actions',()=>{
-  assert.equal(parseSearchRequest({sources:['cian']}).ok,true);assert.equal(parseSearchRequest({sources:['avito']}).ok,false);assert.equal(parseSearchRequest({sources:['cian'],persist:true}).ok,false);
+  const parsed=parseSearchRequest({sources:['cian'],premiseTypes:['office','retail','free_purpose']});
+  assert.equal(parsed.ok,true);if(parsed.ok){assert.equal(parsed.request.areaMin,100);assert.equal(parsed.request.areaMax,150);assert.equal(parsed.request.floor,1);assert.deepEqual(parsed.request.premiseTypes,['office','retail','free_purpose']);}
+  assert.equal(parseSearchRequest({sources:['avito']}).ok,false);assert.equal(parseSearchRequest({sources:['cian'],persist:true}).ok,false);assert.equal(parseSearchRequest({sources:['cian'],premiseTypes:['warehouse']}).ok,false);assert.equal(parseSearchRequest({sources:['cian'],areaMin:90}).ok,false);
 });
 
 test('search requires a bearer session before any database read',async()=>{
@@ -167,9 +206,9 @@ test('Supabase listing read uses snapshot eligibility, inclusive cutoff and stab
     }]),{status:200,headers:{'Content-Range':'0-1/205'}});
   };
   const store=new SupabaseListingReadStore(environment({SUPABASE_URL:'https://fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture'}),fetchImpl);
-  const result=await store.readRecent({sources:['cian'],page:1,limit:1,snapshotAt:dateReference.toISOString(),cursor:null,areaMin:null,areaMax:null,floor:null},dateReference);
+  const result=await store.readRecent({sources:['cian'],page:1,limit:1,snapshotAt:dateReference.toISOString(),cursor:null,areaMin:100,areaMax:150,floor:1,premiseTypes:['office','retail','free_purpose']},dateReference);
   assert.equal(method,'GET');assert.equal(prefer,'count=exact');assert.equal(result.total,205);assert.equal(result.items.length,1);assert.equal(result.hasMore,true);assert.equal(result.nextCursor?.listingUrl,'https://www.cian.ru/rent/commercial/111111111');
-  assert.match(requested,/freshness_at=gte\./);assert.match(requested,/freshness_at=lte\./);assert.match(requested,/first_seen_at=lte\./);assert.match(requested,/freshness_kind=in\.\(published,updated\)/);assert.match(requested,/market_status=neq\.removed/);assert.match(requested,/order=first_seen_at\.desc,source\.asc,listing_url\.asc/);assert.match(requested,/limit=2/);assert.doesNotMatch(requested,/updated_at=lte\.|offset=/);
+  assert.match(requested,/freshness_at=gte\./);assert.match(requested,/freshness_at=lte\./);assert.match(requested,/first_seen_at=lte\./);assert.match(requested,/freshness_kind=in\.\(published,updated\)/);assert.match(requested,/market_status=neq\.removed/);assert.match(requested,/area=gte\.100/);assert.match(requested,/area=lte\.150/);assert.match(requested,/floor=eq\.1/);assert.match(requested,/premise_type=in\.\(office,retail,free_purpose\)/);assert.match(requested,/has_basement_or_socle=eq\.false/);assert.match(requested,/order=first_seen_at\.desc,source\.asc,listing_url\.asc/);assert.match(requested,/limit=2/);assert.doesNotMatch(requested,/updated_at=lte\.|offset=/);
 });
 
 test('keyset snapshot has no gap or duplicate when hydration mutates updated_at between pages',async()=>{
@@ -181,8 +220,8 @@ test('keyset snapshot has no gap or duplicate when hydration mutates updated_at 
   const requested:string[]=[];let call=0;
   const fetchImpl:typeof fetch=async(input)=>{requested.push(String(input));call+=1;if(call===1)return new Response(JSON.stringify(rows),{status:200,headers:{'Content-Range':'0-2/3'}});rows[1].updated_at='2026-08-21T09:00:01.000Z';const inserted={...rows[0],listing_url:'https://www.cian.ru/rent/commercial/300000004',external_id:'300000004',first_seen_at:'2026-08-21T09:00:01.000Z'};return new Response(JSON.stringify([rows[2]]),{status:200,headers:{'Content-Range':'0-0/1','X-Fixture-New-Row':inserted.external_id}});};
   const store=new SupabaseListingReadStore(environment({SUPABASE_URL:'https://fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture'}),fetchImpl);
-  const first=await store.readRecent({sources:['cian'],page:1,limit:2,snapshotAt:snapshot,cursor:null,areaMin:null,areaMax:null,floor:null},dateReference);
-  const second=await store.readRecent({sources:['cian'],page:2,limit:2,snapshotAt:snapshot,cursor:first.nextCursor,areaMin:null,areaMax:null,floor:null},dateReference);
+  const first=await store.readRecent({sources:['cian'],page:1,limit:2,snapshotAt:snapshot,cursor:null,areaMin:100,areaMax:150,floor:1,premiseTypes:['office','retail','free_purpose']},dateReference);
+  const second=await store.readRecent({sources:['cian'],page:2,limit:2,snapshotAt:snapshot,cursor:first.nextCursor,areaMin:100,areaMax:150,floor:1,premiseTypes:['office','retail','free_purpose']},dateReference);
   assert.deepEqual([...first.items,...second.items].map(item=>item.externalId),['300000003','300000002','300000001']);assert.equal(new Set([...first.items,...second.items].map(item=>item.externalId)).size,3);
   assert.doesNotMatch(requested.join('\n'),/updated_at=lte\.|offset=/);assert.match(requested[0],/first_seen_at=lte\./);assert.match(requested[1],/or=\(first_seen_at\.lt\./);assert.equal(requested.join('\n').includes('300000004'),false);
 });
@@ -270,26 +309,25 @@ async function hydrateCase(options:{
   return{body:await response.json(),item,persisted,persistCalls,providerCalls,queueFinish,runFinish};
 }
 
-test('reliable recent partial listing persists nulls and warnings once, then completes terminally',async()=>{
+test('recent partial listing is rejected by the mandatory selection gate',async()=>{
   const recent=new Date(dateReference.getTime()-86400000).toISOString();
   const result=await hydrateCase({html:partialListingHtml(recent),persistResult:{inserted:1,updated:0}});
-  assert.equal(result.providerCalls,1);assert.equal(result.persistCalls,1);assert.equal(result.persisted.length,1);
-  const value=result.persisted[0];assert.equal(value.address,null);assert.equal(value.area,null);assert.equal(value.rentMonthly,null);assert.ok(value.parseWarnings.includes('partial_listing'));assert.ok(value.parseCompleteness<1);
-  assert.equal(result.item.status,'completed');assert.equal(result.queueFinish.status,'completed');assert.equal(result.queueFinish.nextAttemptAt,null);assert.equal(result.queueFinish.errorCode,'partial_listing_persisted');
-  assert.equal(result.body.outcome.status,'ok');assert.equal(result.body.outcome.completed,1);assert.equal(result.body.outcome.retry,0);
-  assert.deepEqual(result.runFinish.metrics,{claimed:1,attempted:1,parsed:1,partial:1,blocked:0,failed:0,inserted:1,updated:0,skipped_old:0,skipped_unknown_date:0});
+  assert.equal(result.providerCalls,1);assert.equal(result.persistCalls,0);assert.equal(result.persisted.length,0);
+  assert.equal(result.item.status,'completed');assert.equal(result.queueFinish.status,'completed');assert.equal(result.queueFinish.nextAttemptAt,null);assert.equal(result.queueFinish.errorCode,'selection_missing_area');
+  assert.equal(result.body.outcome.status,'ok');assert.equal(result.body.outcome.completed,1);assert.equal(result.body.outcome.discardedSelection,1);
+  assert.deepEqual(result.runFinish.metrics,{claimed:1,attempted:1,parsed:1,partial:1,blocked:0,failed:0,inserted:0,updated:0,skipped_old:0,skipped_unknown_date:0});
 });
 
-test('reliable partial listing at the exact inclusive 30-day boundary persists',async()=>{
+test('selection gate also rejects an out-of-scope listing at the inclusive freshness boundary',async()=>{
   const boundary=new Date(dateReference.getTime()-30*86400000).toISOString();
   const result=await hydrateCase({html:partialListingHtml(boundary),persistResult:{inserted:0,updated:1}});
-  assert.equal(result.persistCalls,1);assert.equal(result.item.status,'completed');assert.equal(result.queueFinish.errorCode,'partial_listing_persisted');
-  assert.equal(result.runFinish.metrics.parsed,1);assert.equal(result.runFinish.metrics.partial,1);assert.equal(result.runFinish.metrics.inserted,0);assert.equal(result.runFinish.metrics.updated,1);
+  assert.equal(result.persistCalls,0);assert.equal(result.item.status,'completed');assert.equal(result.queueFinish.errorCode,'selection_missing_area');
+  assert.equal(result.runFinish.metrics.parsed,1);assert.equal(result.runFinish.metrics.partial,1);assert.equal(result.runFinish.metrics.inserted,0);assert.equal(result.runFinish.metrics.updated,0);
 });
 
 test('real server store preserves partial-over-complete fields without widening complete merge semantics',async()=>{
   const existing={
-    source:'cian',listing_url:'https://www.cian.ru/rent/commercial/111111111',external_id:'111111111',title:'Надёжный офис',address:'Москва, Тверская улица, 12',description:'Проверенное описание',cluster_name:'Тверской',area:180,floor:3,total_floors:9,ceiling_height:3.4,rent_monthly:450000,previous_rent_monthly:430000,latitude:55.7641,longitude:37.6045,first_seen_at:'2026-08-01T09:00:00.000Z',published_at:observedAt,source_updated_at:observedAt,freshness_at:observedAt,freshness_kind:'published',date_confidence:'high',price_changed:true,
+    source:'cian',listing_url:'https://www.cian.ru/rent/commercial/111111111',external_id:'111111111',title:'Надёжный офис',address:'Москва, Тверская улица, 12',description:'Проверенное описание',cluster_name:'Тверской',area:120,floor:1,premise_type:'office',has_basement_or_socle:false,total_floors:9,ceiling_height:3.4,rent_monthly:450000,previous_rent_monthly:430000,latitude:55.7641,longitude:37.6045,first_seen_at:'2026-08-01T09:00:00.000Z',published_at:observedAt,source_updated_at:observedAt,freshness_at:observedAt,freshness_kind:'published',date_confidence:'high',price_changed:true,
   };
   let upsert:any[]=[],historyCalls=0;
   const fetchImpl:typeof fetch=async(input,init)=>{
@@ -300,10 +338,10 @@ test('real server store preserves partial-over-complete fields without widening 
     throw new Error('unexpected_store_request');
   };
   const store=new SupabaseListingServerStore(environment({SUPABASE_URL:'https://fixture.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fixture'}),fetchImpl);
-  const partial=listing({title:null,address:'',description:null,clusterName:'',area:null,floor:null,totalFloors:null,ceilingHeight:null,rentMonthly:null,latitude:null,longitude:null,parseCompleteness:.35,parseWarnings:['partial_listing','missing_address','missing_area','missing_rent'],dateWarnings:[]});
+  const partial=listing({title:null,address:'',description:null,clusterName:'',area:null,floor:null,premiseType:null,totalFloors:null,ceilingHeight:null,rentMonthly:null,latitude:null,longitude:null,parseCompleteness:.35,parseWarnings:['partial_listing','missing_address','missing_area','missing_rent'],dateWarnings:[]});
   const result=await store.persistRecent('cian',[partial],'2026-08-21T10:00:00.000Z');
   assert.deepEqual(result,{inserted:0,updated:1});assert.equal(upsert.length,1);assert.equal(historyCalls,0);
-  const row=upsert[0];assert.equal(row.title,existing.title);assert.equal(row.address,existing.address);assert.equal(row.description,existing.description);assert.equal(row.cluster_name,existing.cluster_name);assert.equal(row.area,existing.area);assert.equal(row.floor,existing.floor);assert.equal(row.total_floors,existing.total_floors);assert.equal(row.ceiling_height,existing.ceiling_height);assert.equal(row.rent_monthly,existing.rent_monthly);assert.equal(row.latitude,existing.latitude);assert.equal(row.longitude,existing.longitude);assert.equal(row.first_seen_at,existing.first_seen_at);assert.equal(row.previous_rent_monthly,existing.previous_rent_monthly);assert.equal(row.price_changed,true);assert.equal(row.parse_completeness,.35);assert.deepEqual(row.parse_warnings,partial.parseWarnings);
+  const row=upsert[0];assert.equal(row.title,existing.title);assert.equal(row.address,existing.address);assert.equal(row.description,existing.description);assert.equal(row.cluster_name,existing.cluster_name);assert.equal(row.area,existing.area);assert.equal(row.floor,existing.floor);assert.equal(row.premise_type,existing.premise_type);assert.equal(row.has_basement_or_socle,false);assert.equal(row.total_floors,existing.total_floors);assert.equal(row.ceiling_height,existing.ceiling_height);assert.equal(row.rent_monthly,existing.rent_monthly);assert.equal(row.latitude,existing.latitude);assert.equal(row.longitude,existing.longitude);assert.equal(row.first_seen_at,existing.first_seen_at);assert.equal(row.previous_rent_monthly,existing.previous_rent_monthly);assert.equal(row.price_changed,true);assert.equal(row.parse_completeness,.35);assert.deepEqual(row.parse_warnings,partial.parseWarnings);
   const complete=listing({description:null,latitude:null,longitude:null,previousRentMonthly:null,parseWarnings:[],dateWarnings:[]});
   await store.persistRecent('cian',[complete],'2026-08-21T11:00:00.000Z');
   const completeRow=upsert[0];assert.equal(completeRow.description,null);assert.equal(completeRow.latitude,null);assert.equal(completeRow.longitude,null);assert.equal(completeRow.previous_rent_monthly,null);assert.equal(completeRow.price_changed,false);
@@ -323,10 +361,23 @@ test('old partial listing is terminal discarded_old and never persisted',async()
   assert.equal(result.runFinish.metrics.parsed,1);assert.equal(result.runFinish.metrics.partial,1);assert.equal(result.runFinish.metrics.skipped_old,1);
 });
 
+test('hydration rejects area, floor, basement and unknown or ambiguous type before persistence',async()=>{
+  const html=(title:string,area:number,floor:string,extra='')=>`<script type="application/ld+json">{"datePublished":"2026-08-20T09:00:00Z"}</script><h1 data-name="OfferTitle">${title}</h1><div data-name="AddressContainer">Москва, Тестовая улица, 1</div><div>Площадь: ${area} м²</div><div>Этаж: ${floor} из 5</div><div>Аренда: 300 000 ₽/мес</div>${extra}`;
+  const cases=[
+    [html('Офис',99,'1'),'selection_area_out_of_range'],
+    [html('Офис',120,'2'),'selection_floor_not_first'],
+    [html('ПСН',120,'1','<p>Цокольное помещение</p>'),'selection_basement_or_socle'],
+    [html('Коммерческое помещение',120,'1'),'selection_missing_premise_type'],
+    [html('Офис-магазин',120,'1'),'selection_missing_premise_type'],
+  ] as const;
+  for(const [content,reason] of cases){const result=await hydrateCase({html:content});assert.equal(result.persistCalls,0,reason);assert.equal(result.queueFinish.status,'completed',reason);assert.equal(result.queueFinish.errorCode,reason);assert.equal(result.body.outcome.discardedSelection,1,reason);}
+});
+
 test('complete recent hydration behavior and counters remain unchanged',async()=>{
-  const freshComplete=`<script type="application/ld+json">{"datePublished":"2026-08-20T09:00:00Z"}</script>${fixture('cian-listing.html')}`;
+  const selected=fixture('cian-listing.html').replace(/Офис 180 м²/g,'Офис 120 м²').replace(/"value": 180/g,'"value": 120').replace(/"floorNumber": 3/g,'"floorNumber": 1');
+  const freshComplete=`<script type="application/ld+json">{"datePublished":"2026-08-20T09:00:00Z"}</script>${selected}`;
   const result=await hydrateCase({html:freshComplete,persistResult:{inserted:0,updated:1}});
-  assert.equal(result.persistCalls,1);assert.equal(result.persisted.length,1);assert.equal(result.item.status,'completed');assert.equal(result.queueFinish.errorCode,null);
+  assert.equal(result.persistCalls,1);assert.equal(result.persisted.length,1);assert.equal(result.persisted[0].premiseType,'office');assert.equal(result.persisted[0].hasBasementOrSocle,false);assert.equal(result.item.status,'completed');assert.equal(result.queueFinish.errorCode,null);
   assert.equal(result.body.outcome.status,'ok');assert.equal(result.body.outcome.completed,1);assert.deepEqual(result.runFinish.metrics,{claimed:1,attempted:1,parsed:1,partial:0,blocked:0,failed:0,inserted:0,updated:1,skipped_old:0,skipped_unknown_date:0});
 });
 
@@ -340,6 +391,10 @@ test('queue SQL recovers stale processing rows without loss and claims determini
 test('listing migration is Cian-only, durable and server-only',()=>{
   const sql=readFileSync(join(repositoryDirectory,'supabase','migrations','20260821_7610_listing_refresh.sql'),'utf8');
   assert.match(sql,/create table public\.slogi_listing_fetch_queue/);assert.match(sql,/for update skip locked/i);assert.match(sql,/unique \(source, phase, run_slot\)/);assert.match(sql,/check \(source = 'cian'\)/);assert.match(sql,/security definer[\s\S]*set search_path = pg_catalog, public/i);assert.match(sql,/revoke all on public\.slogi_listing_fetch_queue from public, anon, authenticated, service_role/i);assert.equal(/avito|apify|inpars|ozon/i.test(sql),false);
+});
+test('selection migration persists canonical premise type and basement semantics',()=>{
+  const sql=readFileSync(join(repositoryDirectory,'supabase','migrations','20260831_7619_listing_selection_contract.sql'),'utf8');
+  assert.match(sql,/add column premise_type text null/);assert.match(sql,/add column has_basement_or_socle boolean not null default false/);assert.match(sql,/office[\s\S]*retail[\s\S]*free_purpose/);assert.match(sql,/slogi_market_listings_selection_idx/);
 });
 
 test('shared workspace schema uses membership RLS, fixed search_path and CAS',()=>{
@@ -367,7 +422,8 @@ test('scheduler activation changes only the two guarded Cian cadences and has an
 
 test('frontend search sends Auth, reads only, and exposes disabled future source',()=>{
   const js=readFileSync(join(repositoryDirectory,'cian-workspace.js'),'utf8');const html=readFileSync(join(repositoryDirectory,'available-spaces.html'),'utf8');
-  assert.match(js,/Authorization/);assert.match(js,/getAccessToken/);assert.match(js,/feed\.loadAllPages/);assert.match(html,/cian-listing-feed\.js/);assert.equal(/persist|update-clusters|refresh-listings|hydrate-listings/.test(js),false);assert.match(html,/<h2>Авито<\/h2><p>Подключение готовится<\/p>/);assert.equal(/data-source="avito"|available-source/.test(html),false);
+  const readPath=js.slice(js.indexOf('async function fetchListingPage'),js.indexOf('function loadYandex'));
+  assert.match(js,/Authorization/);assert.match(js,/getAccessToken/);assert.match(js,/feed\.loadAllPages/);assert.match(html,/cian-listing-feed\.js/);assert.equal(/update-clusters|refresh-listings|hydrate-listings/.test(js),false);assert.equal(/localStorage\.setItem|addMarketListing|\.sync\(/.test(readPath),false);assert.match(html,/<h2>Авито<\/h2><p>Подключение готовится<\/p>/);assert.equal(/data-source="avito"|available-source/.test(html),false);
 });
 
 test('hotfix navigation exposes the four product sections in the approved order',()=>{
@@ -380,8 +436,10 @@ test('hotfix navigation exposes the four product sections in the approved order'
 
 test('Cian workspace uses canonical clusters and renders measurable map polygons',()=>{
   const js=readFileSync(join(repositoryDirectory,'cian-workspace.js'),'utf8');const html=readFileSync(join(repositoryDirectory,'available-spaces.html'),'utf8');
-  assert.match(html,/id="available-cluster"/);assert.match(html,/Все кластеры/);assert.match(html,/Кластер не определён/);
+  assert.doesNotMatch(html,/cian-filter-card|available-(?:cluster|area-min|area-max|rent-min|rent-max|sqm-min|sqm-max|date|sort|reset)/);assert.doesNotMatch(html+js,/сохран[её]нн/i);
+  assert.match(js,/areaMin:FIXED_CRITERIA\.areaMin,areaMax:FIXED_CRITERIA\.areaMax,floor:FIXED_CRITERIA\.floor,premiseTypes:\[\.\.\.FIXED_CRITERIA\.premiseTypes\]/);assert.match(js,/applyFixedGate\(loaded\.items\)/);assert.match(js,/geocodeMissingListings\(all,/);
   assert.match(js,/service\.findByCoordinates/);assert.match(js,/new window\.ymaps\.Polygon/);assert.match(js,/dataset\.clusterPolygons/);
+  assert.match(js,/HIDDEN_LISTINGS_KEY='slogi_cian_hidden_listing_ids_v1'/);assert.doesNotMatch(js,/\bfields\b|applyFilters|populateClusters/);
   assert.equal(/fetch\([^)]*cian\.ru/i.test(js),false);
 });
 

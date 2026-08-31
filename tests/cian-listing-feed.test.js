@@ -8,7 +8,7 @@ const feed=require('../cian-listing-feed.js');
 const SNAPSHOT='2026-08-28T12:00:00.000Z';
 const NOW=Date.parse(SNAPSHOT);
 const CUTOFF=new Date(NOW-30*86400000).toISOString();
-function item(id,overrides={}){return{source:'cian',externalId:String(id),listingUrl:`https://www.cian.ru/rent/commercial/${id}`,firstSeenAt:new Date(NOW-Number(id||0)*1000).toISOString(),freshnessAt:new Date(NOW-86400000).toISOString(),freshnessKind:'published',marketStatus:'active',clusterId:'cluster-a',area:100,rentMonthly:300000,pricePerSquareMeter:3000,...overrides};}
+function item(id,overrides={}){return{source:'cian',externalId:String(id),listingUrl:`https://www.cian.ru/rent/commercial/${id}`,firstSeenAt:new Date(NOW-Number(id||0)*1000).toISOString(),freshnessAt:new Date(NOW-86400000).toISOString(),freshnessKind:'published',marketStatus:'active',clusterId:'cluster-a',area:100,floor:1,premiseType:'office',hasBasementOrSocle:false,rentMonthly:300000,pricePerSquareMeter:3000,...overrides};}
 function cursorFor(value){return{firstSeenAt:value.firstSeenAt,source:value.source,listingUrl:value.listingUrl};}
 function meta({page=1,total,items,hasMore=false,nextCursor=null,snapshotAt=SNAPSHOT,freshnessCutoff=CUTOFF}){return{page,total,returned:items.length,hasMore,nextPage:hasMore?page+1:null,nextCursor,snapshotAt,freshnessCutoff};}
 
@@ -57,6 +57,21 @@ test('applies cluster, area, monthly rent and per-square-metre filters together'
   assert.deepEqual(feed.filterAndSort([item(2,{clusterId:'cluster-b'}),item(3,{area:80}),item(4,{rentMonthly:500000}),item(5,{pricePerSquareMeter:4500}),matching],criteria,NOW).map(value=>value.externalId),['1']);
 });
 
+test('fixed premise gate keeps only 100–150 m² first-floor allowed types without basement or socle',()=>{
+  const criteria={areaMin:100,areaMax:150,floor:1,premiseTypes:['office','retail','free_purpose'],excludeBasementOrSocle:true,days:30};
+  const candidates=[
+    item(1,{area:100,premiseType:'office'}),
+    item(2,{area:150,premiseType:null,premise_type:'retail',has_basement_or_socle:false}),
+    item(3,{premiseType:'',title:'Помещение свободного назначения'}),
+    item(4,{area:99}),item(5,{area:151}),item(6,{floor:0}),item(7,{floor:2}),item(8,{floor:null}),
+    item(9,{hasBasementOrSocle:true}),item(10,{description:'Офис расположен в цокольном этаже'}),
+    item(11,{premiseType:'warehouse',title:'Офис и склад'}),item(12,{premiseType:'',title:'Коммерческое помещение'}),
+  ];
+  assert.deepEqual(feed.filterAndSort(candidates,criteria,NOW).map(value=>value.externalId),['1','2','3']);
+  assert.equal(feed.normalizePremiseType(null,{premise_type:'free_purpose'}),'free_purpose');
+  assert.equal(feed.hasBasementOrSocle({has_basement_or_socle:'true'}),true);
+});
+
 test('later cursor page failure is an explicit partial result and is never retried',async()=>{
   let calls=0;const first=[item(1)];
   const result=await feed.loadAllPages(async({page})=>{calls++;if(page===2)throw new Error('fixture_failure');return{items:first,meta:meta({page,total:2,items:first,hasMore:true,nextCursor:cursorFor(first[0])})};},{limit:1});
@@ -84,5 +99,5 @@ test('read path is read-only, cursor-based and filters against the frozen snapsh
   const source=fs.readFileSync(path.join(__dirname,'..','cian-workspace.js'),'utf8');
   const readPath=source.slice(source.indexOf('async function fetchListingPage'),source.indexOf('function loadYandex'));
   assert.equal(/fetch\([^)]*(?:cian\.ru|browserless)/i.test(source),false);assert.equal(/refresh-listings|hydrate-listings|update-clusters|\bpersist\b/i.test(source),false);assert.equal(/addMarketListing|\.sync\(|from\(|insert\(|update\(|upsert\(/i.test(readPath),false);assert.equal((readPath.match(/\bfetch\(/g)||[]).length,1);
-  assert.match(source,/feed\.loadAllPages/);assert.match(source,/request\.cursor=cursor/);assert.match(source,/filterAndSort\(all,c,Number\.isFinite\(listingSnapshotTime\)/);assert.doesNotMatch(readPath,/\.filter\(item=>isRecent/);
+  assert.match(source,/feed\.loadAllPages/);assert.match(source,/request\.cursor=cursor/);assert.match(source,/applyFixedGate\(loaded\.items\)/);assert.match(source,/areaMin:FIXED_CRITERIA\.areaMin,areaMax:FIXED_CRITERIA\.areaMax,floor:FIXED_CRITERIA\.floor,premiseTypes:/);assert.doesNotMatch(readPath,/\.filter\(item=>isRecent/);
 });

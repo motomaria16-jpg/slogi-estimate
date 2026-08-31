@@ -15,7 +15,7 @@ const clusterService={locate:(lat,lng)=>geometry.locate(POLYGONS,lat,lng)};
 const PROJECT_URL='https://fixture-ref.supabase.co';
 const GEOCODE_ENDPOINT=PROJECT_URL+'/functions/v1/geocode-address';
 
-function listing(id,overrides={}){return{source:'cian',externalId:String(id),listingUrl:`https://www.cian.ru/rent/commercial/${id}`,address:'Москва, тестовый адрес, 1',freshnessAt:new Date(NOW-86400000).toISOString(),freshnessKind:'published',marketStatus:'active',area:100,rentMonthly:300000,pricePerSquareMeter:3000,clusterId:'',clusterName:'',clusterStatus:'not_computed',...overrides};}
+function listing(id,overrides={}){return{source:'cian',externalId:String(id),listingUrl:`https://www.cian.ru/rent/commercial/${id}`,address:'Москва, тестовый адрес, 1',freshnessAt:new Date(NOW-86400000).toISOString(),freshnessKind:'published',marketStatus:'active',area:100,floor:1,premiseType:'office',hasBasementOrSocle:false,rentMonthly:300000,pricePerSquareMeter:3000,clusterId:'',clusterName:'',clusterStatus:'not_computed',...overrides};}
 function memoryStorage(){const values=new Map();return{getItem:key=>values.has(key)?values.get(key):null,setItem:(key,value)=>values.set(key,String(value))};}
 function response(status,payload,headers={}){return{ok:status>=200&&status<300,status,headers:{get:name=>headers[String(name).toLowerCase()]||null},json:async()=>payload};}
 
@@ -91,13 +91,15 @@ test('cluster filter drives list and map from one filtered collection',()=>{
   assert.deepEqual(inside.map(item=>item.externalId),['1']);assert.deepEqual(outside.map(item=>item.externalId),['2']);assert.deepEqual(unresolved.map(item=>item.externalId),['3']);
 });
 
-test('UI binds marker-card selection and list listeners once',()=>{
+test('UI binds marker-card selection and local list removal without filter DOM dependencies',()=>{
   const source=fs.readFileSync(path.join(ROOT,'cian-workspace.js'),'utf8');
   const render=source.slice(source.indexOf('function render()'),source.indexOf('function existingProject'));
   const bind=source.slice(source.indexOf('function bind()'),source.indexOf('function init()'));
   assert.equal(/addEventListener/.test(render),false);
   assert.match(bind,/nodes\.list\.addEventListener\('click'/);assert.match(bind,/selectListing\(button\.dataset\.listingId\)/);
-  assert.match(source,/marker\.events\.add\('click',[\s\S]*selectListing/);assert.match(source,/fields\.cluster\.value=cluster\.id;applyFilters\(\)/);
+  assert.match(source,/marker\.events\.add\('click',[\s\S]*selectListing/);assert.match(bind,/data-remove-listing/);
+  assert.match(source,/HIDDEN_LISTINGS_KEY='slogi_cian_hidden_listing_ids_v1'/);assert.match(source,/hiddenListingIds\.add\(stableId\)/);
+  assert.doesNotMatch(source,/\bfields\b|applyFilters|populateClusters|available-reset|available-cluster/);
   assert.match(source,/marker\.events\.removeAll/);
 });
 
@@ -105,6 +107,15 @@ test('UI exposes separate missing-address, missing-coordinate, failed and pendin
   const html=fs.readFileSync(path.join(ROOT,'available-spaces.html'),'utf8'),source=fs.readFileSync(path.join(ROOT,'cian-workspace.js'),'utf8');
   for(const id of ['cian-map-missing','cian-map-no-address','cian-map-failed','cian-map-pending'])assert.match(html,new RegExp(`id=["']${id}["']`));
   assert.match(source,/mapNoAddress\.textContent=`Без адреса: \$\{state\.missingAddressCount\}`/);
+});
+
+test('search page has no user filters, sends the fixed gate and removes saved-base wording',()=>{
+  const html=fs.readFileSync(path.join(ROOT,'available-spaces.html'),'utf8'),source=fs.readFileSync(path.join(ROOT,'cian-workspace.js'),'utf8');
+  assert.doesNotMatch(html,/cian-filter-card|available-(?:cluster|area|min|max|rent|sqm|date|sort|reset)/);
+  assert.doesNotMatch(html+source,/сохран[её]нн/i);
+  assert.match(source,/areaMin:FIXED_CRITERIA\.areaMin,areaMax:FIXED_CRITERIA\.areaMax,floor:FIXED_CRITERIA\.floor,premiseTypes:\[\.\.\.FIXED_CRITERIA\.premiseTypes\]/);
+  assert.match(source,/applyFixedGate\(loaded\.items\)/);assert.match(source,/geocodeMissingListings\(all,/);
+  assert.match(source,/data-remove-listing/);assert.match(source,/data-remove-dialog/);
 });
 
 test('legacy phase0 geocoding has no browser-to-Yandex direct fallback or client API key payload',()=>{
