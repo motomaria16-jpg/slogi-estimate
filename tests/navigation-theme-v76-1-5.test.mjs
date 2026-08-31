@@ -6,6 +6,7 @@ import test from 'node:test';
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const themeName='schoolslogi-theme-v76-1-5.css';
+const approvedThemeName='figma-shell-v76-1-15.css';
 const workPages=[
   'available-spaces.html',
   'index.html',
@@ -47,15 +48,18 @@ test('removed tools pages and isolated assets are absent',()=>{
   for(const target of removedTargets)assert.equal(existsSync(resolve(root,target)),false,target);
 });
 
-test('all work pages keep the v76.1.5 theme and load the fail-closed gate last',()=>{
+test('all work pages keep the base theme, fail-closed gate, and approved Figma layer',()=>{
   for(const page of workPages){
     const html=read(page);
     const styles=[...html.matchAll(/<link\b[^>]*href=["']([^"']+\.css(?:\?[^"']*)?)["'][^>]*>/gi)].map(match=>match[1]);
     assert.ok(styles.length,page+': stylesheets are present');
-    assert.equal(localTarget(styles.at(-2)),themeName,page+': theme remains the final product stylesheet');
-    assert.equal(localTarget(styles.at(-1)),'password-gate.css',page+': gate veil is the final security stylesheet');
+    assert.equal(localTarget(styles.at(-3)),themeName,page+': v76.1.5 base theme');
+    assert.equal(localTarget(styles.at(-2)),'password-gate.css',page+': fail-closed gate stylesheet');
+    assert.equal(localTarget(styles.at(-1)),approvedThemeName,page+': approved Figma design is the final presentation layer');
     assert.match(html,/schoolslogi-theme-v76-1-5\.css\?v=76114/,page+': compact-theme cache key');
+    assert.match(html,/figma-shell-v76-1-15\.css\?v=76115/,page+': approved-theme cache key');
     assert.match(html,/professional-shell\.js\?v=76171/,page+': shell cache key');
+    assert.match(html,/figma-shell-v76-1-15\.js\?v=76115/,page+': approved-shell cache key');
   }
 });
 
@@ -69,8 +73,8 @@ test('primary navigation has four product routes and no tools dropdown',()=>{
   assert.equal(shell.includes('slogi-specialist-label'),false);
 });
 
-test('specialist subtitle is absent from active markup and the final theme',()=>{
-  const sources=['professional-shell.js',themeName,...workPages];
+test('specialist subtitle is absent from active markup and the final themes',()=>{
+  const sources=['professional-shell.js','figma-shell-v76-1-15.js',themeName,approvedThemeName,...workPages];
   for(const source of sources){
     const text=read(source);
     assert.equal(text.includes(removedSpecialistCopy),false,source);
@@ -120,35 +124,31 @@ test('remaining html has no broken local href, src, or stylesheet targets',()=>{
 });
 
 test('theme exposes School SLOGI tokens, readable scale, and responsive shell rules',()=>{
-  const css=read(themeName);
-  for(const token of ['#f2ede8','#fcf5eb','#3c3c3c','#e39b2f','#d8b889','"Ubuntu Sans"'])assert.ok(css.includes(token),token);
-  assert.match(css,/min-height:44px!important/);
-  assert.match(css,/font-size:16px!important/);
-  assert.match(css,/font-size:14px!important/);
+  const base=read(themeName),css=read(approvedThemeName);
+  for(const token of ['#f1eeea','#fffdf9','#566f75','#435f64','#344346','#7b8584','#e9c066','#f8ebc5','"Ubuntu Sans"'])assert.ok(css.includes(token),token);
+  assert.match(css,/\.figma-shell-sidebar\{/);
+  assert.match(css,/\.figma-shell-help\{/);
   assert.match(css,/@media\(max-width:900px\)/);
-  assert.match(css,/@media\(max-width:600px\)/);
   assert.match(css,/overflow-x:clip!important/);
-  assert.match(css,/\.kp-page[\s\S]*font-family:Arial/);
+  assert.match(base,/\.kp-page[\s\S]*font-family:Arial/);
 });
 
-test('search hero, source cards and listing rows use the compact shared scale',()=>{
-  const css=read(themeName);
-  assert.match(css,/body\.available-spaces-page \.cian-hero\{[\s\S]*min-height:150px!important;[\s\S]*padding:22px 24px!important;/);
-  assert.match(css,/body\.available-spaces-page \.cian-hero h1\{[\s\S]*font-size:50px!important;/);
-  assert.match(css,/\.cian-database-summary\{[\s\S]*grid-template-columns:minmax\(0,2\.2fr\)[\s\S]*gap:12px/);
-  assert.match(css,/body\.available-spaces-page \.cian-source-card h2\{[\s\S]*font-size:14px!important;/);
-  assert.match(css,/body\.available-spaces-page \.cian-workspace\{[\s\S]*height:620px!important;[\s\S]*55fr[\s\S]*45fr/);
-  assert.match(css,/body\.available-spaces-page \.cian-list\{[\s\S]*overflow-y:auto!important;/);
-  assert.match(css,/body\.available-spaces-page \.cian-listing-card\{[\s\S]*grid-template-columns:minmax\(0,1fr\) 148px!important;[\s\S]*border-radius:0!important;/);
-  assert.match(css,/body\.available-spaces-page \.cian-card-open\{[\s\S]*padding:14px 16px!important;/);
-  assert.match(css,/body\.available-spaces-page \.cian-listing-card h3\{[\s\S]*font-size:17px!important;/);
+test('search parsing rules, list actions, and cluster workspace use the approved compact scale',()=>{
+  const css=read(approvedThemeName),page=read('available-spaces.html');
+  assert.match(page,/class="cian-parse-rules"/);
+  for(const rule of ['100–150 м²','Только 1 этаж','Не подвал / цоколь','Офис','Торговая площадь','ПСН'])assert.ok(page.includes(rule),rule);
+  assert.match(css,/\.cian-parse-rules\{[\s\S]*min-height:58px/);
+  assert.match(css,/body\.figma-shell-v76115 \.cian-workspace\{[\s\S]*1\.38fr[\s\S]*380px/);
+  assert.match(css,/body\.figma-shell-v76115 \.cian-card-actions\{[\s\S]*grid-template-columns:1fr 1fr!important/);
+  assert.match(css,/body\.figma-shell-v76115 \.cian-card-actions \.cian-remove-listing\{[\s\S]*background:#fff!important/);
+  assert.match(css,/body\.figma-shell-v76115 \.cian-listing-card\.selected\{[\s\S]*figma-gold-soft/);
 });
 
-test('Avito remains a disabled presentation-only source',()=>{
+test('legacy source cards and Avito presentation are removed from approved search',()=>{
   const page=read('available-spaces.html');
   const script=read('cian-workspace.js');
-  assert.match(page,/cian-source-card disabled" aria-disabled="true"/);
-  assert.match(page,/<h2>Авито<\/h2><p>Подключение готовится<\/p>/);
+  assert.equal(page.includes('cian-source-card'),false);
+  assert.equal(page.includes('Авито'),false);
   assert.equal(script.includes('avito'),false);
 });
 
@@ -172,10 +172,26 @@ test('v76.1.14 layout hooks remain presentation-only and data-dense',()=>{
   assert.match(stage,/workspace\.html\?section=estimate/);
 });
 
-test('desktop product labels are vertically centered in the shared header',()=>{
-  const css=read(themeName);
-  assert.match(css,/\.slogi-search-page \.site-header \.top>\.pro-nav \.pro-nav-inner\{[\s\S]*height:100%!important;[\s\S]*align-items:center!important;/);
-  assert.match(css,/\.slogi-search-page \.site-header \.pro-product-nav\{[\s\S]*height:100%!important;[\s\S]*align-items:center!important;[\s\S]*align-self:center!important;/);
+test('desktop navigation uses the approved sidebar geometry and exact brand assets',()=>{
+  const css=read(approvedThemeName),shell=read('figma-shell-v76-1-15.js');
+  assert.match(css,/\.figma-shell-sidebar\{[\s\S]*position:fixed;[\s\S]*width:208px/);
+  assert.match(css,/\.figma-shell-nav-link\{[\s\S]*align-items:center/);
+  assert.ok(shell.includes('proposal-logo.png'));
+  assert.ok(shell.includes('documents-owl-approved-v2.png'));
+});
+
+test('v76.1.15 approved shell audit covers every active page on desktop, tablet and mobile',()=>{
+  const directory=resolve(root,'docs','design-v76-1-15-figma-shell','after');
+  const slugs=['search','my-premises','estimate-and-proposal','repair','passport','source-specification','specification','proposal','team','settings','add-object'];
+  for(const slug of slugs){
+    for(const suffix of ['1440x900','768x1024','390x844']){
+      const file=resolve(directory,`${slug}-${suffix}.jpg`);
+      assert.equal(existsSync(file),true,file);
+      const jpeg=readFileSync(file);
+      assert.deepEqual([...jpeg.subarray(0,3)],[0xff,0xd8,0xff],file);
+      assert.ok(jpeg.length>10000,file);
+    }
+  }
 });
 
 test('after screenshots cover six states on desktop and mobile',()=>{

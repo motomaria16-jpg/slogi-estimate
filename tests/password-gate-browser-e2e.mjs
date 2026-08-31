@@ -177,7 +177,7 @@ async function assertAvailableSpace(device,label){
   const metrics=await device.page.evaluate(()=>{
     const cards=[...document.querySelectorAll('[data-listing-card]')];
     const h1=Number.parseFloat(getComputedStyle(document.querySelector('.cian-hero h1')).fontSize);
-    const sourceHeading=Number.parseFloat(getComputedStyle(document.querySelector('.cian-source-card h2')).fontSize);
+    const ruleHeading=Number.parseFloat(getComputedStyle(document.querySelector('.cian-parse-rules-copy strong')).fontSize);
     return{
       cards:cards.length,unique:new Set(cards.map(card=>card.dataset.listingCard)).size,
       mapCount:document.querySelector('#cian-map-count')?.textContent,
@@ -185,14 +185,14 @@ async function assertAvailableSpace(device,label){
       noAddress:document.querySelector('#cian-map-no-address')?.textContent,
       markers:window.__slogiFixtureMarkerCount,polygons:window.__slogiFixturePolygonCount,
       headerHeight:document.querySelector('.site-header').getBoundingClientRect().height,
-      h1,sourceHeading,invites:[...document.querySelectorAll('button,a,dialog')].some(node=>/приглас|личный кабинет|регистрац|войти/i.test(node.textContent||'')),
+      h1,ruleHeading,invites:[...document.querySelectorAll('button,a,dialog')].some(node=>/приглас|личный кабинет|регистрац|войти/i.test(node.textContent||'')),
       overflow:Math.max(0,document.documentElement.scrollWidth-document.documentElement.clientWidth,document.body.scrollWidth-document.body.clientWidth),
     };
   });
   assert.equal(metrics.cards,53,label+': all listings');assert.equal(metrics.unique,53,label+': unique listings');
   assert.equal(metrics.mapCount,'51 из 53 на карте',label+': honest map count');assert.equal(metrics.missing,'Без координат: 2',label+': honest missing count');assert.equal(metrics.noAddress,'Без адреса: 2',label+': honest missing-address count');
   assert.equal(metrics.markers,51,label+': all coordinate-capable markers');assert.equal(metrics.polygons,58,label+': canonical polygons');
-  assert.ok(metrics.headerHeight<=80,label+': compact header');assert.ok(metrics.sourceHeading<metrics.h1,label+': source heading hierarchy');
+  assert.ok(metrics.headerHeight<=80,label+': compact header');assert.ok(metrics.ruleHeading<metrics.h1,label+': parsing-rule hierarchy');
   assert.equal(metrics.invites,false,label+': legacy access UI');assert.equal(metrics.overflow,0,label+': horizontal overflow');
   assert.deepEqual(device.identity.searchPages.slice(-2),[1,2],label+': complete pagination');
   await device.page.locator('.fixture-map-marker').first().click();
@@ -244,29 +244,28 @@ async function auditVisibleLayout(device,label,viewport,kind){
       .filter(node=>visible(node)&&!node.classList.contains('fixture-map-marker'))
       .map(node=>({name:node.id||node.className||node.tagName,height:node.getBoundingClientRect().height}))
       .filter(item=>item.height<43.5);
-    const header=document.querySelector('.site-header'),h1=document.querySelector('h1'),hero=document.querySelector('.cian-hero,.phase0-page-toolbar,.stage-toolbar');
+    const header=document.querySelector('.site-header'),mobileBar=document.querySelector('.figma-shell-mobilebar'),h1=document.querySelector('main h1,#pro-app h1,.workflow-hero h2'),hero=document.querySelector('.cian-hero,.phase0-page-toolbar,.stage-toolbar,.passport-hero,.workflow-hero,.pro-page-head');
+    const offenders=[...document.querySelectorAll('body *')].filter(node=>{if(!visible(node))return false;const rect=node.getBoundingClientRect();return rect.right>document.documentElement.clientWidth+1||rect.left<-1}).slice(0,12).map(node=>({tag:node.tagName.toLowerCase(),id:node.id,className:String(node.className||''),left:Math.round(node.getBoundingClientRect().left),right:Math.round(node.getBoundingClientRect().right),width:Math.round(node.getBoundingClientRect().width)}));
     return{
       overflow:Math.max(0,document.documentElement.scrollWidth-document.documentElement.clientWidth,document.body.scrollWidth-document.body.clientWidth),
-      headerHeight:header?.getBoundingClientRect().height||0,h1Size:h1?Number.parseFloat(getComputedStyle(h1).fontSize):0,
+      offenders,
+      headerHeight:header?.getBoundingClientRect().height||0,mobileBarHeight:mobileBar?.getBoundingClientRect().height||0,h1Size:h1?Number.parseFloat(getComputedStyle(h1).fontSize):0,
       heroHeight:hero?.getBoundingClientRect().height||0,controls,
       heroParts:hero?[...hero.children].map(node=>({className:node.className,height:node.getBoundingClientRect().height,width:node.getBoundingClientRect().width})):[],
       nav:[...document.querySelectorAll('.pro-product-nav>a')].map(node=>({text:node.textContent.trim(),href:node.getAttribute('href')})),
     };
   });
-  assert.equal(metrics.overflow,0,label+': horizontal overflow');
+  assert.equal(metrics.overflow,0,`${label}: horizontal overflow ${JSON.stringify(metrics.offenders)}`);
   assert.deepEqual(metrics.nav.map(item=>item.text),['Поиск помещенийПоиск','Мои помещенияОбъекты','Смета и КПСмета','РемонтРемонт'],label+': navigation order');
   if(visualStage==='after'){
-    const expected=viewport.width>1180?72:viewport.width>900?64:60;
-    assert.ok(Math.abs(metrics.headerHeight-expected)<1.1,`${label}: header ${metrics.headerHeight}/${expected}`);
-    if(viewport.width>900){assert.ok(metrics.h1Size>=48&&metrics.h1Size<=52,`${label}: desktop H1 ${metrics.h1Size}`);assert.ok(metrics.heroHeight>=149&&metrics.heroHeight<=171,`${label}: compact hero ${metrics.heroHeight} ${JSON.stringify(metrics.heroParts)}`)}
-    else assert.ok(metrics.h1Size<=44,`${label}: responsive H1 ${metrics.h1Size}`);
-    assert.deepEqual(metrics.controls,[],label+': controls below 44px');
+    if(viewport.width>900){assert.ok(Math.abs(metrics.headerHeight-68)<1.1,`${label}: desktop header ${metrics.headerHeight}/68`);assert.equal(metrics.mobileBarHeight,0,`${label}: mobile bar hidden`);if(metrics.h1Size>0)assert.ok(metrics.h1Size>=24&&metrics.h1Size<=30,`${label}: desktop H1 ${metrics.h1Size}`);if(['search','premises','estimate','repair'].includes(kind))assert.ok(metrics.heroHeight>=48&&metrics.heroHeight<=126,`${label}: compact hero ${metrics.heroHeight} ${JSON.stringify(metrics.heroParts)}`)}
+    else{assert.equal(metrics.headerHeight,0,`${label}: legacy header hidden`);assert.ok(metrics.mobileBarHeight>=50&&metrics.mobileBarHeight<=56,`${label}: mobile bar ${metrics.mobileBarHeight}`);if(metrics.h1Size>0)assert.ok(metrics.h1Size<=26,`${label}: responsive H1 ${metrics.h1Size}`)}
   }
   if(kind==='search'&&visualStage==='after'){
-    const search=await device.page.evaluate(()=>{const workspace=document.querySelector('.cian-workspace'),results=document.querySelector('.cian-results'),map=document.querySelector('.cian-map-card'),list=document.querySelector('.cian-list');return{source:Number.parseFloat(getComputedStyle(document.querySelector('.cian-source-card h2')).fontSize),workspaceHeight:workspace.getBoundingClientRect().height,resultWidth:results.getBoundingClientRect().width,mapWidth:map.getBoundingClientRect().width,listScroll:list.scrollHeight>list.clientHeight,mapVisible:map.getBoundingClientRect().height>0}});
-    assert.ok(search.source<=14.5,label+': source labels subordinate');
+    const search=await device.page.evaluate(()=>{const results=document.querySelector('.cian-results'),map=document.querySelector('.cian-map-card');return{rule:Number.parseFloat(getComputedStyle(document.querySelector('.cian-parse-rules-copy strong')).fontSize),resultWidth:results.getBoundingClientRect().width,mapWidth:map.getBoundingClientRect().width,mapVisible:map.getBoundingClientRect().height>0}});
+    assert.ok(search.rule<=13,label+': parsing-rule label subordinate');
     assert.equal(search.mapVisible,true,label+': map visible');
-    if(viewport.width>1180){assert.ok(Math.abs(search.workspaceHeight-620)<2,label+': controlled workspace height');assert.ok(search.resultWidth>search.mapWidth,label+': 55/45 list-map');assert.equal(search.listScroll,true,label+': independent listing scroll')}
+    if(viewport.width>1320)assert.ok(search.resultWidth>search.mapWidth,label+': 58/42 list-map');
   }
   return metrics;
 }
@@ -293,6 +292,12 @@ async function runLayoutAudit(device,origin){
     {slug:'my-premises',path:'/index.html',kind:'premises'},
     {slug:'estimate-and-proposal',path:'/workspace.html?section=estimate',kind:'estimate'},
     {slug:'repair',path:'/workspace.html?section=repair',kind:'repair'},
+    {slug:'passport',path:'/passport.html?location=layout-ready',kind:'generic'},
+    {slug:'source-specification',path:'/source-specification.html?location=layout-ready',kind:'generic'},
+    {slug:'specification',path:'/specification.html?location=layout-ready',kind:'generic'},
+    {slug:'proposal',path:'/proposal.html?location=layout-ready',kind:'generic'},
+    {slug:'team',path:'/team.html',kind:'generic'},
+    {slug:'settings',path:'/settings.html',kind:'generic'},
   ];
   const screenshotSizes=visualStage==='before'?new Set(['1440x900','390x844']):new Set(['1440x900','768x1024','390x844']);
   for(const viewport of viewports){
@@ -351,7 +356,7 @@ async function runLayoutAudit(device,origin){
   assert.ok(device.page.url().includes('layout-ready'),'estimate transition keeps selected object');
   await device.page.setViewportSize({width:768,height:1024});
   await navigateAuditPage(device,origin,'/workspace.html?section=repair','repair');
-  const menu=device.page.locator('#pro-mobile-menu-trigger');await menu.click();assert.equal(await menu.getAttribute('aria-expanded'),'true');await device.page.keyboard.press('Escape');assert.equal(await menu.getAttribute('aria-expanded'),'false');
+  const menu=device.page.locator('.figma-shell-menu-button');await menu.click();assert.equal(await menu.getAttribute('aria-expanded'),'true');await device.page.keyboard.press('Escape');assert.equal(await menu.getAttribute('aria-expanded'),'false');
 }
 
 const server=await fixtureServer();
