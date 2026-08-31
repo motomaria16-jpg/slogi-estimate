@@ -195,6 +195,15 @@ test('search returns stable keyset metadata without triggering writes',async()=>
   const body=await response.json();assert.equal(response.status,200);assert.equal(captured.page,2);assert.equal(captured.limit,2);assert.deepEqual(captured.cursor,cursor);assert.equal(body.items.length,2);assert.equal(body.meta.total,5);assert.equal(body.meta.hasMore,true);assert.equal(body.meta.nextPage,3);assert.deepEqual(body.meta.nextCursor,nextCursor);
 });
 
+test('search source health prioritizes the latest parser error over an older success',async()=>{
+  const store:ListingReadStore={
+    async readRecent(){return{items:[],total:0,hasMore:false,nextCursor:null};},
+    async readScanStates(){return[{source:'cian',lastSucceededAt:observedAt,cooldownUntil:null,errorCode:'browserless_http_401'}];},
+  };
+  const response=await createSearchListingsHandler({store,authorize:async()=>true,now:()=>dateReference})(new Request('http://local/search',{method:'POST',headers:{Authorization:'Bearer fixture','Content-Type':'application/json'},body:'{}'}));
+  const body=await response.json();assert.equal(response.status,200);assert.equal(body.meta.sources.cian.status,'error');assert.equal(body.meta.sources.cian.errorCode,'browserless_http_401');
+});
+
 test('Supabase listing read uses snapshot eligibility, inclusive cutoff and stable keyset ordering',async()=>{
   let requested='';let method='GET';let prefer='';
   const fetchImpl:typeof fetch=async(input,init)=>{

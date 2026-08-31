@@ -258,13 +258,15 @@ async function auditVisibleLayout(device,label,viewport,kind){
   assert.equal(metrics.overflow,0,`${label}: horizontal overflow ${JSON.stringify(metrics.offenders)}`);
   assert.deepEqual(metrics.nav.map(item=>item.text),['Поиск помещенийПоиск','Мои помещенияОбъекты','Смета и КПСмета','РемонтРемонт'],label+': navigation order');
   if(visualStage==='after'){
-    if(viewport.width>900){assert.ok(Math.abs(metrics.headerHeight-68)<1.1,`${label}: desktop header ${metrics.headerHeight}/68`);assert.equal(metrics.mobileBarHeight,0,`${label}: mobile bar hidden`);if(metrics.h1Size>0)assert.ok(metrics.h1Size>=24&&metrics.h1Size<=30,`${label}: desktop H1 ${metrics.h1Size}`);if(['search','premises','estimate','repair'].includes(kind))assert.ok(metrics.heroHeight>=48&&metrics.heroHeight<=126,`${label}: compact hero ${metrics.heroHeight} ${JSON.stringify(metrics.heroParts)}`)}
+    if(viewport.width>900){if(kind==='search')assert.equal(metrics.headerHeight,0,`${label}: empty search header removed`);else assert.ok(Math.abs(metrics.headerHeight-68)<1.1,`${label}: desktop header ${metrics.headerHeight}/68`);assert.equal(metrics.mobileBarHeight,0,`${label}: mobile bar hidden`);if(metrics.h1Size>0)assert.ok(metrics.h1Size>=24&&metrics.h1Size<=30,`${label}: desktop H1 ${metrics.h1Size}`);if(['search','premises','estimate','repair'].includes(kind))assert.ok(metrics.heroHeight>=48&&metrics.heroHeight<=126,`${label}: compact hero ${metrics.heroHeight} ${JSON.stringify(metrics.heroParts)}`)}
     else{assert.equal(metrics.headerHeight,0,`${label}: legacy header hidden`);assert.ok(metrics.mobileBarHeight>=50&&metrics.mobileBarHeight<=56,`${label}: mobile bar ${metrics.mobileBarHeight}`);if(metrics.h1Size>0)assert.ok(metrics.h1Size<=26,`${label}: responsive H1 ${metrics.h1Size}`)}
   }
   if(kind==='search'&&visualStage==='after'){
-    const search=await device.page.evaluate(()=>{const results=document.querySelector('.cian-results'),map=document.querySelector('.cian-map-card');return{rule:Number.parseFloat(getComputedStyle(document.querySelector('.cian-parse-rules-copy strong')).fontSize),resultWidth:results.getBoundingClientRect().width,mapWidth:map.getBoundingClientRect().width,mapVisible:map.getBoundingClientRect().height>0}});
+    const search=await device.page.evaluate(()=>{const results=document.querySelector('.cian-results'),map=document.querySelector('.cian-map-card'),fontNodes=[document.body,document.querySelector('.cian-hero h1'),document.querySelector('.cian-parse-rules-copy strong'),document.querySelector('.cian-section-heading h2'),document.querySelector('.cian-button')].filter(Boolean),fontDetails=fontNodes.map(node=>({node:`${node.tagName}.${node.className}`,family:getComputedStyle(node).fontFamily}));return{rule:Number.parseFloat(getComputedStyle(document.querySelector('.cian-parse-rules-copy strong')).fontSize),resultWidth:results.getBoundingClientRect().width,mapWidth:map.getBoundingClientRect().width,mapVisible:map.getBoundingClientRect().height>0,topDelta:Math.abs(results.getBoundingClientRect().top-map.getBoundingClientRect().top),fontFamilies:[...new Set(fontDetails.map(item=>item.family))],fontDetails}});
     assert.ok(search.rule<=13,label+': parsing-rule label subordinate');
     assert.equal(search.mapVisible,true,label+': map visible');
+    if(viewport.width>1320)assert.ok(search.topDelta<1.1,`${label}: list and map aligned, delta ${search.topDelta}`);
+    assert.equal(search.fontFamilies.length,1,`${label}: one font family across search page ${JSON.stringify(search.fontDetails)}`);
     if(viewport.width>1320)assert.ok(search.resultWidth>search.mapWidth,label+': 58/42 list-map');
   }
   return metrics;
@@ -309,7 +311,7 @@ async function runLayoutAudit(device,origin){
       headerHeights.push(metrics.headerHeight);
       if(screenshotSizes.has(`${viewport.width}x${viewport.height}`))await screenshotAudit(device,entry.slug,viewport);
     }
-    if(visualStage==='after')assert.ok(Math.max(...headerHeights)-Math.min(...headerHeights)<1,`${viewport.width}: identical header geometry`);
+    if(visualStage==='after'){const comparable=viewport.width>900?headerHeights.slice(1):headerHeights;assert.ok(Math.max(...comparable)-Math.min(...comparable)<1,`${viewport.width}: identical shared header geometry`);}
     if(screenshotSizes.has(`${viewport.width}x${viewport.height}`)){
       await navigateAuditPage(device,origin,'/index.html','premises');
       await openAddObject(device);

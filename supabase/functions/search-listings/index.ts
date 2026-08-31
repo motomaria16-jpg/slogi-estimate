@@ -340,7 +340,7 @@ export function createSearchListingsHandler(dependencies: SearchHandlerDependenc
         const state = stateBySource.get(source);
         const cooldownActive = Boolean(state?.cooldownUntil && new Date(state.cooldownUntil).getTime() > now.getTime());
         return [source, {
-          status: cooldownActive ? 'cooldown' : state?.lastSucceededAt ? 'ok' : state?.errorCode ? 'error' : 'never_scanned',
+          status: cooldownActive ? 'cooldown' : state?.errorCode ? 'error' : state?.lastSucceededAt ? 'ok' : 'never_scanned',
           returned: items.filter((item) => item.source === source).length,
           lastSucceededAt: state?.lastSucceededAt || null,
           lastDiscoveryAt: state?.lastDiscoveryAt || null,

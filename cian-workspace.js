@@ -28,6 +28,7 @@
   let serverTotal=null;
   let loadedPages=0;
   let listingSnapshotTime=NaN;
+  let sourceHealth={status:'unknown',errorCode:''};
   let activeLoadController=null;
   let loadGeneration=0;
   const geocodeCache=(()=>{try{return mapData.createAddressCache(window.localStorage);}catch(_error){return mapData.createAddressCache(null);}})();
@@ -86,15 +87,17 @@
   }
   function render(){
     const items=displayedListings(),hiddenCount=all.length-items.length;
+    const sourceUnavailable=sourceHealth.status==='error'&&Boolean(sourceHealth.errorCode);
     nodes.loading.hidden=true;
     nodes.count.textContent=String(items.length);
     if(loadPartial)nodes.summary.textContent=`Показано ${items.length} подходящих предложений. Сервер сообщил ${serverTotal==null?'неизвестное число':serverTotal}; выдача неполная (${loadedPages} стр.).`;
     else if(hiddenCount)nodes.summary.textContent=`Показано ${items.length} подходящих предложений. Скрыто на этом устройстве: ${hiddenCount}.`;
+    else if(sourceUnavailable)nodes.summary.textContent=`Сбор временно приостановлен. Подходящих предложений в ранее загруженных данных: ${items.length}.`;
     else nodes.summary.textContent=`Найдено ${items.length} подходящих предложений.`;
     nodes.empty.hidden=items.length!==0;
     if(items.length===0){
-      nodes.empty.querySelector('h3').textContent=loadPartial?'Выдача загружена не полностью':'Предложения не найдены';
-      nodes.empty.querySelector('p').textContent=loadPartial?'Не все страницы удалось прочитать. Повторите загрузку, чтобы не пропустить подходящие объявления.':hiddenCount?'Все подходящие предложения скрыты на этом устройстве.':'По заданным условиям подходящих предложений пока нет.';
+      nodes.empty.querySelector('h3').textContent=loadPartial?'Выдача загружена не полностью':sourceUnavailable?'Сбор временно приостановлен':'Предложения не найдены';
+      nodes.empty.querySelector('p').textContent=loadPartial?'Не все страницы удалось прочитать. Повторите загрузку, чтобы не пропустить подходящие объявления.':hiddenCount?'Все подходящие предложения скрыты на этом устройстве.':sourceUnavailable?'Новые объявления сейчас не поступают. Ранее загруженные данные проверены по заданным условиям.':'По заданным условиям подходящих предложений пока нет.';
     }
     nodes.list.hidden=items.length===0;
     nodes.list.innerHTML=items.map(card).join('');
@@ -150,10 +153,12 @@
   function setSource(meta){
     const source=meta&&meta.sources&&meta.sources.cian||{};
     const last=source.lastSucceededAt||source.lastHydrationAt||source.lastDiscoveryAt;
+    const status=source.errorCode?'error':String(source.status||'unknown');
+    sourceHealth={status,errorCode:String(source.errorCode||'')};
     const labels={ok:'Источник обновлён',cooldown:'Источник временно приостановлен',error:'Обновление завершилось с ошибкой',never_scanned:'Плановое обновление ещё не выполнялось'};
-    nodes.source.textContent=labels[source.status]||'Состояние источника неизвестно';
-    nodes.badge.textContent=source.status==='ok'?'Работает':source.status==='error'?'Ошибка':'Ожидание';
-    nodes.badge.dataset.state=String(source.status||'unknown');
+    nodes.source.textContent=labels[status]||'Состояние источника неизвестно';
+    nodes.badge.textContent=status==='ok'?'Работает':status==='error'?'Ошибка':'Ожидание';
+    nodes.badge.dataset.state=status;
     nodes.updated.textContent=last?formatDate(last):'Нет данных';
   }
 
@@ -201,7 +206,7 @@
     }catch(error){
       if(error&&error.name==='AbortError')return;
       if(generation!==loadGeneration)return;
-      all=[];loadPartial=false;serverTotal=null;loadedPages=0;listingSnapshotTime=NaN;render();
+      all=[];loadPartial=false;serverTotal=null;loadedPages=0;listingSnapshotTime=NaN;sourceHealth={status:'error',errorCode:String(error&&error.message||'listing_search_failed')};render();
       nodes.summary.textContent='Предложения временно недоступны.';
       nodes.source.textContent=error&&error.name==='AbortError'?'Чтение заняло слишком много времени.':'Не удалось загрузить предложения.';
       nodes.badge.textContent='Недоступно';nodes.badge.dataset.state='error';

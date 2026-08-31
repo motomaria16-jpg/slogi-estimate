@@ -54,6 +54,10 @@ body.figma-shell-v76115 button,
 body.figma-shell-v76115 input,
 body.figma-shell-v76115 select,
 body.figma-shell-v76115 textarea{font-family:inherit}
+body.available-spaces-page.figma-shell-v76115 button,
+body.available-spaces-page.figma-shell-v76115 input,
+body.available-spaces-page.figma-shell-v76115 select,
+body.available-spaces-page.figma-shell-v76115 textarea{font-family:"Ubuntu Sans","Ubuntu",Arial,sans-serif!important}
 
 .figma-shell-sidebar{
   position:fixed;
@@ -422,7 +426,10 @@ body.figma-shell-v76115 .cian-dialog{
 .cian-parse-rules-copy span{margin-top:3px;color:var(--figma-muted);font-size:9px}
 .cian-parse-rule-chips{display:flex;flex-wrap:wrap;gap:6px}
 .cian-parse-rule-chips span{display:inline-flex;align-items:center;min-height:25px;padding:0 10px;border-radius:999px;background:var(--figma-gold-soft);color:#675731;font-size:9px;white-space:nowrap}
-.cian-source-runtime{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0 0 0 0)!important;white-space:nowrap!important}
+.cian-source-runtime{display:flex;align-items:center;gap:7px;margin-left:auto;color:var(--figma-muted);font-size:9px;white-space:nowrap}
+.cian-source-runtime #cian-source-badge{display:inline-flex;align-items:center;min-height:24px;padding:0 8px;border-radius:999px;background:#edf4f0;color:var(--figma-sidebar-deep);font-weight:500}
+.cian-source-runtime #cian-source-badge[data-state="error"]{background:#f9e8e4;color:#955046}
+.cian-source-runtime #cian-source-badge[data-state="cooldown"],.cian-source-runtime #cian-source-badge[data-state="partial"]{background:var(--figma-gold-soft);color:#75602e}
 body.figma-shell-v76115 .cian-main{padding-top:0!important;padding-bottom:30px!important}
 body.figma-shell-v76115 .cian-hero-meta{display:flex!important;gap:12px!important;margin-top:7px!important;color:var(--figma-muted)!important;font-size:10px!important}
 body.figma-shell-v76115 .cian-hero .cian-button{min-height:34px!important;background:#fff!important;border:1px solid #82989c!important;color:var(--figma-sidebar-deep)!important}
@@ -464,6 +471,12 @@ body.figma-shell-v76115 .cian-map-count{min-height:25px!important;padding:6px 8p
 body.figma-shell-v76115 .cian-map{height:520px!important;margin-top:10px!important;border-radius:12px!important}
 body.figma-shell-v76115 .cian-map-overlay{height:520px!important;margin-top:-520px!important;border-radius:12px!important}
 body.figma-shell-v76115 .cian-map-card>p{font-size:9px!important}
+
+@media(min-width:901px){
+  body.available-spaces-page.figma-shell-v76115>.site-header{display:none!important}
+  body.available-spaces-page.figma-shell-v76115>.cian-main{padding-top:12px!important}
+  body.available-spaces-page.figma-shell-v76115 .cian-map-card{top:auto!important}
+}
 
 body.figma-shell-v76115 .phase0-page-toolbar,
 body.figma-shell-v76115 .stage-toolbar{min-height:66px!important}
