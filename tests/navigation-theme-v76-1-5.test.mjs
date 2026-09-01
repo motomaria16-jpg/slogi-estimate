@@ -57,9 +57,9 @@ test('all work pages keep the base theme, fail-closed gate, and approved Figma l
     assert.equal(localTarget(styles.at(-2)),'password-gate.css',page+': fail-closed gate stylesheet');
     assert.equal(localTarget(styles.at(-1)),approvedThemeName,page+': approved Figma design is the final presentation layer');
     assert.match(html,/schoolslogi-theme-v76-1-5\.css\?v=76114/,page+': compact-theme cache key');
-    assert.match(html,/figma-shell-v76-1-15\.css\?v=76115/,page+': approved-theme cache key');
+    assert.match(html,/figma-shell-v76-1-15\.css\?v=76116/,page+': approved-theme cache key');
     assert.match(html,/professional-shell\.js\?v=76171/,page+': shell cache key');
-    assert.match(html,/figma-shell-v76-1-15\.js\?v=76115/,page+': approved-shell cache key');
+    assert.match(html,/figma-shell-v76-1-15\.js\?v=76116/,page+': approved-shell cache key');
   }
 });
 
@@ -133,15 +133,24 @@ test('theme exposes School SLOGI tokens, readable scale, and responsive shell ru
   assert.match(base,/\.kp-page[\s\S]*font-family:Arial/);
 });
 
-test('search parsing rules, list actions, and cluster workspace use the approved compact scale',()=>{
+test('search parsing rules, list actions, and cluster workspace use the approved readable scale',()=>{
   const css=read(approvedThemeName),page=read('available-spaces.html');
   assert.match(page,/class="cian-parse-rules"/);
   for(const rule of ['100–150 м²','Только 1 этаж','Не подвал / цоколь','Офис','Торговая площадь','ПСН'])assert.ok(page.includes(rule),rule);
-  assert.match(css,/\.cian-parse-rules\{[\s\S]*min-height:58px/);
+  assert.match(css,/\.cian-parse-rules\{[\s\S]*min-height:68px/);
   assert.match(css,/body\.figma-shell-v76115 \.cian-workspace\{[\s\S]*1\.38fr[\s\S]*380px/);
   assert.match(css,/body\.figma-shell-v76115 \.cian-card-actions\{[\s\S]*grid-template-columns:1fr 1fr!important/);
   assert.match(css,/body\.figma-shell-v76115 \.cian-card-actions \.cian-remove-listing\{[\s\S]*background:#fff!important/);
   assert.match(css,/body\.figma-shell-v76115 \.cian-listing-card\.selected\{[\s\S]*figma-gold-soft/);
+});
+
+test('search map heading matches the list and the shell has no personal-account profile',()=>{
+  const page=read('available-spaces.html'),shell=read('figma-shell-v76-1-15.js'),css=read(approvedThemeName);
+  assert.match(page,/<h2 id="cian-map-title">Расположение<\/h2><p class="cian-map-subtitle">Карта предложений<\/p>/);
+  assert.doesNotMatch(page,/class="cian-eyebrow">Расположение/);
+  assert.doesNotMatch(shell,/Анастасия|Менеджер|profileHtml|figma-shell-profile|figma-shell-avatar/);
+  assert.doesNotMatch(css,/figma-shell-profile|figma-shell-avatar/);
+  assert.match(shell,/greeting\.textContent='Добро пожаловать!'/);
 });
 
 test('legacy source cards and Avito presentation are removed from approved search',()=>{

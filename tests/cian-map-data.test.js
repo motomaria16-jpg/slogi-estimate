@@ -39,6 +39,13 @@ test('point-in-polygon is deterministic for inside, outside and boundary points'
   assert.equal(geometry.locate(POLYGONS,55.834088,37.388049).canonicalIndex,0);
 });
 
+test('administrative cluster is inferred from the address when a point is outside SLOGI polygons',()=>{
+  const item=listing(10,{address:'Москва, ЮВАО, р-н Лефортово, ш. Энтузиастов, 3к1',latitude:55.7480696,longitude:37.6904566});
+  assert.equal(mapData.inferAddressCluster(item.address),'Лефортово');
+  mapData.classify(item,clusterService);
+  assert.deepEqual({name:item.clusterName,status:item.clusterStatus,boundary:item.clusterBoundary},{name:'Лефортово',status:'address',boundary:false});
+});
+
 test('same address is geocoded once while distinct canonical listings keep distinct markers',async()=>{
   const items=[listing(1),listing(2)];let calls=0;
   await mapData.geocodeMissingListings(items,{clusterService,geocode:async()=>{calls++;return{status:'geocoded',attempts:1,latitude:55.84,longitude:37.36};}});
@@ -101,6 +108,8 @@ test('UI binds marker-card selection and local list removal without filter DOM d
   assert.match(source,/HIDDEN_LISTINGS_KEY='slogi_cian_hidden_listing_ids_v1'/);assert.match(source,/hiddenListingIds\.add\(stableId\)/);
   assert.doesNotMatch(source,/\bfields\b|applyFilters|populateClusters|available-reset|available-cluster/);
   assert.match(source,/marker\.events\.removeAll/);
+  assert.match(source,/createFallbackGeocoder\(serverGeocode,browserGeocode\)/);
+  assert.match(source,/window\.ymaps\.geocode/);
 });
 
 test('UI exposes separate missing-address, missing-coordinate, failed and pending DOM counters',()=>{

@@ -37,11 +37,10 @@ const groups=[
 ];
 const navHtml=groups.map(group=>`<div class="figma-shell-nav-group">${group.map(item=>`<a class="figma-shell-nav-link ${route===item.id?'active':''}" href="${item.href}" ${route===item.id?'aria-current="page"':''}>${svg(item.icon)}<span>${esc(item.label)}</span></a>`).join('')}</div>`).join('');
 const helpHtml=`<div class="figma-shell-help"><img src="documents-owl-approved-v2.png" alt="Фирменная сова СЛОГИ"><div><strong>Нужна<br>помощь?</strong><span>Мы на связи!</span><a href="team.html" aria-label="Перейти к контактам команды">Связаться</a></div></div>`;
-const profileHtml='<div class="figma-shell-profile"><span class="figma-shell-avatar" aria-hidden="true">АК</span><span><strong>Анастасия Константинова</strong><small>Менеджер</small></span></div>';
 const sidebar=document.createElement('aside');
 sidebar.className='figma-shell-sidebar';
 sidebar.setAttribute('aria-label','Основная навигация');
-sidebar.innerHTML=`<a class="figma-shell-brand" href="index.html" aria-label="СЛОГИ — главная"><img src="proposal-logo.png" alt="СЛОГИ — школа развития речи"></a><nav>${navHtml}</nav><div class="figma-shell-spacer"></div>${helpHtml}${profileHtml}`;
+sidebar.innerHTML=`<a class="figma-shell-brand" href="index.html" aria-label="СЛОГИ — главная"><img src="proposal-logo.png" alt="СЛОГИ — школа развития речи"></a><nav>${navHtml}</nav><div class="figma-shell-spacer"></div>${helpHtml}`;
 
 const mobileBar=document.createElement('div');
 mobileBar.className='figma-shell-mobilebar';
@@ -49,7 +48,7 @@ mobileBar.innerHTML=`<button class="figma-shell-menu-button" type="button" aria-
 const overlay=document.createElement('div');
 overlay.className='figma-shell-overlay';
 overlay.hidden=true;
-overlay.innerHTML=`<aside class="figma-shell-drawer" aria-label="Мобильная навигация"><div class="figma-shell-drawer-head"><a class="figma-shell-brand" href="index.html"><img src="proposal-logo.png" alt="СЛОГИ — школа развития речи"></a><button class="figma-shell-close-button" type="button" aria-label="Закрыть меню">${svg('close')}</button></div><nav>${navHtml}</nav><div class="figma-shell-spacer"></div>${helpHtml}${profileHtml}</aside>`;
+overlay.innerHTML=`<aside class="figma-shell-drawer" aria-label="Мобильная навигация"><div class="figma-shell-drawer-head"><a class="figma-shell-brand" href="index.html"><img src="proposal-logo.png" alt="СЛОГИ — школа развития речи"></a><button class="figma-shell-close-button" type="button" aria-label="Закрыть меню">${svg('close')}</button></div><nav>${navHtml}</nav><div class="figma-shell-spacer"></div>${helpHtml}</aside>`;
 
 const currentHeader=document.querySelector('.site-header');
 document.body.insertBefore(sidebar,currentHeader||document.body.firstChild);
@@ -62,7 +61,7 @@ if(currentHeader){
   if(row&&!row.querySelector('.figma-shell-greeting')){
     const greeting=document.createElement('p');
     greeting.className='figma-shell-greeting';
-    greeting.textContent='Добро пожаловать, Анастасия!';
+    greeting.textContent='Добро пожаловать!';
     row.insertBefore(greeting,row.firstChild);
   }
 }

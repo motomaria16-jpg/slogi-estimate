@@ -20,6 +20,17 @@
 
   function normalizeAddress(value){return String(value||'').trim().toLocaleLowerCase('ru-RU').replace(/ё/g,'е').replace(/\s+/g,' ').replace(/\s*,\s*/g,', ');}
 
+  function inferAddressCluster(value){
+    const address=String(value||'').trim();
+    const match=address.match(/(?:^|[,;]\s*|\s)(?:р[\s.-]*н|район)\s+([^,;]+)/iu);
+    return match?String(match[1]||'').trim().replace(/\s+/g,' '):'';
+  }
+
+  function addressClusterState(value){
+    const clusterName=String(value&&(value.sourceClusterName||value.source_cluster_name)||inferAddressCluster(value&&value.address)||'').trim();
+    return clusterName?{clusterId:'address:'+normalizeAddress(clusterName).replace(/\s+/g,'-'),clusterName,clusterStatus:'address',clusterBoundary:false}:null;
+  }
+
   function canonicalUrl(value){
     try{const url=new URL(String(value||''));url.hash='';url.search='';url.hostname=url.hostname.toLowerCase();url.pathname=url.pathname.replace(/\/+$/,'')||'/';return url.toString();}
     catch(_error){return String(value||'').trim();}
@@ -45,18 +56,19 @@
 
   function clusterState(value,clusterService){
     const geo=coordinates(value);
-    if(!geo)return{clusterId:'',clusterName:'',clusterStatus:'not_computed',clusterBoundary:false};
+    const addressState=addressClusterState(value);
+    if(!geo)return addressState||{clusterId:'',clusterName:'',clusterStatus:'not_computed',clusterBoundary:false};
     if(clusterService&&typeof clusterService.locate==='function'){
       const located=clusterService.locate(geo.latitude,geo.longitude);
       if(located&&located.status==='inside')return{clusterId:String(located.clusterId||located.id||''),clusterName:String(located.clusterName||located.name||''),clusterStatus:'inside',clusterBoundary:located.boundary===true};
-      if(located&&located.status==='outside')return{clusterId:'',clusterName:'',clusterStatus:'outside',clusterBoundary:false};
+      if(located&&located.status==='outside')return addressState||{clusterId:'',clusterName:'',clusterStatus:'outside',clusterBoundary:false};
     }
     if(clusterService&&typeof clusterService.findByCoordinates==='function'){
       const match=clusterService.findByCoordinates(geo.latitude,geo.longitude);
       if(match)return{clusterId:String(match.id||''),clusterName:String(match.name||''),clusterStatus:'inside',clusterBoundary:match.boundary===true};
-      return{clusterId:'',clusterName:'',clusterStatus:'outside',clusterBoundary:false};
+      return addressState||{clusterId:'',clusterName:'',clusterStatus:'outside',clusterBoundary:false};
     }
-    return{clusterId:'',clusterName:'',clusterStatus:'not_computed',clusterBoundary:false};
+    return addressState||{clusterId:'',clusterName:'',clusterStatus:'not_computed',clusterBoundary:false};
   }
 
   function classify(value,clusterService){return Object.assign(value,clusterState(value,clusterService));}
@@ -75,7 +87,7 @@
     };
   }
 
-  function createAddressCache(storage,{key='slogi_cian_geocode_cache_v2',now=()=>Date.now(),limit=CACHE_LIMIT}={}){
+  function createAddressCache(storage,{key='slogi_cian_geocode_cache_v3',now=()=>Date.now(),limit=CACHE_LIMIT}={}){
     let entries={};
     try{const parsed=JSON.parse(storage&&storage.getItem(key)||'{}');if(parsed&&typeof parsed==='object'&&!Array.isArray(parsed))entries=parsed;}catch(_error){entries={};}
     const persist=()=>{if(!storage)return;try{const sorted=Object.entries(entries).sort((left,right)=>Number(left[1]&&left[1].savedAt||0)-Number(right[1]&&right[1].savedAt||0)).slice(-Math.max(1,Number(limit)||CACHE_LIMIT));entries=Object.fromEntries(sorted);storage.setItem(key,JSON.stringify(entries));}catch(_error){/* cache is best effort */}};
@@ -185,5 +197,5 @@
     return{completed,total:tasks.length,cached,projection:projection(items)};
   }
 
-  return{SUCCESS_TTL_MS,FAILURE_TTL_MS,coordinates,normalizeAddress,canonicalUrl,listingId,deduplicate,clusterState,classify,projection,createAddressCache,configuredEdgeEndpoint,createServerGeocoder,geocodeMissingListings};
+  return{SUCCESS_TTL_MS,FAILURE_TTL_MS,coordinates,normalizeAddress,inferAddressCluster,canonicalUrl,listingId,deduplicate,clusterState,classify,projection,createAddressCache,configuredEdgeEndpoint,createServerGeocoder,geocodeMissingListings};
 });

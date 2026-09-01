@@ -161,22 +161,6 @@ body.available-spaces-page.figma-shell-v76115 textarea{font-family:"Ubuntu Sans"
   font-weight:500;
   text-decoration:none;
 }
-.figma-shell-profile{
-  display:grid;
-  grid-template-columns:36px minmax(0,1fr);
-  align-items:center;
-  gap:9px;
-  min-height:54px;
-  padding:8px 9px;
-  border-radius:14px;
-  background:rgba(255,255,255,.08);
-}
-.figma-shell-avatar{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#f4dfca;color:#77583f;font-size:11px;font-weight:500}
-.figma-shell-profile>span:last-child{min-width:0}
-.figma-shell-profile strong,.figma-shell-profile small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.figma-shell-profile strong{color:#f4f8f8;font-size:9px;font-weight:500}
-.figma-shell-profile small{margin-top:3px;color:rgba(244,248,248,.7);font-size:8px}
-
 .figma-shell-mobilebar{display:none}
 .figma-shell-overlay[hidden]{display:none!important}
 .figma-shell-overlay{position:fixed;z-index:2147483690;inset:0;background:rgba(40,47,48,.58)}
@@ -412,7 +396,7 @@ body.figma-shell-v76115 .cian-dialog{
   display:flex;
   align-items:center;
   gap:11px;
-  min-height:58px;
+  min-height:68px;
   margin:0 0 10px;
   padding:9px 12px;
   border:1px solid rgba(231,222,210,.78);
@@ -422,24 +406,25 @@ body.figma-shell-v76115 .cian-dialog{
 .cian-parse-rules-icon{display:grid;place-items:center;width:34px;height:34px;flex:0 0 auto;border:1px solid var(--figma-gold-soft);border-radius:10px;background:#fffbf1;color:var(--figma-gold-deep);font-size:17px}
 .cian-parse-rules-copy{min-width:120px}
 .cian-parse-rules-copy strong,.cian-parse-rules-copy span{display:block}
-.cian-parse-rules-copy strong{font-size:12px;font-weight:500}
-.cian-parse-rules-copy span{margin-top:3px;color:var(--figma-muted);font-size:9px}
+.cian-parse-rules-copy strong{font-size:14px;font-weight:500}
+.cian-parse-rules-copy span{margin-top:3px;color:var(--figma-muted);font-size:12px}
 .cian-parse-rule-chips{display:flex;flex-wrap:wrap;gap:6px}
-.cian-parse-rule-chips span{display:inline-flex;align-items:center;min-height:25px;padding:0 10px;border-radius:999px;background:var(--figma-gold-soft);color:#675731;font-size:9px;white-space:nowrap}
-.cian-source-runtime{display:flex;align-items:center;gap:7px;margin-left:auto;color:var(--figma-muted);font-size:9px;white-space:nowrap}
-.cian-source-runtime #cian-source-badge{display:inline-flex;align-items:center;min-height:24px;padding:0 8px;border-radius:999px;background:#edf4f0;color:var(--figma-sidebar-deep);font-weight:500}
+.cian-parse-rule-chips span{display:inline-flex;align-items:center;min-height:30px;padding:0 11px;border-radius:999px;background:var(--figma-gold-soft);color:#675731;font-size:12px;white-space:nowrap}
+.cian-source-runtime{display:flex;align-items:center;justify-content:flex-end;gap:7px;margin-left:auto;color:var(--figma-muted);font-size:12px;white-space:normal}
+.cian-source-runtime #cian-source-badge{display:inline-flex;align-items:center;min-height:29px;padding:0 9px;border-radius:999px;background:#edf4f0;color:var(--figma-sidebar-deep);font-weight:500}
 .cian-source-runtime #cian-source-badge[data-state="error"]{background:#f9e8e4;color:#955046}
 .cian-source-runtime #cian-source-badge[data-state="cooldown"],.cian-source-runtime #cian-source-badge[data-state="partial"]{background:var(--figma-gold-soft);color:#75602e}
 body.figma-shell-v76115 .cian-main{padding-top:0!important;padding-bottom:30px!important}
-body.figma-shell-v76115 .cian-hero-meta{display:flex!important;gap:12px!important;margin-top:7px!important;color:var(--figma-muted)!important;font-size:10px!important}
+body.figma-shell-v76115 .cian-hero-meta{display:flex!important;gap:12px!important;margin-top:7px!important;color:var(--figma-muted)!important;font-size:13px!important}
 body.figma-shell-v76115 .cian-hero .cian-button{min-height:34px!important;background:#fff!important;border:1px solid #82989c!important;color:var(--figma-sidebar-deep)!important}
 body.figma-shell-v76115 .cian-workspace{grid-template-columns:minmax(0,1.38fr) minmax(380px,1fr)!important;gap:10px!important}
 body.figma-shell-v76115 .cian-results,
 body.figma-shell-v76115 .cian-map-card{padding:13px!important;border-radius:16px!important}
 body.figma-shell-v76115 .cian-section-heading{align-items:center!important}
-body.figma-shell-v76115 .cian-section-heading h2{margin:0!important;font-size:14px!important;font-weight:500!important}
+body.figma-shell-v76115 .cian-section-heading h2{margin:0!important;color:var(--figma-text)!important;font-size:16px!important;font-weight:500!important;letter-spacing:-.01em!important;text-transform:none!important}
+body.figma-shell-v76115 .cian-map-subtitle{margin:4px 0 0!important;color:var(--figma-muted)!important;font-size:13px!important;line-height:1.35!important}
 body.figma-shell-v76115 .cian-list{gap:0!important;margin-top:12px!important;border-top:1px solid #eee7dd!important}
-body.figma-shell-v76115 .cian-list-table-head{min-height:30px!important;padding:0 10px!important;color:var(--figma-muted)!important;font-size:9px!important;background:#fffaf3!important}
+body.figma-shell-v76115 .cian-list-table-head{min-height:34px!important;padding:0 10px!important;color:var(--figma-muted)!important;font-size:12px!important;background:#fffaf3!important}
 body.figma-shell-v76115 .cian-listing-card{
   border:0!important;
   border-bottom:1px solid #eee7dd!important;
@@ -450,27 +435,27 @@ body.figma-shell-v76115 .cian-listing-card{
 body.figma-shell-v76115 .cian-listing-card.selected{background:var(--figma-gold-soft)!important;box-shadow:inset 3px 0 var(--figma-gold)!important}
 body.figma-shell-v76115 .cian-card-open{padding:10px!important;gap:9px!important}
 body.figma-shell-v76115 .cian-card-top{margin-bottom:5px!important;gap:4px!important}
-body.figma-shell-v76115 .cian-badge{min-height:21px!important;padding:3px 7px!important;font-size:8px!important;font-weight:500!important}
-body.figma-shell-v76115 .cian-listing-card h3{margin-bottom:3px!important;font-size:12px!important;font-weight:500!important}
-body.figma-shell-v76115 .cian-address{font-size:9px!important}
+body.figma-shell-v76115 .cian-badge{min-height:25px!important;padding:4px 8px!important;font-size:11px!important;font-weight:500!important}
+body.figma-shell-v76115 .cian-listing-card h3{margin-bottom:4px!important;font-size:15px!important;font-weight:500!important;line-height:1.3!important}
+body.figma-shell-v76115 .cian-address{font-size:12px!important;line-height:1.45!important}
 body.figma-shell-v76115 .cian-card-metrics{margin-top:7px!important;gap:4px!important}
-body.figma-shell-v76115 .cian-card-metrics span{padding:4px 6px!important;border-radius:7px!important;font-size:8px!important;font-weight:400!important}
-body.figma-shell-v76115 .cian-card-price{min-width:115px!important}
-body.figma-shell-v76115 .cian-card-price strong{font-size:12px!important;font-weight:500!important}
-body.figma-shell-v76115 .cian-card-price span{font-size:8px!important}
+body.figma-shell-v76115 .cian-card-metrics span{padding:5px 7px!important;border-radius:7px!important;font-size:11px!important;font-weight:400!important}
+body.figma-shell-v76115 .cian-card-price{min-width:125px!important}
+body.figma-shell-v76115 .cian-card-price strong{font-size:15px!important;font-weight:500!important}
+body.figma-shell-v76115 .cian-card-price span{font-size:11px!important}
 body.figma-shell-v76115 .cian-card-actions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:5px!important;padding:7px 10px 10px!important;border:0!important;background:#fff!important}
-body.figma-shell-v76115 .cian-card-actions .cian-button{min-height:32px!important;padding:5px 8px!important;border-radius:8px!important;font-size:9px!important;line-height:1.1!important}
+body.figma-shell-v76115 .cian-card-actions .cian-button{min-height:38px!important;padding:7px 9px!important;border-radius:8px!important;font-size:12px!important;line-height:1.2!important}
 body.figma-shell-v76115 .cian-card-actions .cian-add-object{background:var(--figma-gold)!important;color:#554723!important}
 body.figma-shell-v76115 .cian-card-actions .cian-remove-listing{border-color:#789095!important;background:#fff!important;color:var(--figma-sidebar-deep)!important}
-body.figma-shell-v76115 .cian-card-actions a{grid-column:1/-1;font-size:9px!important}
+body.figma-shell-v76115 .cian-card-actions a{grid-column:1/-1;font-size:12px!important}
 body.figma-shell-v76115 .cian-map-card{top:92px!important}
 body.figma-shell-v76115 .cian-map-toolbar{margin:6px 0 -3px!important}
-body.figma-shell-v76115 .cian-map-toggle{min-height:30px!important;padding:0 9px!important;border-radius:8px!important;font-size:9px!important;font-weight:500!important}
+body.figma-shell-v76115 .cian-map-toggle{min-height:38px!important;padding:0 11px!important;border-radius:8px!important;font-size:12px!important;font-weight:500!important}
 body.figma-shell-v76115 .cian-map-stats{display:none!important}
-body.figma-shell-v76115 .cian-map-count{min-height:25px!important;padding:6px 8px!important;font-size:9px!important;font-weight:500!important}
+body.figma-shell-v76115 .cian-map-count{min-height:29px!important;padding:7px 9px!important;font-size:11px!important;font-weight:500!important}
 body.figma-shell-v76115 .cian-map{height:520px!important;margin-top:10px!important;border-radius:12px!important}
 body.figma-shell-v76115 .cian-map-overlay{height:520px!important;margin-top:-520px!important;border-radius:12px!important}
-body.figma-shell-v76115 .cian-map-card>p{font-size:9px!important}
+body.figma-shell-v76115 .cian-map-card>p{font-size:12px!important}
 
 @media(min-width:901px){
   body.available-spaces-page.figma-shell-v76115>.site-header{display:none!important}
@@ -604,7 +589,7 @@ body.figma-shell-v76115 #pro-app{padding-top:0!important;padding-bottom:34px!imp
   .figma-shell-drawer{width:calc(100vw - 16px)}
   .figma-shell-help{grid-template-columns:78px minmax(0,1fr)}
   body.figma-shell-v76115 .cian-card-actions{grid-template-columns:1fr 1fr!important}
-  body.figma-shell-v76115 .cian-card-actions .cian-button{font-size:8px!important;padding:4px!important}
+  body.figma-shell-v76115 .cian-card-actions .cian-button{font-size:11px!important;padding:6px!important}
   body.figma-shell-v76115 .cian-map{height:420px!important}
   body.figma-shell-v76115 .cian-map-overlay{height:420px!important;margin-top:-420px!important}
 }

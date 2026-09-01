@@ -31,6 +31,7 @@
   let sourceHealth={status:'unknown',errorCode:''};
   let activeLoadController=null;
   let loadGeneration=0;
+  let yandexLoadPromise=null;
   const geocodeCache=(()=>{try{return mapData.createAddressCache(window.localStorage);}catch(_error){return mapData.createAddressCache(null);}})();
 
   const esc=value=>String(value==null?'':value).replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
@@ -53,9 +54,7 @@
   }
   function displayedListings(){return all.filter(item=>!hiddenListingIds.has(freshnessId(item)));}
   function canonicalClusterState(value){
-    const service=clusterService(),geo=mapData.coordinates(value);if(!geo||!service||typeof service.findByCoordinates!=='function')return mapData.clusterState(value,service);
-    const match=service.findByCoordinates(geo.latitude,geo.longitude);
-    return match?{clusterId:String(match.id||''),clusterName:String(match.name||''),clusterStatus:'inside',clusterBoundary:match.boundary===true}:{clusterId:'',clusterName:'',clusterStatus:'outside',clusterBoundary:false};
+    return mapData.clusterState(value,clusterService());
   }
   function normalize(raw){
     const areaValue=number(raw.area);
@@ -64,7 +63,7 @@
     const item={
       source:String(raw.source||''),listingUrl:safeCianUrl(raw.listingUrl||raw.listing_url),externalId:String(raw.externalId||raw.external_id||''),title:String(raw.title||''),address:String(raw.address||''),description:String(raw.description||''),
       latitude:number(raw.latitude),longitude:number(raw.longitude),area:areaValue,rentMonthly:rent,pricePerSquareMeter:price,floor:number(raw.floor),totalFloors:number(raw.totalFloors??raw.total_floors),ceilingHeight:number(raw.ceilingHeight??raw.ceiling_height),premiseType:feed.normalizePremiseType(raw.premiseType??raw.premise_type,raw),hasBasementOrSocle:feed.hasBasementOrSocle(raw),
-      freshnessAt:String(raw.freshnessAt||raw.freshness_at||''),freshnessKind:String(raw.freshnessKind||raw.freshness_kind||''),publishedAt:String(raw.publishedAt||raw.published_at||''),sourceUpdatedAt:String(raw.sourceUpdatedAt||raw.source_updated_at||''),marketStatus:String(raw.marketStatus||raw.market_status||'active'),clusterId:'',clusterName:'',clusterStatus:'not_computed',clusterBoundary:false,coordinateSource:'',geocodeStatus:'',geocodeAttempts:0,geocodeDiagnostic:'',parseCompleteness:number(raw.parseCompleteness??raw.parse_completeness)||0,parseWarnings:Array.isArray(raw.parseWarnings)?raw.parseWarnings.map(String):[]
+      freshnessAt:String(raw.freshnessAt||raw.freshness_at||''),freshnessKind:String(raw.freshnessKind||raw.freshness_kind||''),publishedAt:String(raw.publishedAt||raw.published_at||''),sourceUpdatedAt:String(raw.sourceUpdatedAt||raw.source_updated_at||''),marketStatus:String(raw.marketStatus||raw.market_status||'active'),sourceClusterName:String(raw.clusterName||raw.cluster_name||''),clusterId:'',clusterName:'',clusterStatus:'not_computed',clusterBoundary:false,coordinateSource:'',geocodeStatus:'',geocodeAttempts:0,geocodeDiagnostic:'',parseCompleteness:number(raw.parseCompleteness??raw.parse_completeness)||0,parseWarnings:Array.isArray(raw.parseWarnings)?raw.parseWarnings.map(String):[]
     };
     Object.assign(item,canonicalClusterState(item));if(mapData.coordinates(item)){item.coordinateSource='stored';item.geocodeStatus='stored';}
     return item;
@@ -73,6 +72,7 @@
 
   function clusterLabel(item){
     if(item.clusterStatus==='inside')return item.clusterName||'Кластер рассчитан';
+    if(item.clusterStatus==='address')return item.clusterName||'Кластер определён по адресу';
     if(item.clusterStatus==='outside')return'Вне кластеров';
     if(item.geocodeStatus==='pending')return'Кластер рассчитывается';
     return'Кластер не определён: нет координат';
@@ -195,7 +195,9 @@
       if(loadPartial){nodes.badge.textContent='Частично';nodes.badge.dataset.state='partial';}
       render();
       const geocodingCfg=window.SLOGI_PHASE0_CONFIG&&window.SLOGI_PHASE0_CONFIG.geocoding||{};
-      let geocode=null;try{geocode=mapData.createServerGeocoder({endpoint:geocodingCfg.endpoint,projectUrl:supabaseCfg.url,token,timeoutMs:Number(geocodingCfg.timeoutMs)||12000,maxAttempts:3});}catch(_error){geocode=null;}
+      let serverGeocode=null;try{serverGeocode=mapData.createServerGeocoder({endpoint:geocodingCfg.endpoint,projectUrl:supabaseCfg.url,token,timeoutMs:Number(geocodingCfg.timeoutMs)||12000,maxAttempts:3});}catch(_error){serverGeocode=null;}
+      const browserGeocode=createBrowserGeocoder();
+      const geocode=createFallbackGeocoder(serverGeocode,browserGeocode);
       await mapData.geocodeMissingListings(all,{geocode,clusterService:clusterService(),cache:geocodeCache,signal:controller.signal,concurrency:2,onProgress:progress=>{
         if(generation!==loadGeneration||controller.signal.aborted)return;
         if(progress.completed===progress.total||progress.completed%5===0)render();
@@ -215,16 +217,49 @@
   }
 
   function loadYandex(){
-    return new Promise((resolve,reject)=>{
-      if(window.ymaps)return window.ymaps.ready(resolve);
+    if(window.ymaps)return new Promise(resolve=>window.ymaps.ready(resolve));
+    if(yandexLoadPromise)return yandexLoadPromise;
+    yandexLoadPromise=new Promise((resolve,reject)=>{
       const key=String(window.SLOGI_CONFIG&&window.SLOGI_CONFIG.yandexMapsApiKey||'');
       const script=document.createElement('script');
+      script.dataset.slogiYandexMaps='true';
       script.src='https://api-maps.yandex.ru/2.1/?lang=ru_RU'+(key?'&apikey='+encodeURIComponent(key):'');
       let settled=false;const finish=callback=>{if(settled)return;settled=true;clearTimeout(timer);script.onload=null;script.onerror=null;callback();};
       script.async=true;script.onload=()=>finish(()=>window.ymaps.ready(resolve));script.onerror=()=>finish(()=>reject(new Error('map_api_unavailable')));
       document.head.appendChild(script);
       const timer=setTimeout(()=>finish(()=>reject(new Error('map_api_timeout'))),15000);
     });
+    yandexLoadPromise.catch(()=>{yandexLoadPromise=null;});
+    return yandexLoadPromise;
+  }
+  function abortError(){const error=new Error('aborted');error.name='AbortError';return error;}
+  function createBrowserGeocoder(){
+    return async function geocode(address,{signal}={}){
+      if(signal&&signal.aborted)throw abortError();
+      try{
+        await loadYandex();
+        if(signal&&signal.aborted)throw abortError();
+        if(!window.ymaps||typeof window.ymaps.geocode!=='function')return{status:'failed',attempts:1,diagnostic:'map_geocoder_unavailable'};
+        const response=await window.ymaps.geocode(String(address||''),{results:1,kind:'house'});
+        if(signal&&signal.aborted)throw abortError();
+        const object=response&&response.geoObjects&&response.geoObjects.get(0);
+        const coords=object&&object.geometry&&object.geometry.getCoordinates();
+        if(!Array.isArray(coords)||!Number.isFinite(Number(coords[0]))||!Number.isFinite(Number(coords[1])))return{status:'not_found',attempts:1,diagnostic:'map_geocoder_no_results'};
+        const metadata=object.properties&&object.properties.get('metaDataProperty.GeocoderMetaData');
+        return{status:'geocoded',attempts:1,latitude:Number(coords[0]),longitude:Number(coords[1]),precision:String(metadata&&metadata.precision||''),resolvedAddress:String(object.properties&&object.properties.get('text')||address),cacheHit:false,diagnostic:'yandex_maps_fallback'};
+      }catch(error){
+        if(error&&error.name==='AbortError')throw error;
+        return{status:'failed',attempts:1,diagnostic:'map_geocoder_failed'};
+      }
+    };
+  }
+  function createFallbackGeocoder(primary,fallback){
+    return async function geocode(address,options={}){
+      const first=typeof primary==='function'?await primary(address,options):{status:'failed',attempts:0,diagnostic:'server_geocoder_unavailable'};
+      if(first&&first.status==='geocoded')return first;
+      const second=typeof fallback==='function'?await fallback(address,options):null;
+      return second&&second.status==='geocoded'?second:first;
+    };
   }
   function featureCoords(feature){const geometry=feature&&feature.geometry||{},convert=ring=>ring.map(point=>[point[1],point[0]]);if(geometry.type==='Polygon')return geometry.coordinates.map(convert);if(geometry.type==='MultiPolygon')return geometry.coordinates.map(poly=>poly.map(convert));return null;}
   function polygonStyle(_id,{hover=false}={}){return{fillColor:'#4F8580',strokeColor:'#285B58',strokeWidth:hover?2.4:1.5,fillOpacity:!clustersVisible?0:(hover?0.25:0.14),visible:clustersVisible};}
