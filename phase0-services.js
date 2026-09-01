@@ -69,7 +69,7 @@ function defaultPhase0(){
     status:STATUS.NO_ANSWER,rejection:null,selectionCriteria:defaultCriteria(),comments:'',
     layout:{received:false,fileName:'',mime:'',size:null,updatedAt:'',updatedBy:null},
     interest:{confirmed:false,confirmedAt:'',updatedAt:'',updatedBy:null},
-    measurement:{status:'Не назначен',date:'',comment:''},clusterSnapshot:null,transition:null,
+    measurement:{status:'Не назначен',date:'',comment:''},clusterSnapshot:null,spaceCard:null,transition:null,
     createdAt:stamp,updatedAt:stamp
   };
 }
@@ -158,7 +158,7 @@ class AuditService{
     if(!deepEqual(b.measurement,a.measurement))this.record(after.id,'phase0-measurement',`Замер: ${a.measurement&&a.measurement.status||'не назначен'}`,{measurement:clone(a.measurement)});
     const watched=['address','area','ceilingHeight','clusterId','clusterName'];
     const sharedChanged=watched.filter(key=>!deepEqual(before[key],after[key]));
-    const phaseChanged=['listingUrl','source','rent','windowsCount','roomsCount','selectionCriteria','comments'].filter(key=>!deepEqual(b[key],a[key]));
+    const phaseChanged=['listingUrl','source','rent','windowsCount','roomsCount','selectionCriteria','spaceCard','comments'].filter(key=>!deepEqual(b[key],a[key]));
     if(sharedChanged.length||phaseChanged.length)this.record(after.id,'phase0-update','Обновлены данные потенциального помещения',{shared:sharedChanged,phase0:phaseChanged});
   }
   recordLayout(project,fileName){this.record(project.id,'phase0-layout','Загружена планировка помещения',{fileName})}
@@ -596,17 +596,17 @@ class Phase0Service{
     if(status===STATUS.REJECTED){const reason=String(draft.rejectionReason||'').trim();if(!rejection||rejection.reason!==reason)rejection={reason,date:stamp,user:actor}}
     const confirmed=Boolean(draft.interestConfirmed),wasConfirmed=Boolean(base.interest&&base.interest.confirmed);
     const interest=confirmed===wasConfirmed?Object.assign({confirmed:false,confirmedAt:'',updatedAt:'',updatedBy:null},base.interest||{}):{confirmed,confirmedAt:confirmed?stamp:'',updatedAt:stamp,updatedBy:actor};
-    const clusterId=String(draft.clusterId||''),geo=normalizeGeo({lat:draft.latitude,lng:draft.longitude});
+    const clusterId=String(draft.clusterId||''),geo=normalizeGeo({lat:draft.latitude,lng:draft.longitude}),spaceCard=draft.spaceCard&&typeof draft.spaceCard==='object'?clone(draft.spaceCard):(base.spaceCard&&typeof base.spaceCard==='object'?clone(base.spaceCard):null);
     const clusterApi=window.SlogiPhase0&&window.SlogiPhase0.clusterService;let cluster=clusterApi?clusterApi.find(clusterId||draft.clusterName):null;
     if(!cluster&&geo&&clusterApi)cluster=clusterApi.findByCoordinates(geo.lat,geo.lng);
-    if(!cluster&&geo&&clusterApi&&source!=='cian'&&clusterApi.findNearestByCoordinates)cluster=clusterApi.findNearestByCoordinates(geo.lat,geo.lng,6000);
+    if(!cluster&&geo&&clusterApi&&source!=='cian'&&!spaceCard&&clusterApi.findNearestByCoordinates)cluster=clusterApi.findNearestByCoordinates(geo.lat,geo.lng,6000);
     const phase0=Object.assign(defaultPhase0(),base,{
       source,listingUrl,canonicalUrl:normalizeUrl(draft.canonicalUrl||listingUrl),externalId:String(draft.externalId||base.externalId||''),listingTitle:String(draft.listingTitle||base.listingTitle||''),listingPublishedAt:String(draft.publishedAt||base.listingPublishedAt||''),listingUpdatedAt:String(draft.sourceUpdatedAt||base.listingUpdatedAt||''),listingAddedAt:String(base.listingAddedAt||draft.addedAt||stamp),parserWarnings:Array.isArray(draft.parserWarnings)?draft.parserWarnings.map(String).slice(0,20):Array.isArray(base.parserWarnings)?base.parserWarnings:[],floor:nullableNumber(draft.floor??base.floor),totalFloors:nullableNumber(draft.totalFloors??base.totalFloors),
       rent:{amount:nullableNumber(draft.rentMonthly),period:normalizeRentPeriod(draft.rentPeriod),currency:String(draft.rentCurrency||'RUB')},
       windowsCount:nullableNumber(draft.windowsCount),roomsCount:nullableNumber(draft.roomsCount),status,rejection,
       selectionCriteria:defaultCriteria(draft.selectionCriteria),interest,
       measurement:{status:MEASUREMENT_STATUSES.includes(draft.measurementStatus)?draft.measurementStatus:'Не назначен',date:String(draft.measurementDate||''),comment:String(draft.measurementComment||'').trim()},
-      comments:String(draft.comments||'').trim(),updatedAt:stamp
+      comments:String(draft.comments||'').trim(),spaceCard,updatedAt:stamp
     });
     const shared={
       address:String(draft.address||'').trim(),geo,clusterId:cluster?cluster.id:clusterId,clusterName:cluster?cluster.name:String(draft.clusterName||''),
@@ -629,6 +629,7 @@ class Phase0Service{
     if(duplicates.length)throw new Phase0Error('Похожий объект уже существует.','POTENTIAL_DUPLICATE',{duplicates});
     const shared={address:candidate.address,geo:candidate.geo,clusterId:candidate.clusterId,clusterName:candidate.clusterName,area:candidate.area,floor:candidate.floor,ceilingHeight:candidate.ceilingHeight,status:candidate.status,projectStatus:candidate.projectStatus,lifecyclePhase:candidate.lifecyclePhase};
     let saved=before?this.projects.update(before.id,shared,candidate.phase0,expectedRevision):this.projects.create(candidate);
+    if(saved.phase0&&saved.phase0.spaceCard&&String(saved.phase0.spaceCard.id||'')!==String(saved.id))saved=this.projects.mutate(saved.id,project=>{project.phase0.spaceCard=Object.assign({},project.phase0.spaceCard,{id:project.id});return project},saved.phase0.revision,'space-card-bind-project');
     this.audit.recordSave(before,saved);
     if(layoutFile){
       try{
@@ -663,6 +664,44 @@ class Phase0Service{
     this.audit.recordSave(current,saved);return saved;
   }
   applyCompetitiveRows(state){const changes=this.projects.applyCompetitiveMetrics(state.rows,{version:state.version,syncedAt:state.lastSuccess});changes.forEach(change=>this.audit.recordRating(change));return changes}
+  competitiveProfile(clusterId,clusterName){
+    const metric=this.competitive.metricFor(clusterId,clusterName),rating=metric&&nullableNumber(metric.rating),rank=rating!=null&&rating>=1?Math.trunc(rating):null;
+    return{rating,rank,isTop30:rank==null?null:rank<=30,averageRentPerSqm:metric&&nullableNumber(metric.averageRentPerSqm)};
+  }
+  openCentersInCluster(clusterId,clusterName,excludeProjectId=''){
+    const openStatuses=['open','opened','operating','active','открыт','открыта','работает','действует','завершён'];
+    return this.projects.listAll().filter(project=>{
+      if(String(project.id)===String(excludeProjectId||''))return false;
+      const same=Boolean((clusterId&&(sameCluster(project.clusterId,clusterId)||sameCluster(project.clusterName,clusterId)))||(clusterName&&(sameCluster(project.clusterName,clusterName)||sameCluster(project.clusterId,clusterName))));
+      if(!same)return false;
+      const center=project.slogiCenter&&typeof project.slogiCenter==='object'?project.slogiCenter:{};
+      const explicit=project.isSlogiCenterOpen===true||project.centerOperational===true||center.isOpen===true||Boolean(String(project.actualOpeningDate||center.openedAt||'').trim());
+      const status=norm(project.centerStatus||project.slogiCenterStatus||center.status||'');
+      return explicit||openStatuses.includes(status);
+    }).map(project=>({id:project.id,name:String(project.centerName||project.address||'Центр СЛОГИ'),address:String(project.address||''),openedAt:String(project.actualOpeningDate||project.slogiCenter&&project.slogiCenter.openedAt||'')}));
+  }
+  spaceContext(clusterId,clusterName,excludeProjectId=''){
+    const centers=this.openCentersInCluster(clusterId,clusterName,excludeProjectId),competitive=this.competitiveProfile(clusterId,clusterName);
+    return{cluster:{id:String(clusterId||''),name:String(clusterName||''),status:clusterId||clusterName?'inside':'not_computed',matched:Boolean(clusterId||clusterName),hasSlogiCenter:centers.length>0,centerDetails:centers.map(center=>center.name).join(', ')},competitive,centers};
+  }
+  async resolveSpaceAddress(address,excludeProjectId=''){
+    const result=await geocodingService.geocode(address,{allowNearest:false});
+    if(!result||!result.geo)return{address:String(address||'').trim(),geo:null,cluster:{id:'',name:'',status:'not_computed',matched:false,hasSlogiCenter:null,centerDetails:''},competitive:{rating:null,rank:null,isTop30:null,averageRentPerSqm:null},centers:[]};
+    const located=clusterService.locate(result.geo.lat,result.geo.lng),inside=located&&located.status==='inside',clusterId=inside?String(located.clusterId||''):'',clusterName=inside?String(located.clusterName||''):'';
+    if(!inside)return{address:String(result.address||address||'').trim(),geo:clone(result.geo),cluster:{id:'',name:'',status:'outside',matched:false,hasSlogiCenter:false,centerDetails:''},competitive:{rating:null,rank:null,isTop30:null,averageRentPerSqm:null},centers:[]};
+    return Object.assign({address:String(result.address||address||'').trim(),geo:clone(result.geo)},this.spaceContext(clusterId,clusterName,excludeProjectId));
+  }
+  takeSpaceIntoWork(projectId){
+    const current=this.projects.get(projectId);if(!current)throw new Phase0Error('Помещение не найдено.','PROJECT_NOT_FOUND');
+    const model=window.SlogiSearchSpaceCard;if(!model||typeof model.normalize!=='function')throw new Phase0Error('Модель карточки помещения не подключена.','SPACE_CARD_UNAVAILABLE');
+    const stored=current.phase0&&current.phase0.spaceCard||{},geo=projectGeo(current),located=geo?clusterService.locate(geo.lat,geo.lng):{status:'invalid'};
+    if(stored.work&&stored.work.status==='in_work')return current;
+    const context=located&&located.status==='inside'?this.spaceContext(located.clusterId,located.clusterName,current.id):{cluster:{id:'',name:'',status:located&&located.status==='outside'?'outside':'not_computed',matched:false,hasSlogiCenter:located&&located.status==='outside'?false:null,centerDetails:''},competitive:{rating:null,rank:null,isTop30:null,averageRentPerSqm:null}};
+    const card=model.normalize(Object.assign({},stored,{cluster:context.cluster,competitive:context.competitive})),gate=model.evaluate(card);
+    if(!gate.canTakeToWork)throw new Phase0Error('Помещение пока нельзя взять в работу.','SPACE_WORK_BLOCKED',{gate,card});
+    const actor=this.actor(),stamp=now(),saved=this.projects.mutate(current.id,project=>{project.status='В работе';project.projectStatus='В работе';project.phase0=Object.assign(defaultPhase0(),project.phase0||{});project.phase0.status=STATUS.SUITABLE;project.phase0.spaceCard=Object.assign({},card,{work:{status:'in_work',takenAt:stamp,takenBy:actor}});return project},current.phase0&&current.phase0.revision,'space-card-take-into-work');
+    this.audit.record(saved.id,'space-card-take-into-work','Помещение взято в работу',{clusterId:saved.clusterId,clusterName:saved.clusterName});return saved;
+  }
   readiness(project){return transitionRequirements(project,this.competitive)}
   markTransition(projectId){
     const current=this.projects.get(projectId);if(!current)throw new Phase0Error('Объект не найден.','PROJECT_NOT_FOUND');const gate=this.readiness(current);if(!gate.ready)throw new Phase0Error('Условия перехода к смете не выполнены.','PHASE1_BLOCKED',{missing:gate.missing});
@@ -721,14 +760,15 @@ class GeocodingService{
     if(payload&&Array.isArray(payload.results))return payload.results.map(item=>({address:String(item.address||query),geo:{lat:Number(item.lat),lng:Number(item.lng)},precision:item.precision||'',raw:item.raw||null})).filter(item=>Number.isFinite(item.geo.lat)&&Number.isFinite(item.geo.lng));
     if(payload&&payload.data&&payload.data.geo)return[{address:String(payload.data.address||query),geo:payload.data.geo,precision:payload.data.precision||'',raw:payload.data.raw||null}];return[];
   }
-  choose(candidates){let fallback=null;for(const candidate of candidates||[]){if(!candidate||!candidate.geo)continue;if(!fallback)fallback=candidate;const match=clusterService.findByCoordinates(candidate.geo.lat,candidate.geo.lng)||clusterService.findNearestByCoordinates(candidate.geo.lat,candidate.geo.lng,6000);if(match)return Object.assign(candidate,{cluster:match})}return fallback}
-  async geocode(address){
-    const value=String(address||'').trim();if(value.length<5)return null;this.lastError=null;const errors=[];
+  choose(candidates,{allowNearest=true}={}){let fallback=null;for(const candidate of candidates||[]){if(!candidate||!candidate.geo)continue;if(!fallback)fallback=candidate;const exact=clusterService.findByCoordinates(candidate.geo.lat,candidate.geo.lng);if(exact)return Object.assign(candidate,{cluster:exact});if(allowNearest){const nearest=clusterService.findNearestByCoordinates(candidate.geo.lat,candidate.geo.lng,6000);if(nearest)return Object.assign(candidate,{cluster:nearest})}}return fallback}
+  async geocode(address,{allowNearest=true}={}){
+    const value=String(address||'').trim();if(value.length<5)return null;this.lastError=null;const errors=[];let fallback=null;
     for(const query of this.queryVariants(value)){
       let candidates=[];
       try{candidates=await this.server(query)}catch(error){errors.push(error)}
-      const selected=this.choose(candidates);if(selected)return selected;
+      const selected=this.choose(candidates,{allowNearest});if(selected){if(allowNearest||selected.cluster)return selected;if(!fallback)fallback=selected}
     }
+    if(fallback)return fallback;
     const last=errors[errors.length-1];this.lastError=last||new Phase0Error('Адрес не найден API Геокодера.','GEOCODER_NOT_FOUND');
     if(last)throw last;return null;
   }

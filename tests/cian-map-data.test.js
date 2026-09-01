@@ -98,14 +98,14 @@ test('cluster filter drives list and map from one filtered collection',()=>{
   assert.deepEqual(inside.map(item=>item.externalId),['1']);assert.deepEqual(outside.map(item=>item.externalId),['2']);assert.deepEqual(unresolved.map(item=>item.externalId),['3']);
 });
 
-test('UI binds marker-card selection and local list removal without filter DOM dependencies',()=>{
+test('UI binds marker-card selection and unified project removal without filter DOM dependencies',()=>{
   const source=fs.readFileSync(path.join(ROOT,'cian-workspace.js'),'utf8');
   const render=source.slice(source.indexOf('function render()'),source.indexOf('function existingProject'));
   const bind=source.slice(source.indexOf('function bind()'),source.indexOf('function init()'));
   assert.equal(/addEventListener/.test(render),false);
   assert.match(bind,/nodes\.list\.addEventListener\('click'/);assert.match(bind,/selectListing\(button\.dataset\.listingId\)/);
-  assert.match(source,/marker\.events\.add\('click',[\s\S]*selectListing/);assert.match(bind,/data-remove-listing/);
-  assert.match(source,/HIDDEN_LISTINGS_KEY='slogi_cian_hidden_listing_ids_v1'/);assert.match(source,/hiddenListingIds\.add\(stableId\)/);
+  assert.match(source,/marker\.events\.add\('click',[\s\S]*selectListing/);assert.match(bind,/data-remove-space/);
+  assert.match(source,/HIDDEN_LISTINGS_KEY='slogi_cian_hidden_listing_ids_v1'/);assert.match(source,/projectRepository\(\)\.softDelete/);assert.match(source,/data-take-space/);
   assert.doesNotMatch(source,/\bfields\b|applyFilters|populateClusters|available-reset|available-cluster/);
   assert.match(source,/marker\.events\.removeAll/);
   assert.match(source,/createFallbackGeocoder\(serverGeocode,browserGeocode\)/);
@@ -124,7 +124,7 @@ test('search page has no user filters, sends the fixed gate and removes saved-ba
   assert.doesNotMatch(html+source,/сохран[её]нн/i);
   assert.match(source,/areaMin:FIXED_CRITERIA\.areaMin,areaMax:FIXED_CRITERIA\.areaMax,floor:FIXED_CRITERIA\.floor,premiseTypes:\[\.\.\.FIXED_CRITERIA\.premiseTypes\]/);
   assert.match(source,/applyFixedGate\(loaded\.items\)/);assert.match(source,/geocodeMissingListings\(all,/);
-  assert.match(source,/data-remove-listing/);assert.match(source,/data-remove-dialog/);
+  assert.match(source,/data-remove-space/);assert.match(source,/SlogiSearchSpaceCardModal/);
 });
 
 test('legacy phase0 geocoding has no browser-to-Yandex direct fallback or client API key payload',()=>{

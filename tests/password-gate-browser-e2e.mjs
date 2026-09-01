@@ -173,7 +173,11 @@ async function unlock(device,password=syntheticPassword){
 
 async function assertAvailableSpace(device,label){
   await device.page.goto(device.page.url().replace(/\/[^/]*$/,'/available-spaces.html'),{waitUntil:'domcontentloaded'});
-  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53&&document.querySelector('#cian-map-count')?.textContent?.includes('51 из 53'));
+  await device.page.waitForFunction(()=>window.SlogiCloud?.ready===true);
+  await device.page.evaluate(async()=>{localStorage.removeItem('slogi_cian_hidden_listing_ids_v1');const state=window.SlogiPro.read();state.settings.cianHiddenListingIds=[];window.SlogiPro.write(state,'fixture-listing-reset');await window.SlogiCloud.sync();});
+  await device.page.reload({waitUntil:'domcontentloaded'});
+  try{await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53&&document.querySelector('#cian-map-count')?.textContent?.includes('51 из 53'));}
+  catch(error){const diagnostic=await device.page.evaluate(()=>({cards:document.querySelectorAll('[data-listing-card]').length,map:document.querySelector('#cian-map-count')?.textContent,summary:document.querySelector('#available-summary')?.textContent,source:document.querySelector('#cian-source-state')?.textContent,htmlAccess:document.documentElement.dataset.slogiAccess}));throw new Error(`${label}: search did not settle ${JSON.stringify({diagnostic,issues:device.issues,pages:device.identity.searchPages})}`,{cause:error});}
   const metrics=await device.page.evaluate(()=>{
     const cards=[...document.querySelectorAll('[data-listing-card]')];
     const h1=Number.parseFloat(getComputedStyle(document.querySelector('.cian-hero h1')).fontSize);
@@ -197,13 +201,25 @@ async function assertAvailableSpace(device,label){
   assert.deepEqual(device.identity.searchPages.slice(-2),[1,2],label+': complete pagination');
   await device.page.locator('.fixture-map-marker').first().click();
   assert.equal(await device.page.locator('[data-listing-card].selected').count(),1,label+': marker/card sync');
+  await device.page.locator('#available-add-space').click();
+  const manualCard=device.page.getByRole('dialog',{name:'Карточка помещения'});await manualCard.waitFor();
+  assert.equal(await manualCard.getByRole('button',{name:'Взять в работу'}).isDisabled(),true,label+': incomplete manual card is blocked');
+  const modalMetrics=await manualCard.evaluate(node=>{const rect=node.getBoundingClientRect(),buttons=[...node.querySelectorAll('button')].filter(button=>getComputedStyle(button).display!=='none');return{left:rect.left,right:rect.right,width:rect.width,viewport:document.documentElement.clientWidth,overflow:Math.max(0,node.scrollWidth-node.clientWidth),font:Number.parseFloat(getComputedStyle(node).fontSize),shortButtons:buttons.filter(button=>button.getBoundingClientRect().height<43.5).map(button=>button.textContent.trim())};});
+  assert.ok(modalMetrics.left>=-1&&modalMetrics.right<=modalMetrics.viewport+1,label+': modal fits viewport');assert.equal(modalMetrics.overflow,0,label+': modal horizontal overflow');assert.ok(modalMetrics.font>=16,label+': modal readable font');assert.deepEqual(modalMetrics.shortButtons,[],label+': modal touch targets');
+  await manualCard.getByRole('button',{name:'Закрыть карточку'}).click();
+  await device.page.locator('.cian-card-open').first().click();
+  const parsedCard=device.page.getByRole('dialog',{name:'Карточка помещения'});await parsedCard.waitFor();
+  assert.match(await parsedCard.locator('[name="address"]').inputValue(),/Москва/);assert.equal(await parsedCard.getByRole('button',{name:'Взять в работу'}).isDisabled(),true,label+': incomplete parsed card is blocked');
+  await parsedCard.getByRole('button',{name:'Закрыть карточку'}).click();
   const removedId=await device.page.locator('[data-listing-card]').first().getAttribute('data-listing-card');
+  device.page.once('dialog',dialog=>dialog.accept());
   await device.page.locator('.cian-remove-listing').first().click();
   await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===52&&window.__slogiFixtureMarkerCount===50);
   assert.equal(await device.page.evaluate(id=>JSON.parse(localStorage.getItem('slogi_cian_hidden_listing_ids_v1')||'[]').includes(id),removedId),true,label+': stable hidden listing id');
+  assert.equal(await device.page.evaluate(id=>(window.SlogiPro.read().settings.cianHiddenListingIds||[]).includes(id),removedId),true,label+': shared hidden listing id');
   await device.page.reload({waitUntil:'domcontentloaded'});
   await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===52&&window.__slogiFixtureMarkerCount===50);
-  await device.page.evaluate(()=>localStorage.removeItem('slogi_cian_hidden_listing_ids_v1'));
+  await device.page.evaluate(async id=>{localStorage.removeItem('slogi_cian_hidden_listing_ids_v1');const state=window.SlogiPro.read();state.settings.cianHiddenListingIds=(state.settings.cianHiddenListingIds||[]).filter(value=>value!==id);window.SlogiPro.write(state,'fixture-listing-restore');await window.SlogiCloud.sync();},removedId);
   await device.page.reload({waitUntil:'domcontentloaded'});
   await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53&&window.__slogiFixtureMarkerCount===51);
 }
