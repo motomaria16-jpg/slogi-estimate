@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-import { BROWSERLESS_LIMITS, resolveBrowserlessTimeoutProfile, resolveHourlyBrowserlessPolicy } from '../browserless.ts';
+import { BROWSERLESS_LIMITS, classifyBrowserlessHttpFailure, resolveBrowserlessTimeoutProfile, resolveHourlyBrowserlessPolicy } from '../browserless.ts';
 import { extractListingDates, listingFreshnessDecision } from '../freshness.ts';
 import { pageBlockReason } from '../parsing.ts';
 import { CianListingProvider } from '../providers/cian.ts';
@@ -152,8 +152,13 @@ test('runtime Browserless policy is Cian smart-scrape only',()=>{
   assert.throws(()=>resolveBrowserlessTimeoutProfile('avito','card','smart-scrape'));
 });
 
+test('Browserless quota exhaustion is distinct from an invalid token',()=>{
+  assert.equal(classifyBrowserlessHttpFailure(401,'Account out of credits (401)'),'browserless_credits_exhausted');
+  assert.equal(classifyBrowserlessHttpFailure(401,'Unauthorized'),'browserless_http_401');
+});
+
 test('rolling ingestion budgets are bounded, sequential and cursor-capable',()=>{
-  assert.equal(DISCOVERY_LIMITS.browserlessCalls,2);assert.equal(DISCOVERY_LIMITS.concurrency,1);assert.equal(DISCOVERY_LIMITS.backfillPagesPerRun,1);assert.equal(DISCOVERY_LIMITS.runSlotHours,6);assert.equal(HYDRATION_LIMITS.hardBatch,2);assert.equal(HYDRATION_LIMITS.runSlotMinutes,60);assert.equal(HYDRATION_LIMITS.hardConcurrency,1);assert.equal(HYDRATION_LIMITS.browserlessCallsPerItem,1);assert.ok(BROWSERLESS_LIMITS.hardClientTimeoutMs<=75000);
+  assert.equal(DISCOVERY_LIMITS.browserlessCalls,2);assert.equal(DISCOVERY_LIMITS.concurrency,1);assert.equal(DISCOVERY_LIMITS.backfillPagesPerRun,1);assert.equal(DISCOVERY_LIMITS.runSlotHours,24);assert.equal(HYDRATION_LIMITS.hardBatch,1);assert.equal(HYDRATION_LIMITS.runSlotMinutes,120);assert.equal(HYDRATION_LIMITS.hardConcurrency,1);assert.equal(HYDRATION_LIMITS.browserlessCallsPerItem,1);assert.ok(BROWSERLESS_LIMITS.hardClientTimeoutMs<=75000);
   const source=readFileSync(join(repositoryDirectory,'supabase','functions','refresh-listings','index.ts'),'utf8');
   assert.equal(/MAX_BACKFILL_PAGE|max_backfill_page_reached/i.test(source),false);
 });
@@ -242,14 +247,14 @@ test('duplicate daily discovery slot exits before Browserless',async()=>{
   assert.equal(response.status,200);assert.equal(calls,0);assert.equal((await response.json()).outcome.status,'duplicate');
 });
 
-test('duplicate hourly hydration slot exits before Browserless',async()=>{
+test('duplicate two-hour hydration slot exits before Browserless',async()=>{
   let calls=0;const store=inertStore({async claimRun(){return{claimed:false,runId:null,recovered:false};}});
   const handler=createHydrateListingsHandler({store,client:{async fetchPage(){calls++;throw new Error('unexpected');}},environment:environment({SLOGI_LISTING_CRON_SECRET:'fixture'}),now:()=>dateReference,workerId:()=> '11111111-1111-4111-8111-111111111111'});
   const response=await handler(new Request('http://local/hydrate',{method:'POST',headers:{'x-slogi-listing-cron-secret':'fixture','Content-Type':'application/json'},body:'{"source":"cian"}'}));
   assert.equal(response.status,200);assert.equal(calls,0);assert.equal((await response.json()).outcome.status,'duplicate');
 });
 
-test('discovery and hydration slots advance within the same UTC day without provider calls',async()=>{
+test('daily discovery and two-hour hydration slots are normalized without provider calls',async()=>{
   const capture=async(kind:'discovery'|'hydration',at:string)=>{
     let slot='';
     const store=inertStore({async claimRun(_source,phase,runSlot){assert.equal(phase,kind);slot=runSlot;return{claimed:false,runId:null,recovered:false};}});
@@ -258,9 +263,9 @@ test('discovery and hydration slots advance within the same UTC day without prov
     const response=await handler(new Request('http://local/slot',{method:'POST',headers:{'x-slogi-listing-cron-secret':'fixture','Content-Type':'application/json'},body:'{"source":"cian"}'}));
     assert.equal(response.status,200);return slot;
   };
-  assert.equal(await capture('discovery','2026-08-28T07:59:00Z'),'2026-08-28T06:00:00.000Z');
-  assert.equal(await capture('discovery','2026-08-28T13:01:00Z'),'2026-08-28T12:00:00.000Z');
-  assert.equal(await capture('hydration','2026-08-28T07:59:00Z'),'2026-08-28T07:00:00.000Z');
+  assert.equal(await capture('discovery','2026-08-28T07:59:00Z'),'2026-08-28T00:00:00.000Z');
+  assert.equal(await capture('discovery','2026-08-28T13:01:00Z'),'2026-08-28T00:00:00.000Z');
+  assert.equal(await capture('hydration','2026-08-28T07:59:00Z'),'2026-08-28T06:00:00.000Z');
   assert.equal(await capture('hydration','2026-08-28T08:01:00Z'),'2026-08-28T08:00:00.000Z');
 });
 
@@ -293,6 +298,7 @@ function partialListingHtml(freshnessAt:string|null):string{
 
 async function hydrateCase(options:{
   html:string;
+  pageResult?:BrowserlessPage;
   now?:Date;
   initialAttemptCount?:number;
   persistResult?:{inserted:number;updated:number};
@@ -309,13 +315,13 @@ async function hydrateCase(options:{
     async markRemoved(){throw new Error('unexpected_removed');},
   });
   const handler=createHydrateListingsHandler({
-    store,client:{async fetchPage(){providerCalls+=1;return page(options.html);}},
+    store,client:{async fetchPage(){providerCalls+=1;return options.pageResult||page(options.html);}},
     environment:environment({SLOGI_LISTING_CRON_SECRET:'fixture'}),now:()=>now,
     workerId:()=> '11111111-1111-4111-8111-111111111111',
   });
   const response=await handler(new Request('http://local/hydrate',{method:'POST',headers:{'x-slogi-listing-cron-secret':'fixture','Content-Type':'application/json'},body:'{"source":"cian"}'}));
   assert.equal(response.status,200);
-  return{body:await response.json(),item,persisted,persistCalls,providerCalls,queueFinish,runFinish};
+  return{body:await response.json(),item,state,persisted,persistCalls,providerCalls,queueFinish,runFinish};
 }
 
 test('recent partial listing is rejected by the mandatory selection gate',async()=>{
@@ -368,6 +374,15 @@ test('old partial listing is terminal discarded_old and never persisted',async()
   const result=await hydrateCase({html:partialListingHtml(old)});
   assert.equal(result.persistCalls,0);assert.equal(result.providerCalls,1);assert.equal(result.item.status,'discarded_old');assert.equal(result.queueFinish.status,'discarded_old');assert.equal(result.queueFinish.nextAttemptAt,null);
   assert.equal(result.runFinish.metrics.parsed,1);assert.equal(result.runFinish.metrics.partial,1);assert.equal(result.runFinish.metrics.skipped_old,1);
+});
+
+test('Browserless quota exhaustion keeps a queue item retryable regardless of attempt count',async()=>{
+  const result=await hydrateCase({
+    html:'',initialAttemptCount:99,
+    pageResult:{status:'error',html:'',markdown:'',links:[],strategy:'smart-scrape',attempted:['smart-scrape'],statusCode:401,durationMs:1,blockReason:null,warnings:[],errorCode:'browserless_credits_exhausted'},
+  });
+  assert.equal(result.providerCalls,1);assert.equal(result.persistCalls,0);assert.equal(result.item.status,'retry');assert.equal(result.queueFinish.errorCode,'browserless_credits_exhausted');
+  assert.equal(result.queueFinish.nextAttemptAt,new Date(dateReference.getTime()+24*60*60*1000).toISOString());assert.equal(result.runFinish.status,'partial');assert.equal(result.runFinish.errorCode,'browserless_credits_exhausted');assert.equal(result.state.cooldownUntil,result.queueFinish.nextAttemptAt);
 });
 
 test('hydration rejects area, floor, basement and unknown or ambiguous type before persistence',async()=>{
@@ -429,10 +444,16 @@ test('scheduler activation changes only the two guarded Cian cadences and has an
   assert.match(rollback,/10 3 \* \* \*/);assert.match(rollback,/25 3 \* \* \*/);
 });
 
-test('frontend search sends Auth, reads only, and exposes disabled future source',()=>{
+test('free-tier recovery schedule caps provider calls and revives quota-failed rows',()=>{
+  const sql=readFileSync(join(repositoryDirectory,'supabase','schedules','cian-listings-v76116-free-budget.sql'),'utf8');
+  assert.match(sql,/10 3 \* \* \*/);assert.match(sql,/25 \*\/2 \* \* \*/);assert.match(sql,/status = 'retry'/);assert.match(sql,/browserless_credits_exhausted/);assert.match(sql,/2026-09-20 00:00:00\+00/);
+  assert.equal(/cron\.schedule|cron\.unschedule|delete\s+from|insert\s+into|update\s+cron\.job/i.test(sql),false);
+});
+
+test('frontend search sends Auth, reads only, and exposes only the active source',()=>{
   const js=readFileSync(join(repositoryDirectory,'cian-workspace.js'),'utf8');const html=readFileSync(join(repositoryDirectory,'available-spaces.html'),'utf8');
   const readPath=js.slice(js.indexOf('async function fetchListingPage'),js.indexOf('function loadYandex'));
-  assert.match(js,/Authorization/);assert.match(js,/getAccessToken/);assert.match(js,/feed\.loadAllPages/);assert.match(html,/cian-listing-feed\.js/);assert.equal(/update-clusters|refresh-listings|hydrate-listings/.test(js),false);assert.equal(/localStorage\.setItem|addMarketListing|\.sync\(/.test(readPath),false);assert.match(html,/<h2>Авито<\/h2><p>Подключение готовится<\/p>/);assert.equal(/data-source="avito"|available-source/.test(html),false);
+  assert.match(js,/Authorization/);assert.match(js,/getAccessToken/);assert.match(js,/feed\.loadAllPages/);assert.match(html,/cian-listing-feed\.js/);assert.equal(/update-clusters|refresh-listings|hydrate-listings/.test(js),false);assert.equal(/localStorage\.setItem|addMarketListing|\.sync\(/.test(readPath),false);assert.equal(/Авито|data-source="avito"|available-source/.test(html),false);
 });
 
 test('hotfix navigation exposes the four product sections in the approved order',()=>{
@@ -444,10 +465,10 @@ test('hotfix navigation exposes the four product sections in the approved order'
 });
 
 test('Cian workspace uses canonical clusters and renders measurable map polygons',()=>{
-  const js=readFileSync(join(repositoryDirectory,'cian-workspace.js'),'utf8');const html=readFileSync(join(repositoryDirectory,'available-spaces.html'),'utf8');
+  const js=readFileSync(join(repositoryDirectory,'cian-workspace.js'),'utf8');const mapJs=readFileSync(join(repositoryDirectory,'cian-map-data.js'),'utf8');const html=readFileSync(join(repositoryDirectory,'available-spaces.html'),'utf8');
   assert.doesNotMatch(html,/cian-filter-card|available-(?:cluster|area-min|area-max|rent-min|rent-max|sqm-min|sqm-max|date|sort|reset)/);assert.doesNotMatch(html+js,/сохран[её]нн/i);
   assert.match(js,/areaMin:FIXED_CRITERIA\.areaMin,areaMax:FIXED_CRITERIA\.areaMax,floor:FIXED_CRITERIA\.floor,premiseTypes:\[\.\.\.FIXED_CRITERIA\.premiseTypes\]/);assert.match(js,/applyFixedGate\(loaded\.items\)/);assert.match(js,/geocodeMissingListings\(all,/);
-  assert.match(js,/service\.findByCoordinates/);assert.match(js,/new window\.ymaps\.Polygon/);assert.match(js,/dataset\.clusterPolygons/);
+  assert.match(js,/mapData\.clusterState/);assert.match(mapJs,/clusterService\.findByCoordinates/);assert.match(js,/new window\.ymaps\.Polygon/);assert.match(js,/dataset\.clusterPolygons/);
   assert.match(js,/HIDDEN_LISTINGS_KEY='slogi_cian_hidden_listing_ids_v1'/);assert.doesNotMatch(js,/\bfields\b|applyFilters|populateClusters/);
   assert.equal(/fetch\([^)]*cian\.ru/i.test(js),false);
 });

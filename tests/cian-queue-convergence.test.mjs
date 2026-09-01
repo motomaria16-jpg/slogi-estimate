@@ -57,32 +57,34 @@ test('refresh observability calls known URLs observedExisting without implying q
   assert.match(source, /queued_existing:\s*counts\.observedExisting/);
 });
 
-test('static provider budget remains exactly 56 Browserless calls per UTC day', () => {
+test('static provider budget remains at most 14 Browserless calls per UTC day', () => {
   const refresh = read('supabase/functions/refresh-listings/index.ts');
   const hydrate = read('supabase/functions/hydrate-listings/index.ts');
   const number = (source, name) => Number(source.match(new RegExp(`${name}:\\s*(\\d+)`))?.[1]);
   const discovery = (24 / number(refresh, 'runSlotHours')) * number(refresh, 'browserlessCalls');
   const hydration = (24 * 60 / number(hydrate, 'runSlotMinutes')) * number(hydrate, 'hardBatch') * number(hydrate, 'browserlessCallsPerItem');
-  assert.equal(discovery, 8);
-  assert.equal(hydration, 48);
-  assert.equal(discovery + hydration, 56);
+  assert.equal(discovery, 2);
+  assert.equal(hydration, 12);
+  assert.equal(discovery + hydration, 14);
 });
 
-test('deterministic q6h discovery and hourly-two hydration converges without requeue growth', () => {
+test('daily discovery and two-hourly single hydration converge without requeue growth', () => {
   const rows = Array.from({ length: 48 }, (_, id) => ({ id, status: 'pending', attempts: 0, completedHour: null, observedHour: 0 }));
   const backlog = [];
   let maxActivatedAfterDrain = 0;
   for (let hour = 0; hour <= 96; hour += 1) {
-    if (hour % 6 === 0) {
+    if (hour % 24 === 0) {
       for (const row of rows.slice(0, 27)) row.observedHour = hour;
     }
     const nonterminal = rows.filter((row) => row.status === 'pending' || row.status === 'retry' || row.status === 'processing');
-    let claimed = nonterminal.filter((row) => row.status === 'pending' || row.status === 'retry').slice(0, 2);
+    let claimed = hour % 2 === 0
+      ? nonterminal.filter((row) => row.status === 'pending' || row.status === 'retry').slice(0, 1)
+      : [];
     if (!nonterminal.length) {
       claimed = rows
         .filter((row) => row.status === 'completed' && hour - row.completedHour >= 24 && row.observedHour > row.completedHour)
         .sort((left, right) => left.completedHour - right.completedHour || left.id - right.id)
-        .slice(0, 2);
+        .slice(0, 1);
       maxActivatedAfterDrain = Math.max(maxActivatedAfterDrain, claimed.length);
       for (const row of claimed) row.attempts = 0;
     }
@@ -94,8 +96,8 @@ test('deterministic q6h discovery and hourly-two hydration converges without req
     }
     backlog.push(rows.filter((row) => row.status === 'pending' || row.status === 'retry' || row.status === 'processing').length);
   }
-  assert.deepEqual(backlog.slice(0, 25), Array.from({ length: 25 }, (_, hour) => Math.max(0, 48 - (hour + 1) * 2)));
-  assert.ok(backlog.slice(24).every((value) => value === 0));
-  assert.equal(maxActivatedAfterDrain, 2);
+  assert.deepEqual(backlog.slice(0, 10), [47,47,46,46,45,45,44,44,43,43]);
+  assert.ok(backlog.slice(94).every((value) => value === 0));
+  assert.equal(maxActivatedAfterDrain, 1);
   assert.equal(rows.length, 48);
 });

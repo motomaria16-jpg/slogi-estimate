@@ -23,11 +23,12 @@ const CRON_HEADER = 'x-slogi-listing-cron-secret';
 const SOURCES = new Set<ListingSource>(['cian']);
 
 export const HYDRATION_LIMITS = Object.freeze({
-  // The SQL claim RPC independently clamps to two rows. Keep the runtime
-  // contract identical so configuration cannot imply a larger daily batch.
-  defaultBatch: 2,
-  hardBatch: 2,
-  runSlotMinutes: 60,
+  // The free Browserless allowance is monthly and proxy traffic also consumes
+  // units. Claim one card every two hours so the automatic feed remains within
+  // the account's sustainable provider budget.
+  defaultBatch: 1,
+  hardBatch: 1,
+  runSlotMinutes: 120,
   defaultConcurrency: 1,
   hardConcurrency: 1,
   browserlessCallsPerItem: 1,
@@ -96,8 +97,8 @@ function isSource(value: unknown): value is ListingSource {
 }
 
 function hydrationSlot(value: Date): string {
-  const minute = Math.floor(value.getUTCMinutes() / HYDRATION_LIMITS.runSlotMinutes) * HYDRATION_LIMITS.runSlotMinutes;
-  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate(), value.getUTCHours(), minute)).toISOString();
+  const slotMs = HYDRATION_LIMITS.runSlotMinutes * 60_000;
+  return new Date(Math.floor(value.getTime() / slotMs) * slotMs).toISOString();
 }
 
 function response(body: unknown, status = 200): Response {
@@ -123,6 +124,10 @@ function lazyClient(environment: EnvironmentReader): BrowserlessPageClient {
 
 function transient(code: string): boolean {
   return /network|timeout|http_(?:408|429|5xx)$/.test(code);
+}
+
+function providerUnavailable(code: string): boolean {
+  return /browserless_(?:credits_exhausted|not_configured|http_(?:401|402|403))$/.test(code);
 }
 
 function retryDelayMs(attemptCount: number): number {
@@ -208,9 +213,10 @@ async function processItem(
     }
     if (page.status === 'error') {
       const code = safeCode(page.errorCode);
-      const retry = transient(code) && item.attemptCount < HYDRATION_LIMITS.transientMaxAttempts;
+      const unavailable = providerUnavailable(code);
+      const retry = unavailable || (transient(code) && item.attemptCount < HYDRATION_LIMITS.transientMaxAttempts);
       const status: QueueFinish['status'] = retry ? 'retry' : 'failed';
-      const next = retry ? new Date(now.getTime() + retryDelayMs(item.attemptCount)).toISOString() : null;
+      const next = retry ? new Date(now.getTime() + (unavailable ? 24 * 60 * 60_000 : retryDelayMs(item.attemptCount))).toISOString() : null;
       await finish(store, item, workerId, status, finishedAt, next, code, { attemptCount: item.attemptCount, retryScheduled: retry, attemptSummaries });
       return { status, parsed: 0, partial: 0, blocked: 0, failed: retry ? 0 : 1, inserted: 0, updated: 0, skippedOld: 0, skippedUnknownDate: 0, errorCode: code, attemptSummaries };
     }
@@ -268,9 +274,10 @@ async function processItem(
   } catch (error) {
     if (error instanceof HydrationRuntimeError || runtimeSignal.aborted) throw new HydrationRuntimeError();
     const code = safeCode(error instanceof Error ? error.message : error);
-    const retry = item.attemptCount < HYDRATION_LIMITS.transientMaxAttempts;
+    const unavailable = providerUnavailable(code);
+    const retry = unavailable || item.attemptCount < HYDRATION_LIMITS.transientMaxAttempts;
     const status: QueueFinish['status'] = retry ? 'retry' : 'failed';
-    const next = retry ? new Date(now.getTime() + retryDelayMs(item.attemptCount)).toISOString() : null;
+    const next = retry ? new Date(now.getTime() + (unavailable ? 24 * 60 * 60_000 : retryDelayMs(item.attemptCount))).toISOString() : null;
     await finish(store, item, workerId, status, finishedAt, next, code, { attemptCount: item.attemptCount, retryScheduled: retry, attemptSummaries });
     return { status, parsed: 0, partial: 0, blocked: 0, failed: retry ? 0 : 1, inserted: 0, updated: 0, skippedOld: 0, skippedUnknownDate: 0, errorCode: code, attemptSummaries };
   }
@@ -339,9 +346,13 @@ export function createHydrateListingsHandler(dependencies: HydrateDependencies =
         state.hydrationFailures = 0;
         state.lastHydrationSucceededAt = startedAt;
         state.lastHydrationErrorCode = null;
+        state.cooldownUntil = null;
       } else {
         state.hydrationFailures += 1;
         state.lastHydrationErrorCode = outcomes.find((value) => value.errorCode)?.errorCode || status;
+        if (state.lastHydrationErrorCode === 'browserless_credits_exhausted') {
+          state.cooldownUntil = new Date(now.getTime() + 24 * 60 * 60_000).toISOString();
+        }
       }
       await store.saveState(state, startedAt, controller.signal);
       const sum = (field: keyof ItemOutcome) => outcomes.reduce((total, value) => total + (typeof value[field] === 'number' ? value[field] as number : 0), 0);

@@ -112,6 +112,10 @@ export function resolveHourlyBrowserlessPolicy(source: ListingSource, environmen
 }
 
 export function classifyBrowserlessHttpFailure(status: number, body: string): string {
+  const normalized = String(body || '').toLowerCase().replace(/\s+/g, ' ').slice(0, 20_000);
+  if (status === 401 && /(?:out of credits|unit limit reached|credits? exhausted|insufficient units?)/.test(normalized)) {
+    return 'browserless_credits_exhausted';
+  }
   if (status === 401) return 'browserless_http_401';
   if (status === 402) return 'browserless_http_402';
   if (status === 403) return 'browserless_http_403';
@@ -119,7 +123,6 @@ export function classifyBrowserlessHttpFailure(status: number, body: string): st
   if (status === 429) return 'browserless_http_429';
   if (status >= 500 && status <= 599) return 'browserless_http_5xx';
 
-  const normalized = String(body || '').toLowerCase().replace(/\s+/g, ' ').slice(0, 20_000);
   if (status === 400) {
     const mentionsProxy = /\bproxy|residential/.test(normalized);
     if (mentionsProxy && /\b(plan|subscription|billing|upgrade|paid tier|not included|not available on)/.test(normalized)) {
@@ -319,7 +322,7 @@ function retryableStatus(status: number): boolean {
 }
 
 function errorPriority(code: string): number {
-  if (/browserless_http_(?:401|402|403)$|browserless_proxy_plan_unavailable/.test(code)) return 0;
+  if (/browserless_credits_exhausted|browserless_http_(?:401|402|403)$|browserless_proxy_plan_unavailable/.test(code)) return 0;
   if (/browserless_(?:invalid_parameter|unsupported_parameter|http_400_unclassified)$/.test(code)) return 1;
   if (code === 'browserless_http_429') return 2;
   if (/browserless_http_408|timeout/.test(code)) return 3;

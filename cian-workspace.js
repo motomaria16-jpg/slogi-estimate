@@ -153,11 +153,12 @@
   function setSource(meta){
     const source=meta&&meta.sources&&meta.sources.cian||{};
     const last=source.lastSucceededAt||source.lastHydrationAt||source.lastDiscoveryAt;
-    const status=source.errorCode?'error':String(source.status||'unknown');
+    const creditsExhausted=String(source.errorCode||'')==='browserless_credits_exhausted';
+    const status=creditsExhausted?'cooldown':source.errorCode?'error':String(source.status||'unknown');
     sourceHealth={status,errorCode:String(source.errorCode||'')};
-    const labels={ok:'Источник обновлён',cooldown:'Источник временно приостановлен',error:'Обновление завершилось с ошибкой',never_scanned:'Плановое обновление ещё не выполнялось'};
+    const labels={ok:'Источник обновлён',cooldown:creditsExhausted?'Лимит сервиса сбора исчерпан':'Источник временно приостановлен',error:'Обновление завершилось с ошибкой',never_scanned:'Плановое обновление ещё не выполнялось'};
     nodes.source.textContent=labels[status]||'Состояние источника неизвестно';
-    nodes.badge.textContent=status==='ok'?'Работает':status==='error'?'Ошибка':'Ожидание';
+    nodes.badge.textContent=status==='ok'?'Работает':status==='error'?'Ошибка':creditsExhausted?'Пауза':'Ожидание';
     nodes.badge.dataset.state=status;
     nodes.updated.textContent=last?formatDate(last):'Нет данных';
   }

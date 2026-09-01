@@ -27,7 +27,7 @@ export const DISCOVERY_LIMITS = Object.freeze({
   browserlessCalls: 2,
   concurrency: 1,
   backfillPagesPerRun: 1,
-  runSlotHours: 6,
+  runSlotHours: 24,
   defaultRuntimeMs: 75_000,
   minRuntimeMs: 100,
   hardRuntimeMs: 90_000,
@@ -287,10 +287,14 @@ export function createRefreshListingsHandler(dependencies: RefreshDependencies =
         state.discoveryFailures = 0;
         state.lastDiscoverySucceededAt = startedAt;
         state.lastDiscoveryErrorCode = null;
+        state.cooldownUntil = null;
         state.nextPage = cursorResetReason ? 2 : backfillPage + 1;
       } else {
         state.discoveryFailures += 1;
         state.lastDiscoveryErrorCode = pages.find((page) => page.errorCode)?.errorCode || (blockedPages ? 'blocked' : 'provider_error');
+        if (state.lastDiscoveryErrorCode === 'browserless_credits_exhausted') {
+          state.cooldownUntil = new Date(now.getTime() + 24 * 60 * 60_000).toISOString();
+        }
       }
       await abortable(store.saveState(state, startedAt, controller.signal), controller.signal);
       const status: RunFinish['status'] = success ? (hotInputs.length + backfillInputs.length ? 'ok' : 'empty') : (hotInputs.length + backfillInputs.length ? 'partial' : blockedPages ? 'blocked' : 'failed');
