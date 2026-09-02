@@ -23,6 +23,13 @@
   const positive=value=>{const parsed=number(value);return parsed!=null&&parsed>0?parsed:null;};
   const rounded=(value,digits=2)=>value==null?null:Number(Number(value).toFixed(digits));
 
+  function resolutionSource(value){
+    const normalized=key(value);
+    if(['manual','manually','ручной','вручную'].includes(normalized))return'manual';
+    if(['automatic','auto','automatically','автоматически','авто'].includes(normalized))return'automatic';
+    return null;
+  }
+
   function yesNo(value,fallback='no'){
     if(value===true||value===1)return'yes';
     if(value===false||value===0)return'no';
@@ -79,6 +86,7 @@
       name,
       status,
       matched,
+      resolutionSource:resolutionSource(first(source.resolutionSource,source.resolution_source,input.clusterResolutionSource,input.cluster_resolution_source)),
       hasSlogiCenter:centerState==='unknown'?null:centerState==='yes',
       centerDetails:text(first(source.centerDetails,source.center_details,input.centerDetails,input.center_details)),
     };
@@ -97,6 +105,7 @@
       rating,
       rank,
       isTop30:rank==null?null:rank>=1&&rank<=30,
+      resolutionSource:resolutionSource(first(source.resolutionSource,source.resolution_source,input.competitiveResolutionSource,input.competitive_resolution_source)),
       averageRentPerSqm:rounded(averageRentPerSqm),
       deltaRentPerSqm,
       deltaPercent,

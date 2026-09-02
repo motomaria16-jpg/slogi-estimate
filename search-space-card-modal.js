@@ -77,6 +77,9 @@
         name: clusterName,
         status: clusterStatus,
         matched,
+        resolutionSource: ['manual', 'automatic'].includes(text(nested(rawCluster, 'resolutionSource', raw.clusterResolutionSource)).toLowerCase())
+          ? text(nested(rawCluster, 'resolutionSource', raw.clusterResolutionSource)).toLowerCase()
+          : null,
         hasSlogiCenter: boolOrNull(nested(rawCluster, 'hasSlogiCenter', raw.hasSlogiCenter)),
         centerDetails: text(nested(rawCluster, 'centerDetails', nested(rawCluster, 'center_details', raw.centerDetails)))
       },
@@ -84,6 +87,9 @@
         rating: numberOrNull(nested(rawCompetitive, 'rating', raw.clusterRating)),
         rank,
         isTop30: explicitTop30 == null && rank != null ? rank >= 1 && rank <= 30 : explicitTop30,
+        resolutionSource: ['manual', 'automatic'].includes(text(nested(rawCompetitive, 'resolutionSource', raw.competitiveResolutionSource)).toLowerCase())
+          ? text(nested(rawCompetitive, 'resolutionSource', raw.competitiveResolutionSource)).toLowerCase()
+          : null,
         averageRentPerSqm: numberOrNull(nested(rawCompetitive, 'averageRentPerSqm', raw.averageRentPerSqm))
       },
       rentMonthly: numberOrNull(nested(raw, 'rentMonthly', rawRent.amount)),
@@ -149,12 +155,12 @@
     else if (!card.competitive.isTop30) reasons.push('Кластер помещения не входит в ТОП-30.');
     if (!(card.rentMonthly > 0)) missing.push('Укажите стоимость аренды.');
     if (!(card.area > 0)) missing.push('Укажите площадь помещения.');
-    if (card.areaConfirmed !== true) missing.push(card.areaConfirmed === false ? 'Площадь должна быть подтверждена «Да».' : 'Подтвердите площадь: да или нет.');
+    if (card.areaConfirmed !== true) missing.push(card.areaConfirmed === false ? 'Площадь должна подходить: выберите «Да».' : 'Укажите, подходит ли площадь.');
     if (card.separateEntrance == null) missing.push('Укажите наличие отдельного входа.');
     if (card.hasWindows == null) missing.push('Укажите наличие окон.');
     if (card.hasWindows === true && card.windowsOpen == null) missing.push('Укажите, открываются ли окна.');
     if (!(card.ceilingHeight > 0)) missing.push('Укажите высоту потолков.');
-    if (card.ceilingHeightConfirmed !== true) missing.push(card.ceilingHeightConfirmed === false ? 'Высота потолков должна быть подтверждена «Да».' : 'Подтвердите высоту потолков: да или нет.');
+    if (card.ceilingHeightConfirmed !== true) missing.push(card.ceilingHeightConfirmed === false ? 'Высота потолков должна подходить: выберите «Да».' : 'Укажите, подходит ли высота потолков.');
     if (!card.repair) missing.push('Укажите состояние ремонта.');
     if (!(card.competitive.averageRentPerSqm > 0)) missing.push('В конкурентном анализе нет средней стоимости аренды по кластеру.');
     const allReasons = reasons.concat(missing);
@@ -188,13 +194,13 @@
     address: 'Укажите адрес помещения.',
     rentMonthly: 'Укажите стоимость аренды.',
     area: 'Укажите площадь помещения.',
-    areaConfirmed: 'Площадь должна быть подтверждена «Да».',
+    areaConfirmed: 'Площадь должна подходить: выберите «Да».',
     pricePerSqm: 'Укажите площадь и аренду для расчёта цены за 1 м².',
     separateEntrance: 'Укажите наличие отдельного входа.',
     hasWindows: 'Укажите наличие окон.',
     windowsOpen: 'Укажите, открываются ли окна.',
     ceilingHeight: 'Укажите высоту потолков.',
-    ceilingHeightConfirmed: 'Высота потолков должна быть подтверждена «Да».',
+    ceilingHeightConfirmed: 'Высота потолков должна подходить: выберите «Да».',
     repair: 'Укажите состояние ремонта.',
     competitiveAverage: 'В конкурентном анализе нет средней стоимости аренды по кластеру.'
   });
@@ -285,6 +291,17 @@
               <article class="ss-card-status-card" data-status="center"><span>Центр Слоги</span><strong>Нет данных</strong><p>Проверка выполнится после определения кластера.</p></article>
               <article class="ss-card-status-card" data-status="ranking"><span>Конкурентный анализ</span><strong>Нет данных</strong><p>Для работы требуется ТОП-30 кластеров.</p></article>
             </div>
+            <details class="ss-card-manual" data-manual-location>
+              <summary><span>Ввести данные вручную</span><small data-manual-summary>Если автоматическая проверка не дала результата</small></summary>
+              <p class="ss-card-manual-note">Ручные значения сохранятся в карточке. При переводе помещения в работу система всё равно повторно проверит адрес и кластер.</p>
+              <div class="ss-card-manual-grid">
+                <label class="ss-card-field" data-manual-cluster><span>Название кластера</span><input name="clusterNameManual" type="text" placeholder="Например, Лефортово"></label>
+                <fieldset class="ss-card-option" data-manual-cluster><legend>Помещение входит в кластер</legend><div>${choice('clusterStatusManual', 'inside', 'Да')}${choice('clusterStatusManual', 'outside', 'Нет')}</div></fieldset>
+                <fieldset class="ss-card-option" data-manual-cluster><legend>В кластере есть центр Слоги</legend><div>${choice('hasSlogiCenterManual', 'true', 'Да')}${choice('hasSlogiCenterManual', 'false', 'Нет')}</div></fieldset>
+                <label class="ss-card-field" data-manual-competitive><span>Место кластера в рейтинге</span><input name="clusterRankManual" type="number" min="1" step="1" inputmode="numeric" placeholder="1–30"></label>
+                <label class="ss-card-field" data-manual-competitive><span>Средняя аренда в кластере, ₽/м²</span><input name="averageRentManual" type="number" min="0" step="1" inputmode="decimal" placeholder="0"></label>
+              </div>
+            </details>
           </section>
 
           <section class="ss-card-section" aria-labelledby="ss-card-economy-title">
@@ -293,7 +310,7 @@
               <label class="ss-card-field"><span>Стоимость аренды в месяц, ₽ <b aria-hidden="true">*</b></span><input name="rentMonthly" type="number" min="0" step="1" inputmode="decimal" placeholder="0"></label>
               <div class="ss-card-combined-field">
                 <label class="ss-card-field"><span>Площадь, м² <b aria-hidden="true">*</b></span><input name="area" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label>
-                <fieldset class="ss-card-binary"><legend>Площадь подтверждена</legend>${choice('areaConfirmed', 'true', 'Да')}${choice('areaConfirmed', 'false', 'Нет')}</fieldset>
+                <fieldset class="ss-card-binary"><legend>Площадь подходит</legend>${choice('areaConfirmed', 'true', 'Да')}${choice('areaConfirmed', 'false', 'Нет')}</fieldset>
               </div>
             </div>
             <div class="ss-card-economy-grid" aria-live="polite">
@@ -311,7 +328,7 @@
               <fieldset class="ss-card-option" data-windows-open hidden><legend>Окна открываются</legend><div>${choice('windowsOpen', 'true', 'Да')}${choice('windowsOpen', 'false', 'Нет')}</div></fieldset>
               <div class="ss-card-combined-field">
                 <label class="ss-card-field"><span>Высота потолков, м <b aria-hidden="true">*</b></span><input name="ceilingHeight" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label>
-                <fieldset class="ss-card-binary"><legend>Высота подтверждена</legend>${choice('ceilingHeightConfirmed', 'true', 'Да')}${choice('ceilingHeightConfirmed', 'false', 'Нет')}</fieldset>
+                <fieldset class="ss-card-binary"><legend>Высота подходит</legend>${choice('ceilingHeightConfirmed', 'true', 'Да')}${choice('ceilingHeightConfirmed', 'false', 'Нет')}</fieldset>
               </div>
               <fieldset class="ss-card-option ss-card-repair"><legend>Ремонт</legend><div>${choice('repair', 'none', 'Нет ремонта')}${choice('repair', 'rough', 'Черновой')}${choice('repair', 'finished', 'Чистовой')}</div></fieldset>
             </div>
@@ -371,10 +388,32 @@
     return selected ? selected.value : null;
   }
 
-  function collectDraft() {
+  function collectDraft(manualGroups) {
     const current = state.draft || normalizeFallback({});
+    const groups = manualGroups || {};
+    const manualClusterName = text(input('clusterNameManual') && input('clusterNameManual').value);
+    const manualClusterStatus = readRadio('clusterStatusManual');
+    const manualCenter = boolOrNull(readRadio('hasSlogiCenterManual'));
+    const manualRank = numberOrNull(input('clusterRankManual') && input('clusterRankManual').value);
+    const manualAverage = numberOrNull(input('averageRentManual') && input('averageRentManual').value);
+    const cluster = Object.assign({}, current.cluster, {
+      id: groups.cluster && manualClusterName !== current.cluster.name ? '' : current.cluster.id,
+      name: manualClusterName,
+      status: manualClusterStatus || current.cluster.status,
+      matched: manualClusterStatus === 'inside' ? true : manualClusterStatus === 'outside' ? false : current.cluster.matched,
+      resolutionSource: groups.cluster ? 'manual' : current.cluster.resolutionSource,
+      hasSlogiCenter: manualCenter
+    });
+    const competitive = Object.assign({}, current.competitive, {
+      rank: manualRank == null ? null : Math.trunc(manualRank),
+      isTop30: manualRank == null ? null : manualRank >= 1 && manualRank <= 30,
+      resolutionSource: groups.competitive ? 'manual' : current.competitive.resolutionSource,
+      averageRentPerSqm: manualAverage
+    });
     return normalizeFallback(Object.assign({}, current, {
       address: text(input('address') && input('address').value),
+      cluster,
+      competitive,
       rentMonthly: numberOrNull(input('rentMonthly') && input('rentMonthly').value),
       area: numberOrNull(input('area') && input('area').value),
       areaConfirmed: boolOrNull(readRadio('areaConfirmed')),
@@ -389,6 +428,11 @@
 
   function fillForm(card) {
     setControl('address', card.address);
+    setControl('clusterNameManual', card.cluster.name);
+    setControl('clusterStatusManual', card.cluster.status === 'inside' || card.cluster.status === 'outside' ? card.cluster.status : null);
+    setControl('hasSlogiCenterManual', card.cluster.hasSlogiCenter);
+    setControl('clusterRankManual', card.competitive.rank);
+    setControl('averageRentManual', card.competitive.averageRentPerSqm);
     setControl('rentMonthly', card.rentMonthly);
     setControl('area', card.area);
     setControl('areaConfirmed', card.areaConfirmed);
@@ -416,8 +460,10 @@
   }
 
   function renderLocation(card) {
+    const clusterSource = card.cluster.resolutionSource === 'manual' ? ' Введено вручную.' : '';
+    const competitiveSource = card.competitive.resolutionSource === 'manual' ? ' Введено вручную.' : '';
     if (card.cluster.status === 'inside') {
-      setStatus('cluster', 'success', card.cluster.name || card.cluster.id || 'Кластер определён', 'Помещение входит в границы кластера.');
+      setStatus('cluster', 'success', card.cluster.name || card.cluster.id || 'Кластер определён', `Помещение входит в границы кластера.${clusterSource}`);
     } else if (card.cluster.status === 'address') {
       setStatus('cluster', 'warning', card.cluster.name || 'Район указан в адресе', 'Это предварительная подсказка. Подтвердите кластер точным определением координат.');
     } else if (card.cluster.status === 'outside') {
@@ -427,9 +473,9 @@
     }
 
     if (card.cluster.hasSlogiCenter === true) {
-      setStatus('center', 'danger', 'Кластер занят', card.cluster.centerDetails || 'В кластере уже есть открытый центр Слоги.');
+      setStatus('center', 'danger', 'Кластер занят', card.cluster.centerDetails || `В кластере уже есть открытый центр Слоги.${clusterSource}`);
     } else if (card.cluster.hasSlogiCenter === false) {
-      setStatus('center', 'success', 'Кластер свободен', 'Открытого центра Слоги в кластере нет.');
+      setStatus('center', 'success', 'Кластер свободен', `Открытого центра Слоги в кластере нет.${clusterSource}`);
     } else {
       setStatus('center', 'neutral', 'Нет данных', 'Наличие центра ещё не определено.');
     }
@@ -437,9 +483,9 @@
     const rank = card.competitive.rank;
     const ratingSuffix = card.competitive.rating == null ? '' : ` · рейтинг ${formatNumber(card.competitive.rating, 1)}`;
     if (card.competitive.isTop30 === true) {
-      setStatus('ranking', 'success', rank == null ? 'Входит в ТОП-30' : `${formatNumber(rank, 0)} место`, `Кластер входит в ТОП-30${ratingSuffix}.`);
+      setStatus('ranking', 'success', rank == null ? 'Входит в ТОП-30' : `${formatNumber(rank, 0)} место`, `Кластер входит в ТОП-30${ratingSuffix}.${competitiveSource}`);
     } else if (card.competitive.isTop30 === false) {
-      setStatus('ranking', 'danger', rank == null ? 'Не входит в ТОП-30' : `${formatNumber(rank, 0)} место`, `Кластер не проходит условие ТОП-30${ratingSuffix}.`);
+      setStatus('ranking', 'danger', rank == null ? 'Не входит в ТОП-30' : `${formatNumber(rank, 0)} место`, `Кластер не проходит условие ТОП-30${ratingSuffix}.${competitiveSource}`);
     } else {
       setStatus('ranking', 'neutral', 'Нет данных', 'Загрузите конкурентный анализ для проверки.');
     }
@@ -502,6 +548,15 @@
     renderEconomy(state.evaluation);
     renderReadiness(state.evaluation);
     renderResolution();
+    const manualLocation = state.dialog.querySelector('[data-manual-location]');
+    const manualMissing = state.draft.cluster.status !== 'inside'
+      || state.draft.cluster.hasSlogiCenter == null
+      || state.draft.competitive.rank == null
+      || !(state.draft.competitive.averageRentPerSqm > 0);
+    if (manualMissing) manualLocation.open = true;
+    manualLocation.querySelector('[data-manual-summary]').textContent = manualMissing
+      ? 'Заполните значения, которые не определились автоматически'
+      : 'Автоматические данные получены — при необходимости их можно уточнить';
     const windowsOpen = state.dialog.querySelector('[data-windows-open]');
     windowsOpen.hidden = state.draft.hasWindows !== true;
     if (windowsOpen.hidden) setControl('windowsOpen', null);
@@ -515,8 +570,12 @@
     resolveButton.textContent = state.busy === 'resolve' ? 'Определяем…' : 'Определить';
   }
 
-  function syncFromForm() {
-    state.draft = collectDraft();
+  function syncFromForm(event) {
+    const target = event && event.target;
+    state.draft = collectDraft({
+      cluster: Boolean(target && target.closest && target.closest('[data-manual-cluster]')),
+      competitive: Boolean(target && target.closest && target.closest('[data-manual-competitive]'))
+    });
     render();
   }
 
@@ -554,6 +613,8 @@
       const result = await state.callbacks.onResolveAddress(state.draft);
       const payload = result && (result.card || result.data) ? (result.card || result.data) : result;
       if (payload && typeof payload === 'object') state.draft = normalize(mergeCard(state.draft, payload));
+      state.draft.cluster.resolutionSource = 'automatic';
+      state.draft.competitive.resolutionSource = 'automatic';
       state.resolution = 'success';
       state.resolutionMessage = state.draft.cluster.status === 'outside'
         ? 'Адрес определён. Помещение находится вне действующих кластеров.'
@@ -602,14 +663,15 @@
       if (event.target.name === 'address') {
         event.target.setCustomValidity('');
         state.draft = collectDraft();
-        state.draft.cluster = { id: '', name: '', matched: null, hasSlogiCenter: null };
-        state.draft.competitive = { rating: null, rank: null, isTop30: null, averageRentPerSqm: null };
+        state.draft.cluster = { id: '', name: '', status: 'not_computed', matched: null, resolutionSource: null, hasSlogiCenter: null, centerDetails: '' };
+        state.draft.competitive = { rating: null, rank: null, isTop30: null, resolutionSource: null, averageRentPerSqm: null };
         state.resolution = 'idle';
         state.resolutionMessage = 'Адрес изменён — определите кластер повторно.';
+        fillForm(state.draft);
         render();
         return;
       }
-      syncFromForm();
+      syncFromForm(event);
     });
     state.form.addEventListener('change', syncFromForm);
     state.form.addEventListener('submit', (event) => event.preventDefault());

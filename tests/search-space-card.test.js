@@ -37,7 +37,7 @@ test('manual and parsed payloads use one canonical field and derived-value model
 test('rent per square metre and competitive delta are always calculated, never trusted from input',()=>{
   const card=model.normalize(ready({pricePerSqm:999999,competitive:{rating:92,rank:12,averageRentPerSqm:3200}}));
   assert.equal(card.pricePerSqm,3000);
-  assert.deepEqual(card.competitive,{rating:92,rank:12,isTop30:true,averageRentPerSqm:3200,deltaRentPerSqm:-200,deltaPercent:-6.25,priceDirection:'lower'});
+  assert.deepEqual(card.competitive,{rating:92,rank:12,isTop30:true,resolutionSource:null,averageRentPerSqm:3200,deltaRentPerSqm:-200,deltaPercent:-6.25,priceDirection:'lower'});
   const higher=model.normalize(ready({rentMonthly:420000,competitive:{rank:30,averageRentPerSqm:3000}}));
   assert.equal(higher.pricePerSqm,3500);assert.equal(higher.competitive.priceDirection,'higher');assert.equal(higher.competitive.deltaPercent,16.67);
 });
@@ -86,4 +86,22 @@ test('nested technical input and Russian option labels normalize deterministical
   });
   assert.equal(card.areaConfirmed,'yes');assert.equal(card.separateEntrance,'no');assert.equal(card.hasWindows,'yes');assert.equal(card.windowsOpen,'no');
   assert.equal(card.ceilingHeight,4.25);assert.equal(card.ceilingHeightConfirmed,'yes');assert.equal(card.repair,'rough');assert.equal(card.canTakeToWork,true);
+});
+
+test('manual cluster and competitive fallbacks preserve provenance and participate in the strict gate',()=>{
+  const card=model.normalize(ready({
+    cluster:{name:'Лефортово',status:'inside',hasSlogiCenter:false,resolutionSource:'manual'},
+    competitive:{rank:18,averageRentPerSqm:4100,resolutionSource:'manual'},
+  }));
+  assert.equal(card.cluster.resolutionSource,'manual');
+  assert.equal(card.competitive.resolutionSource,'manual');
+  assert.equal(card.competitive.isTop30,true);
+  assert.equal(card.canTakeToWork,true);
+
+  const automatic=model.normalize(ready({
+    cluster:{id:'cluster-1',status:'inside',hasSlogiCenter:false,resolution_source:'automatic'},
+    competitive:{rank:4,averageRentPerSqm:3900,resolution_source:'automatic'},
+  }));
+  assert.equal(automatic.cluster.resolutionSource,'automatic');
+  assert.equal(automatic.competitive.resolutionSource,'automatic');
 });

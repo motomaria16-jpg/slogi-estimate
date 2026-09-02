@@ -118,6 +118,16 @@ test('UI exposes separate missing-address, missing-coordinate, failed and pendin
   assert.match(source,/mapNoAddress\.textContent=`Без адреса: \$\{state\.missingAddressCount\}`/);
 });
 
+test('search layout keeps compact hero, map controls in heading and card actions vertical',()=>{
+  const html=fs.readFileSync(path.join(ROOT,'available-spaces.html'),'utf8'),source=fs.readFileSync(path.join(ROOT,'cian-workspace.js'),'utf8'),css=fs.readFileSync(path.join(ROOT,'cian-workspace.css'),'utf8');
+  assert.match(html,/class="cian-hero-content"[^>]*><h1 id="available-title">Поиск помещений<\/h1><div class="cian-hero-details">/);
+  assert.match(html,/class="cian-map-heading-actions">[\s\S]*id="cian-map-count"[\s\S]*id="cian-clusters-toggle"/);
+  assert.doesNotMatch(html,/class="cian-map-toolbar"/);
+  assert.doesNotMatch(source,/>Карточка помещения<\/button>/);
+  assert.match(source,/<button class="cian-card-open"[^>]*data-listing-id=/);
+  assert.match(css,/\.cian-card-actions\{display:grid!important;grid-template-columns:minmax\(0,1fr\)!important/);
+});
+
 test('search page has no user filters, sends the fixed gate and removes saved-base wording',()=>{
   const html=fs.readFileSync(path.join(ROOT,'available-spaces.html'),'utf8'),source=fs.readFileSync(path.join(ROOT,'cian-workspace.js'),'utf8');
   assert.doesNotMatch(html,/cian-filter-card|available-(?:cluster|area|min|max|rent|sqm|date|sort|reset)/);

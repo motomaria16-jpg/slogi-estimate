@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const ROOT = path.resolve(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
@@ -40,6 +41,59 @@ function readyCard(overrides = {}) {
     cluster: Object.assign({}, base.cluster, overrides.cluster || {}),
     competitive: Object.assign({}, base.competitive, overrides.competitive || {})
   });
+}
+
+function serviceHarness({ card, geo = null, locate, metric = null, otherProjects = [] }) {
+  const sharedState = { settings: {} };
+  const window = {
+    SlogiPro: {
+      readLocations: () => [],
+      writeLocations: () => {},
+      read: () => sharedState,
+      write: () => {},
+      actor: () => 'integration-test',
+      uid: (prefix) => `${prefix}-test`,
+      activity: () => {}
+    },
+    SlogiWorkflow: {},
+    SlogiSearchSpaceCard: cardModel,
+    SLOGI_PHASE0_CONFIG: { competitiveAnalysis: { provider: 'none', cacheSchemaVersion: 1 } },
+    SLOGI_CLUSTERS_GEOJSON: { type: 'FeatureCollection', features: [] }
+  };
+  const sandbox = { window, URL, AbortController, setTimeout, clearTimeout, console };
+  vm.runInNewContext(servicesSource, sandbox, { filename: 'phase0-services.js' });
+  const api = window.SlogiPhase0;
+  api.clusterService.locate = locate || (() => ({ status: 'invalid', clusterId: '', clusterName: '' }));
+
+  let current = {
+    id: 'space-1',
+    address: card.address,
+    geo,
+    clusterId: card.cluster && card.cluster.id || '',
+    clusterName: card.cluster && card.cluster.name || '',
+    phase0: { revision: 1, spaceCard: JSON.parse(JSON.stringify(card)) }
+  };
+  const repository = {
+    get: (id) => String(id) === current.id ? JSON.parse(JSON.stringify(current)) : null,
+    listAll: () => [current, ...otherProjects].map(project => JSON.parse(JSON.stringify(project))),
+    mutate: (id, mutator) => {
+      assert.equal(String(id), current.id);
+      current = mutator(JSON.parse(JSON.stringify(current)));
+      current.phase0.revision = Number(current.phase0.revision || 0) + 1;
+      return JSON.parse(JSON.stringify(current));
+    }
+  };
+  const competitive = { metricFor: () => metric, snapshot: () => ({ rows: [] }) };
+  const audit = { record: () => {}, recordSave: () => {}, recordRating: () => {} };
+  const service = new api.Phase0Service({ projectRepository: repository, competitiveRepository: competitive, fileService: {}, auditService: audit });
+  return { service, current: () => current };
+}
+
+function manualReadyCard(overrides = {}) {
+  return readyCard(Object.assign({}, overrides, {
+    cluster: Object.assign({ resolutionSource: 'manual' }, overrides.cluster || {}),
+    competitive: Object.assign({ resolutionSource: 'manual' }, overrides.competitive || {})
+  }));
 }
 
 test('the search page loads one shared card model before the modal and workspace', () => {
@@ -88,11 +142,91 @@ test('takeSpaceIntoWork revalidates the exact cluster from persisted coordinates
 
 test('taking into work rechecks current occupancy and competitive data before mutation', () => {
   const body = methodBody(servicesSource, 'takeSpaceIntoWork', 'readiness');
-  const contextCall = body.indexOf('this.spaceContext(');
+  const contextCall = body.indexOf('this.takeSpaceContext(');
   const evaluateCall = body.indexOf('model.evaluate(');
   const mutation = body.indexOf('this.projects.mutate(');
   assert.ok(contextCall >= 0 && evaluateCall > contextCall && mutation > evaluateCall);
   assert.match(body, /if\s*\(\s*!gate\.canTakeToWork\s*\)\s*throw/);
+  const contextStart = servicesSource.indexOf('  takeSpaceContext(');
+  const contextEnd = servicesSource.indexOf('\n  async resolveSpaceAddress(', contextStart);
+  assert.ok(contextStart >= 0 && contextEnd > contextStart);
+  const contextBody = servicesSource.slice(contextStart, contextEnd);
+  assert.match(contextBody, /this\.spaceContext\(/);
+  assert.match(contextBody, /this\.manualSpaceContext\(/);
+});
+
+test('an explicit complete manual context can be taken into work when automatic location is unavailable', () => {
+  const card = manualReadyCard({ competitive: { rating: null } });
+  const { service } = serviceHarness({ card });
+  const saved = service.takeSpaceIntoWork('space-1');
+  assert.equal(saved.status, 'В работе');
+  assert.equal(saved.phase0.spaceCard.cluster.id, 'cluster-1');
+  assert.equal(saved.phase0.spaceCard.cluster.resolutionSource, 'manual');
+  assert.equal(saved.phase0.spaceCard.competitive.rank, 12);
+  assert.equal(saved.phase0.spaceCard.competitive.rating, 12);
+  assert.equal(saved.phase0.spaceCard.competitive.averageRentPerSqm, 3000);
+  assert.equal(saved.phase0.spaceCard.competitive.resolutionSource, 'manual');
+});
+
+test('exact polygon containment overrides a conflicting manually selected cluster', () => {
+  const card = manualReadyCard({ cluster: { id: 'manual-cluster', name: 'Ручной кластер' }, competitive: { rank: 3, rating: 3, averageRentPerSqm: 2500 } });
+  const { service } = serviceHarness({
+    card,
+    geo: { lat: 55.7, lng: 37.6 },
+    locate: () => ({ status: 'inside', clusterId: 'auto-cluster', clusterName: 'Точный кластер' }),
+    metric: { rating: 18, averageRentPerSqm: 4100 }
+  });
+  const saved = service.takeSpaceIntoWork('space-1');
+  assert.equal(saved.phase0.spaceCard.cluster.id, 'auto-cluster');
+  assert.equal(saved.phase0.spaceCard.cluster.resolutionSource, 'automatic');
+  assert.equal(saved.phase0.spaceCard.competitive.rank, 18);
+  assert.equal(saved.phase0.spaceCard.competitive.averageRentPerSqm, 4100);
+  assert.equal(saved.phase0.spaceCard.competitive.resolutionSource, 'automatic');
+});
+
+test('a currently known open center blocks a manual free-cluster assertion', () => {
+  const card = manualReadyCard({ cluster: { hasSlogiCenter: false } });
+  const center = { id: 'center-2', clusterId: 'cluster-1', clusterName: 'Кластер 1', centerName: 'СЛОГИ Тест', isSlogiCenterOpen: true };
+  const { service } = serviceHarness({ card, otherProjects: [center] });
+  assert.throws(
+    () => service.takeSpaceIntoWork('space-1'),
+    error => error.code === 'SPACE_WORK_BLOCKED' && error.details.card.cluster.hasSlogiCenter === true && error.details.gate.reasons.includes('cluster_occupied')
+  );
+});
+
+test('system competitive data overrides manual rank and average for a manual cluster', () => {
+  const card = manualReadyCard({ competitive: { rank: 5, rating: 5, averageRentPerSqm: 2800 } });
+  const { service } = serviceHarness({ card, metric: { rating: 41, averageRentPerSqm: 4700 } });
+  assert.throws(
+    () => service.takeSpaceIntoWork('space-1'),
+    error => error.code === 'SPACE_WORK_BLOCKED' && error.details.card.competitive.rank === 41 && error.details.card.competitive.averageRentPerSqm === 4700 && error.details.card.competitive.resolutionSource === 'automatic'
+  );
+});
+
+test('manual competitive data fills only fields missing from a partial system profile', () => {
+  const card = manualReadyCard({ competitive: { rating: null, rank: 5, averageRentPerSqm: 2800 } });
+  const { service } = serviceHarness({ card, metric: { rating: null, averageRentPerSqm: 4700 } });
+  const saved = service.takeSpaceIntoWork('space-1');
+  assert.equal(saved.phase0.spaceCard.competitive.rank, 5);
+  assert.equal(saved.phase0.spaceCard.competitive.rating, 5);
+  assert.equal(saved.phase0.spaceCard.competitive.averageRentPerSqm, 4700);
+  assert.equal(saved.phase0.spaceCard.competitive.resolutionSource, 'manual');
+});
+
+test('manual fallback is rejected unless its source and required potential fields are explicit', () => {
+  const card = readyCard();
+  const { service } = serviceHarness({ card });
+  assert.throws(
+    () => service.takeSpaceIntoWork('space-1'),
+    error => error.code === 'SPACE_WORK_BLOCKED' && error.details.gate.reasons.includes('cluster_not_confirmed')
+  );
+});
+
+test('space-card saving and work transition never use a nearest-cluster fallback', () => {
+  const buildBody = methodBody(servicesSource, 'buildCandidate', 'validate');
+  const takeBody = methodBody(servicesSource, 'takeSpaceIntoWork', 'readiness');
+  assert.doesNotMatch(buildBody, /findNearestByCoordinates/);
+  assert.doesNotMatch(takeBody, /findNearestByCoordinates/);
 });
 
 test('the unified card is persisted and saved projects are soft-deleted', () => {

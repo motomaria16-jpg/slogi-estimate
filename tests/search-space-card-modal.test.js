@@ -102,6 +102,28 @@ test('round-trip preserves outside status, center details, source provider, work
   assert.equal(JSON.stringify(card.work), JSON.stringify({ status: 'draft', owner: 'team' }));
 });
 
+test('manual location fallback stays in the shared card and can satisfy the local strict gate', () => {
+  const api = loadApi(CARD_MODEL);
+  const card = api.normalize({
+    source: 'parsed',
+    address: 'Москва, шоссе Энтузиастов, 3',
+    cluster: { name: 'Лефортово', status: 'inside', hasSlogiCenter: false, resolutionSource: 'manual' },
+    competitive: { rank: 9, averageRentPerSqm: 4000, resolutionSource: 'manual' },
+    rentMonthly: 480000,
+    area: 120,
+    areaConfirmed: true,
+    separateEntrance: true,
+    hasWindows: false,
+    ceilingHeight: 3.2,
+    ceilingHeightConfirmed: true,
+    repair: 'rough'
+  });
+
+  assert.equal(card.cluster.resolutionSource, 'manual');
+  assert.equal(card.competitive.resolutionSource, 'manual');
+  assert.equal(api.evaluate(card).canTakeToWork, true);
+});
+
 test('successful mutating callbacks use a forced close while action is busy', () => {
   assert.match(SOURCE, /if \(closeAfter\) close\([^;]+, true\);/);
   assert.match(SOURCE, /function close\(reason, force\)/);
@@ -116,6 +138,14 @@ test('markup and styles preserve accessible labels, live feedback and responsive
   assert.match(SOURCE, /choice\('repair', 'none', 'Нет ремонта'\)/);
   assert.match(SOURCE, /choice\('repair', 'rough', 'Черновой'\)/);
   assert.match(SOURCE, /choice\('repair', 'finished', 'Чистовой'\)/);
+  assert.match(SOURCE, /data-manual-location/);
+  assert.match(SOURCE, /name="clusterNameManual"/);
+  assert.match(SOURCE, /name="clusterRankManual"/);
+  assert.match(SOURCE, /name="averageRentManual"/);
+  assert.match(SOURCE, /Площадь подходит/);
+  assert.match(SOURCE, /Высота подходит/);
+  assert.doesNotMatch(SOURCE, /Площадь подтверждена|Высота подтверждена/);
+  assert.match(CSS, /\.ss-card-manual-grid/);
   assert.match(CSS, /@media \(max-width: 540px\)/);
   assert.match(CSS, /:focus-visible/);
   assert.match(CSS, /@media \(forced-colors: active\)/);

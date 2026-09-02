@@ -599,7 +599,6 @@ class Phase0Service{
     const clusterId=String(draft.clusterId||''),geo=normalizeGeo({lat:draft.latitude,lng:draft.longitude}),spaceCard=draft.spaceCard&&typeof draft.spaceCard==='object'?clone(draft.spaceCard):(base.spaceCard&&typeof base.spaceCard==='object'?clone(base.spaceCard):null);
     const clusterApi=window.SlogiPhase0&&window.SlogiPhase0.clusterService;let cluster=clusterApi?clusterApi.find(clusterId||draft.clusterName):null;
     if(!cluster&&geo&&clusterApi)cluster=clusterApi.findByCoordinates(geo.lat,geo.lng);
-    if(!cluster&&geo&&clusterApi&&source!=='cian'&&!spaceCard&&clusterApi.findNearestByCoordinates)cluster=clusterApi.findNearestByCoordinates(geo.lat,geo.lng,6000);
     const phase0=Object.assign(defaultPhase0(),base,{
       source,listingUrl,canonicalUrl:normalizeUrl(draft.canonicalUrl||listingUrl),externalId:String(draft.externalId||base.externalId||''),listingTitle:String(draft.listingTitle||base.listingTitle||''),listingPublishedAt:String(draft.publishedAt||base.listingPublishedAt||''),listingUpdatedAt:String(draft.sourceUpdatedAt||base.listingUpdatedAt||''),listingAddedAt:String(base.listingAddedAt||draft.addedAt||stamp),parserWarnings:Array.isArray(draft.parserWarnings)?draft.parserWarnings.map(String).slice(0,20):Array.isArray(base.parserWarnings)?base.parserWarnings:[],floor:nullableNumber(draft.floor??base.floor),totalFloors:nullableNumber(draft.totalFloors??base.totalFloors),
       rent:{amount:nullableNumber(draft.rentMonthly),period:normalizeRentPeriod(draft.rentPeriod),currency:String(draft.rentCurrency||'RUB')},
@@ -682,7 +681,31 @@ class Phase0Service{
   }
   spaceContext(clusterId,clusterName,excludeProjectId=''){
     const centers=this.openCentersInCluster(clusterId,clusterName,excludeProjectId),competitive=this.competitiveProfile(clusterId,clusterName);
-    return{cluster:{id:String(clusterId||''),name:String(clusterName||''),status:clusterId||clusterName?'inside':'not_computed',matched:Boolean(clusterId||clusterName),hasSlogiCenter:centers.length>0,centerDetails:centers.map(center=>center.name).join(', ')},competitive,centers};
+    return{cluster:{id:String(clusterId||''),name:String(clusterName||''),status:clusterId||clusterName?'inside':'not_computed',matched:Boolean(clusterId||clusterName),hasSlogiCenter:centers.length>0,centerDetails:centers.map(center=>center.name).join(', '),resolutionSource:'automatic'},competitive:Object.assign({},competitive,{resolutionSource:'automatic'}),centers};
+  }
+  manualSpaceContext(stored,excludeProjectId=''){
+    const cluster=stored&&stored.cluster&&typeof stored.cluster==='object'?stored.cluster:{},competitive=stored&&stored.competitive&&typeof stored.competitive==='object'?stored.competitive:{};
+    const clusterId=String(cluster.id||cluster.clusterId||'').trim(),clusterName=String(cluster.name||cluster.clusterName||'').trim();
+    const manualCluster=cluster.resolutionSource==='manual'&&cluster.status==='inside'&&Boolean(clusterId||clusterName)&&typeof cluster.hasSlogiCenter==='boolean';
+    if(!manualCluster)return null;
+    const centers=this.openCentersInCluster(clusterId,clusterName,excludeProjectId),systemCompetitive=this.competitiveProfile(clusterId,clusterName);
+    const systemRating=nullableNumber(systemCompetitive.rating),systemRank=nullableNumber(systemCompetitive.rank),systemAverage=nullableNumber(systemCompetitive.averageRentPerSqm),manualAllowed=competitive.resolutionSource==='manual';
+    const manualRank=manualAllowed?nullableNumber(competitive.rank):null,manualRating=manualAllowed?nullableNumber(competitive.rating):null,effectiveManualRating=manualRating==null?manualRank:manualRating,manualAverage=manualAllowed?nullableNumber(competitive.averageRentPerSqm):null;
+    const selectedRank=systemRank==null?manualRank:systemRank,selectedRating=systemRating==null?effectiveManualRating:systemRating,selectedAverage=systemAverage==null?manualAverage:systemAverage;
+    const usedManual=(systemRank==null&&manualRank!=null)||(systemRating==null&&effectiveManualRating!=null)||(systemAverage==null&&manualAverage!=null);
+    const selectedCompetitive={rating:selectedRating,rank:selectedRank==null?null:Math.trunc(selectedRank),isTop30:selectedRank==null?null:selectedRank>=1&&selectedRank<=30,averageRentPerSqm:selectedAverage,resolutionSource:usedManual?'manual':[systemRating,systemRank,systemAverage].some(value=>value!=null)?'automatic':'not_computed'};
+    return{
+      cluster:{id:clusterId,name:clusterName,status:'inside',matched:true,hasSlogiCenter:centers.length>0?true:cluster.hasSlogiCenter,centerDetails:centers.length?centers.map(center=>center.name).join(', '):String(cluster.centerDetails||''),resolutionSource:'manual'},
+      competitive:selectedCompetitive,centers
+    };
+  }
+  takeSpaceContext(stored,located,excludeProjectId=''){
+    if(located&&located.status==='inside'){
+      const automatic=this.spaceContext(located.clusterId,located.clusterName,excludeProjectId),manual=stored&&stored.cluster&&stored.cluster.resolutionSource==='manual'&&(sameCluster(stored.cluster.id,located.clusterId)||sameCluster(stored.cluster.name,located.clusterName))?this.manualSpaceContext(stored,excludeProjectId):null;
+      if(manual&&[automatic.competitive.rating,automatic.competitive.rank,automatic.competitive.averageRentPerSqm].some(value=>nullableNumber(value)==null))automatic.competitive=manual.competitive;
+      automatic.cluster.resolutionSource='automatic';return automatic;
+    }
+    return this.manualSpaceContext(stored,excludeProjectId)||{cluster:{id:'',name:'',status:located&&located.status==='outside'?'outside':'not_computed',matched:false,hasSlogiCenter:located&&located.status==='outside'?false:null,centerDetails:'',resolutionSource:'not_computed'},competitive:{rating:null,rank:null,isTop30:null,averageRentPerSqm:null,resolutionSource:'not_computed'},centers:[]};
   }
   async resolveSpaceAddress(address,excludeProjectId=''){
     const result=await geocodingService.geocode(address,{allowNearest:false});
@@ -696,8 +719,9 @@ class Phase0Service{
     const model=window.SlogiSearchSpaceCard;if(!model||typeof model.normalize!=='function')throw new Phase0Error('Модель карточки помещения не подключена.','SPACE_CARD_UNAVAILABLE');
     const stored=current.phase0&&current.phase0.spaceCard||{},geo=projectGeo(current),located=geo?clusterService.locate(geo.lat,geo.lng):{status:'invalid'};
     if(stored.work&&stored.work.status==='in_work')return current;
-    const context=located&&located.status==='inside'?this.spaceContext(located.clusterId,located.clusterName,current.id):{cluster:{id:'',name:'',status:located&&located.status==='outside'?'outside':'not_computed',matched:false,hasSlogiCenter:located&&located.status==='outside'?false:null,centerDetails:''},competitive:{rating:null,rank:null,isTop30:null,averageRentPerSqm:null}};
+    const context=this.takeSpaceContext(stored,located,current.id);
     const card=model.normalize(Object.assign({},stored,{cluster:context.cluster,competitive:context.competitive})),gate=model.evaluate(card);
+    card.cluster.resolutionSource=context.cluster.resolutionSource;card.competitive.resolutionSource=context.competitive.resolutionSource;
     if(!gate.canTakeToWork)throw new Phase0Error('Помещение пока нельзя взять в работу.','SPACE_WORK_BLOCKED',{gate,card});
     const actor=this.actor(),stamp=now(),saved=this.projects.mutate(current.id,project=>{project.status='В работе';project.projectStatus='В работе';project.phase0=Object.assign(defaultPhase0(),project.phase0||{});project.phase0.status=STATUS.SUITABLE;project.phase0.spaceCard=Object.assign({},card,{work:{status:'in_work',takenAt:stamp,takenBy:actor}});return project},current.phase0&&current.phase0.revision,'space-card-take-into-work');
     this.audit.record(saved.id,'space-card-take-into-work','Помещение взято в работу',{clusterId:saved.clusterId,clusterName:saved.clusterName});return saved;
