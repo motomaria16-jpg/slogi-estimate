@@ -551,6 +551,7 @@ class CompetitiveAnalysisRepository{
     const state=P.read();state.settings.phase0CompetitiveAnalysis={cacheSchemaVersion:Number(this.config.cacheSchemaVersion||1),rows:clone(result.rows||[]),columns:clone(result.columns||[]),columnSchema:clone(result.columnSchema||null),lastSuccess:result.syncedAt,version:result.version||'',source:this.config.provider,sheetName:result.sheetName||this.config.sheetName||'Свод',fileName:result.fileName||''};P.write(state,'phase0-competitive-cache');
   }
   snapshot(){const stale=Boolean(this.state.lastSuccess&&Date.now()-new Date(this.state.lastSuccess).getTime()>Number(this.config.staleAfterMs||2592000000));return Object.assign({},clone(this.state),{connected:this.isConnected(),stale})}
+  rehydrate(){if(this.state&&this.state.status==='loading')return this.snapshot();this.state=this.readCache();return this.snapshot()}
   rows(){return clone(this.state.rows||[])}
   metricFor(clusterId,clusterName){const rows=this.state.rows||[],idKey=clusterKey(clusterId),nameKey=clusterKey(clusterName);return rows.find(row=>Boolean((idKey&&(sameCluster(row.clusterId,idKey)||sameCluster(row.clusterName,idKey)))||(nameKey&&(sameCluster(row.clusterName,nameKey)||sameCluster(row.clusterId,nameKey)))))||null}
   async importFile(file){

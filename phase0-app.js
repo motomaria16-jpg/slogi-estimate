@@ -8,7 +8,7 @@ const one=(selector,root=document)=>root.querySelector(selector);
 const all=(selector,root=document)=>Array.from(root.querySelectorAll(selector));
 const esc=S.esc;
 const repo=S.projectRepository,competitive=S.competitiveRepository,clusters=S.clusterService,phaseService=S.phase0Service,listingService=S.listingImportService,geocoder=S.geocodingService,files=S.fileService;
-const state={projects:[],visible:[],selectedId:'',hoverId:'',drawerProjectId:'',drawerRevision:null,drawerDirty:false,pendingLayout:null,lastFocused:null,competitiveCluster:'',quickFilter:'',map:null,syncing:false,listExpanded:false,addressGeocodeTimer:null,addressGeocodeSeq:0,backfillRunning:false};
+const state={projects:[],visible:[],selectedId:'',hoverId:'',drawerProjectId:'',drawerRevision:null,drawerDirty:false,pendingLayout:null,lastFocused:null,quickFilter:'',map:null,listExpanded:false,addressGeocodeTimer:null,addressGeocodeSeq:0,backfillRunning:false};
 
 function fmtNumber(value,max=0){return value==null||!Number.isFinite(Number(value))?'Нет данных':Number(value).toLocaleString('ru-RU',{maximumFractionDigits:max})}
 function fmtMoney(value){return value==null||!Number.isFinite(Number(value))?'Нет данных':`${Math.round(Number(value)).toLocaleString('ru-RU')} ₽`}
@@ -25,15 +25,6 @@ function readinessProgress(project){const phase=project.phase0||{},criteria=phas
 function nextAction(project){const phase=project.phase0||{},criteria=phase.selectionCriteria||{},measurement=phase.measurement||{};if(phase.status===S.STATUS.REJECTED)return{text:'Решение зафиксировано',tone:'muted'};if(phaseService.readiness(project).ready)return{text:'Готов к смете',tone:'ready'};if(phase.status!==S.STATUS.SUITABLE)return{text:'Дальше: принять решение',tone:''};if(!(project.area!=null&&phase.roomsCount!=null&&project.ceilingHeight!=null&&phase.rent&&phase.rent.period==='month'&&S.rentPerSqm(project.area,phase.rent.amount)!=null))return{text:'Дальше: заполнить параметры',tone:''};if(!(project.clusterId||project.clusterName))return{text:'Дальше: определить кластер',tone:''};if(!S.CRITERIA_KEYS.every(key=>criteria[key]===true))return{text:'Дальше: завершить отбор',tone:''};if(!(phase.layout&&phase.layout.received))return{text:'Дальше: получить планировку',tone:''};if(!(phase.interest&&phase.interest.confirmed))return{text:'Дальше: подтвердить интерес',tone:''};if(measurement.status==='Запланирован')return{text:'Дальше: выполнить замер',tone:'measure'};return{text:'Готов к замеру',tone:'measure'}}
 function toast(message){const node=byId('phase0-toast');node.textContent=message;node.classList.add('show');clearTimeout(node._timer);node._timer=setTimeout(()=>node.classList.remove('show'),4200)}
 function setUrlProject(id){const url=new URL(location.href);url.searchParams.delete('create');if(id)url.searchParams.set('location',id);else url.searchParams.delete('location');history.replaceState({},'',url.pathname+(url.search?url.search:''));if(id)localStorage.setItem('slogi_active_project_v1',id)}
-
-function renderSyncStrip(){
-  const snapshot=competitive.snapshot(),node=byId('phase0-sync-strip');let dot='',label='',details='';
-  if(state.syncing||snapshot.status==='loading'){dot='warn';label='Читаем файл';details='Обрабатываем лист «Свод»'}
-  else if(snapshot.status==='error'){dot='bad';label='Ошибка файла';details=snapshot.error||'Загрузите корректный XLSX-файл'}
-  else if(snapshot.lastSuccess){dot='good';label=snapshot.fileName||'Файл загружен';details=`Лист «${snapshot.sheetName||'Свод'}» · ${snapshot.rows.length} кластеров · ${fmtDate(snapshot.lastSuccess,true)}`}
-  else{label='Файл не загружен';details='Откройте «Конкурентный анализ» и загрузите XLSX с листом «Свод»'}
-  node.innerHTML=`<button class="phase0-sync-summary" type="button" data-action="open-competitive" title="${esc(details)}"><span class="phase0-sync-dot ${dot}" aria-hidden="true"></span><span>${esc(label)}</span></button>`;
-}
 
 function renderKpis(){
   const projects=state.projects,working=projects.filter(p=>[S.STATUS.NO_ANSWER,S.STATUS.WAITING,S.STATUS.ANALYSING].includes(p.phase0.status)).length,suitable=projects.filter(p=>p.phase0.status===S.STATUS.SUITABLE).length,measuring=projects.filter(p=>p.phase0.measurement&&p.phase0.measurement.status==='Запланирован').length,rejected=projects.filter(p=>p.phase0.status===S.STATUS.REJECTED).length;
@@ -118,7 +109,7 @@ function renderList(){
 function reload(){
   state.projects=repo.listPhase0().map(project=>S.viewModel(project,competitive));
   if(state.selectedId&&!projectById(state.selectedId))state.selectedId='';
-  populateFilters();renderKpis();renderList();renderSyncStrip();
+  populateFilters();renderKpis();renderList();
 }
 
 function selectProject(id,{scroll=true,focusMap=false}={}){
@@ -331,51 +322,9 @@ function bindEditor(){
   all('[data-action="editor-phase1"]',form).forEach(button=>button.addEventListener('click',()=>goToPhase1(state.drawerProjectId)));
 }
 
-function competitiveStatusHtml(snapshot){
-  const sheet=snapshot.sheetName||'Свод',count=Array.isArray(snapshot.rows)?snapshot.rows.length:0;
-  let title,text;
-  if(state.syncing||snapshot.status==='loading'){title='Читаем Excel';text=`Обрабатываем лист «${sheet}».`}
-  else if(snapshot.status==='error'){title='Не удалось прочитать файл';text=snapshot.error}
-  else if(snapshot.lastSuccess){title='Файл загружен';text=`${snapshot.fileName||'Конкурентный анализ.xlsx'} · лист «${sheet}» · ${count} кластеров · загружено ${fmtDate(snapshot.lastSuccess,true)}.`}
-  else{title='Загрузите конкурентный анализ';text=`Выберите XLSX-файл. Программа прочитает все колонки и все строки листа «${sheet}».`}
-  return`<div><strong>${esc(title)}</strong><p>${esc(text)}</p></div><div class="phase0-competitive-status-actions"><label class="phase0-btn small phase0-file-button">${snapshot.lastSuccess?'Заменить файл':'Загрузить XLSX'}<input id="phase0-competitive-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden></label></div>`;
-}
-function competitiveTableHtml(rows,snapshot){
-  const schema=snapshot&&snapshot.columnSchema,columns=schema&&Array.isArray(schema.columns)?schema.columns:[];
-  if(!rows.length)return'<div class="phase0-empty"><div><strong>Данные конкурентного анализа не загружены</strong><p>Загрузите XLSX-файл. Будет прочитан лист «Свод» целиком.</p></div></div>';
-  if(!columns.length)return'<div class="phase0-empty"><div><strong>Не удалось определить структуру листа «Свод»</strong><p>Загрузите исходный XLSX-файл повторно.</p></div></div>';
-  const topCells=[];let c=schema.startCol;
-  const merges=Array.isArray(schema.merges)?schema.merges:[];
-  while(c<=schema.endCol){
-    const merge=merges.find(m=>m.s.r===schema.headerTopRow&&m.s.c===c);
-    const col=columns.find(x=>x.index===c),text=col&&col.top||'';
-    if(merge){topCells.push(`<th colspan="${merge.e.c-merge.s.c+1}" rowspan="${merge.e.r-merge.s.r+1}">${esc(text)}</th>`);c=merge.e.c+1;continue}
-    const covered=merges.find(m=>m.s.r===schema.headerTopRow&&m.s.c<c&&m.e.c>=c&&m.e.r>=schema.headerTopRow);if(covered){c++;continue}
-    topCells.push(`<th>${esc(text)}</th>`);c++;
-  }
-  const bottomCells=[];
-  for(c=schema.startCol;c<=schema.endCol;c++){
-    const covered=merges.find(m=>m.s.r===schema.headerTopRow&&m.e.r>=schema.headerBottomRow&&m.s.c<=c&&m.e.c>=c);if(covered)continue;
-    const col=columns.find(x=>x.index===c);bottomCells.push(`<th>${esc(col&&col.bottom||'')}</th>`);
-  }
-  return`<div class="phase0-competitive-table-wrap"><table class="phase0-competitive-table phase0-competitive-source-table"><thead><tr class="phase0-source-head-top">${topCells.join('')}</tr><tr class="phase0-source-head-bottom">${bottomCells.join('')}</tr></thead><tbody>${rows.map(row=>`<tr class="${state.competitiveCluster&&(S.norm(row.clusterName)===S.norm(state.competitiveCluster)||S.norm(row.clusterId)===S.norm(state.competitiveCluster))?'highlight':''}">${columns.map(col=>`<td>${esc(row.raw&&row.raw[col.letter]!=null&&String(row.raw[col.letter]).trim()!==''?row.raw[col.letter]:'—')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
-}
-function renderCompetitive(){
-  const snapshot=competitive.snapshot(),allRows=snapshot.rows||[],rows=state.competitiveCluster?allRows.filter(row=>S.norm(row.clusterName)===S.norm(state.competitiveCluster)||S.norm(row.clusterId)===S.norm(state.competitiveCluster)):allRows,drawer=byId('phase0-competitive-drawer');
-  const names=[...new Set([...clusters.list().map(x=>x.name),...allRows.map(x=>x.clusterName)].filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
-  drawer.innerHTML=`<div class="phase0-drawer-head"><div><h2 id="phase0-competitive-title">Конкурентный анализ</h2><p>Ручная загрузка Excel · лист «${esc(snapshot.sheetName||'Свод')}»</p></div><button class="phase0-close" type="button" data-action="close-competitive" aria-label="Закрыть">×</button></div><div class="phase0-drawer-body"><div class="phase0-competitive-status">${competitiveStatusHtml(snapshot)}</div><div class="phase0-competitive-toolbar"><label class="phase0-field"><span>Фильтр по кластеру</span><select id="phase0-competitive-filter"><option value="">Все кластеры</option>${names.map(name=>`<option value="${esc(name)}" ${S.norm(name)===S.norm(state.competitiveCluster)?'selected':''}>${esc(name)}</option>`).join('')}</select></label><div><strong>${rows.length}</strong> ${rows.length===1?'кластер':'кластеров'}</div></div>${competitiveTableHtml(rows,snapshot)}</div>`;
-  one('[data-action="close-competitive"]',drawer).onclick=closeCompetitive;
-  const fileInput=byId('phase0-competitive-file');if(fileInput)fileInput.onchange=event=>{const file=event.target.files&&event.target.files[0];if(file)syncCompetitive(file)};
-  byId('phase0-competitive-filter').onchange=event=>{state.competitiveCluster=event.target.value;renderCompetitive()};
-}
-function openCompetitive(cluster=''){state.lastFocused=document.activeElement;state.competitiveCluster=cluster||'';byId('phase0-competitive-overlay').hidden=false;document.body.classList.add('phase0-modal-open');renderCompetitive();setTimeout(()=>one('[data-action="close-competitive"]',byId('phase0-competitive-drawer'))?.focus(),20)}
-function closeCompetitive(){byId('phase0-competitive-overlay').hidden=true;if(byId('phase0-object-overlay').hidden)document.body.classList.remove('phase0-modal-open');if(state.lastFocused&&document.contains(state.lastFocused))state.lastFocused.focus()}
-
-async function syncCompetitive(file){
-  if(state.syncing||!file)return;state.syncing=true;renderSyncStrip();if(!byId('phase0-competitive-overlay').hidden)renderCompetitive();
-  const snapshot=await competitive.importFile(file);state.syncing=false;
-  if(snapshot.status==='success'){phaseService.applyCompetitiveRows(snapshot);toast(`Файл «${snapshot.fileName||file.name}» загружен. Показатели объектов пересчитаны.`)}else toast(snapshot.error||'Не удалось прочитать файл конкурентного анализа.');
-  reload();if(!byId('phase0-competitive-overlay').hidden)renderCompetitive();
+function openCompetitive(cluster=''){
+  const panel=window.SlogiCompetitiveAnalysisPanel;if(!panel){toast('Модуль конкурентного анализа недоступен.');return;}
+  panel.open({cluster,opener:document.activeElement});
 }
 
 function askInlineRejectionReason(project){return new Promise(resolve=>{const layer=document.createElement('div');layer.className='phase0-dialog-layer';const current=project&&project.phase0&&project.phase0.rejection&&project.phase0.rejection.reason||'';layer.innerHTML=`<div class="phase0-dialog" role="dialog" aria-modal="true" aria-labelledby="phase0-inline-rejection-title"><h3 id="phase0-inline-rejection-title">Укажите причину отказа</h3><p>Причина обязательна для статуса «Не подошло».</p><label class="phase0-field"><span>Причина отказа *</span><textarea id="phase0-inline-rejection-value">${esc(current)}</textarea><span class="phase0-field-error" id="phase0-inline-rejection-error"></span></label><div class="phase0-dialog-actions"><button class="phase0-btn" type="button" data-cancel>Отмена</button><button class="phase0-btn primary" type="button" data-save>Сохранить</button></div></div>`;document.body.appendChild(layer);const input=byId('phase0-inline-rejection-value');input.focus();const done=value=>{layer.remove();resolve(value)};one('[data-cancel]',layer).onclick=()=>done(null);one('[data-save]',layer).onclick=()=>{const value=input.value.trim();if(!value){const e=byId('phase0-inline-rejection-error');e.style.display='block';e.textContent='Введите причину отказа.';return}done(value)};layer.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();done(null)}})})}
@@ -391,14 +340,14 @@ function handleMainClick(event){
   else if(action==='reset-filters'){byId('phase0-search').value='';byId('phase0-cluster-filter').value='';byId('phase0-status-filter').value='';byId('phase0-sort').value='rating-asc';byId('phase0-readiness-filter').value='';state.quickFilter='';one('.phase0-toolbar').classList.remove('filters-open');byId('phase0-extra-filters').hidden=true;byId('phase0-filter-button').setAttribute('aria-expanded','false');byId('phase0-filter-button').classList.remove('active');renderKpis();renderList()}
 }
 function bindMain(){
-  byId('phase0-add').onclick=()=>openEditor();byId('phase0-mobile-add').onclick=()=>openEditor();byId('phase0-open-competitive').onclick=()=>openCompetitive();byId('phase0-main').addEventListener('click',handleMainClick);byId('phase0-main').addEventListener('change',event=>{const select=event.target.closest('.phase0-inline-status');if(select)handleInlineStatus(select)});
+  byId('phase0-add').onclick=()=>openEditor();byId('phase0-mobile-add').onclick=()=>openEditor();byId('phase0-main').addEventListener('click',handleMainClick);byId('phase0-main').addEventListener('change',event=>{const select=event.target.closest('.phase0-inline-status');if(select)handleInlineStatus(select)});
   const clusterToggle=byId('phase0-map-clusters-toggle');if(clusterToggle)clusterToggle.addEventListener('click',()=>{const next=!(clusterToggle.getAttribute('aria-pressed')==='true');clusterToggle.setAttribute('aria-pressed',String(next));clusterToggle.classList.toggle('off',!next);const label=clusterToggle.querySelector('span:last-child');if(label)label.textContent=next?'Скрыть кластеры':'Показать кластеры';if(state.map&&state.map.setClustersVisible)state.map.setClustersVisible(next)});
   ['phase0-search','phase0-cluster-filter','phase0-status-filter','phase0-sort','phase0-readiness-filter'].forEach(id=>byId(id).addEventListener(id==='phase0-search'?'input':'change',()=>{if(id!=='phase0-search'){state.quickFilter='';renderKpis()}renderList()}));
   byId('phase0-object-list').addEventListener('mouseover',event=>{const card=event.target.closest('.phase0-card');if(card)setCardHover(card.dataset.projectId)});byId('phase0-object-list').addEventListener('mouseout',event=>{const card=event.target.closest('.phase0-card');if(card&&!card.contains(event.relatedTarget))setCardHover('')});
   byId('phase0-object-list').addEventListener('keydown',event=>{const card=event.target.closest('.phase0-card');if(card&&event.target===card&&(event.key==='Enter'||event.key===' ')){event.preventDefault();openEditor(card.dataset.projectId)}});
   all('.phase0-mobile-views [data-mobile-view]').forEach(button=>button.addEventListener('click',()=>{all('.phase0-mobile-views [data-mobile-view]').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active))});const workspace=one('.phase0-workspace');workspace.dataset.mobileView=button.dataset.mobileView;if(button.dataset.mobileView==='map')setTimeout(()=>state.map&&state.map.invalidate(),30)}));
-  byId('phase0-object-overlay').addEventListener('click',event=>{if(event.target===event.currentTarget)closeEditor()});byId('phase0-competitive-overlay').addEventListener('click',event=>{if(event.target===event.currentTarget)closeCompetitive()});
-  document.addEventListener('keydown',event=>{if(event.key!=='Escape')return;if(!byId('phase0-competitive-overlay').hidden)closeCompetitive();else if(!byId('phase0-object-overlay').hidden)closeEditor()});
+  byId('phase0-object-overlay').addEventListener('click',event=>{if(event.target===event.currentTarget)closeEditor()});
+  document.addEventListener('keydown',event=>{if(event.defaultPrevented||event.key!=='Escape')return;const panel=window.SlogiCompetitiveAnalysisPanel;if(panel&&panel.isOpen())return;if(!byId('phase0-object-overlay').hidden)closeEditor()});
 }
 
 async function backfillMissingGeoAndClusters(){
@@ -425,7 +374,8 @@ async function initMap(){
 }
 
 function init(){
-  bindMain();const cached=competitive.snapshot();if(cached.rows&&cached.rows.length&&cached.lastSuccess)phaseService.applyCompetitiveRows(cached);reload();requestAnimationFrame(initMap);
+  const panel=window.SlogiCompetitiveAnalysisPanel;if(panel)panel.init({onUpdated:()=>reload(),toast});
+  bindMain();const cached=typeof competitive.rehydrate==='function'?competitive.rehydrate():competitive.snapshot();if(cached.rows&&cached.rows.length&&cached.lastSuccess)phaseService.applyCompetitiveRows(cached);reload();requestAnimationFrame(initMap);
   const params=new URLSearchParams(location.search),requested=params.get('location')||'';if(requested&&rawProjectById(requested)&&rawProjectById(requested).phase0){state.selectedId=requested;reload();openEditor(requested)}else if(params.get('create')==='1')openEditor();
 }
 

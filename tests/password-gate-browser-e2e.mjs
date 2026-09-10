@@ -201,6 +201,13 @@ async function assertAvailableSpace(device,label){
   assert.deepEqual(device.identity.searchPages.slice(-2),[1,2],label+': complete pagination');
   await device.page.locator('.fixture-map-marker').first().click();
   assert.equal(await device.page.locator('[data-listing-card].selected').count(),1,label+': marker/card sync');
+  await device.page.locator('#available-open-competitive').click();
+  const competitive=device.page.getByRole('dialog',{name:'Конкурентный анализ'});await competitive.waitFor();
+  assert.equal(await competitive.locator('#phase0-competitive-file').count(),1,label+': competitive XLSX upload');
+  assert.equal(await competitive.getByRole('button',{name:/Загрузить XLSX|Заменить файл/}).count(),1,label+': keyboard-accessible competitive upload');
+  assert.equal(await competitive.locator('#phase0-competitive-filter').count(),1,label+': competitive cluster filter');
+  await competitive.getByRole('button',{name:'Закрыть'}).click();
+  await competitive.waitFor({state:'hidden'});
   await device.page.locator('#available-add-space').click();
   const manualCard=device.page.getByRole('dialog',{name:'Карточка помещения'});await manualCard.waitFor();
   assert.equal(await manualCard.getByRole('button',{name:'Взять в работу'}).isDisabled(),true,label+': incomplete manual card is blocked');

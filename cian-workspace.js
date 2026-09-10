@@ -7,10 +7,12 @@
   const mapData=window.SlogiCianMapData;
   const spaceCardModel=window.SlogiSearchSpaceCard;
   const spaceCardModal=window.SlogiSearchSpaceCardModal;
+  const competitivePanel=window.SlogiCompetitiveAnalysisPanel;
   if(!feed)throw new Error('cian_listing_feed_unavailable');
   if(!mapData)throw new Error('cian_map_data_unavailable');
   if(!spaceCardModel)throw new Error('search_space_card_unavailable');
   if(!spaceCardModal)throw new Error('search_space_card_modal_unavailable');
+  if(!competitivePanel)throw new Error('competitive_analysis_panel_unavailable');
   const MAX_FRESH_DAYS=30;
   const HIDDEN_LISTINGS_KEY='slogi_cian_hidden_listing_ids_v1';
   const ALLOWED_PREMISE_TYPES=Object.freeze(['office','retail','free_purpose']);
@@ -364,6 +366,6 @@
     window.addEventListener('storage',event=>{if(event.key===HIDDEN_LISTINGS_KEY){hiddenListingIds=loadHiddenListingIds();render();}});
     window.addEventListener('pagehide',()=>{activeLoadController&&activeLoadController.abort();markerById.forEach(marker=>marker&&marker.events&&typeof marker.events.removeAll==='function'&&marker.events.removeAll());},{once:true});
   }
-  function init(){if(initialized)return;initialized=true;bind();initMap();loadListings();window.addEventListener('slogi:locations-updated',render);}
+  function init(){if(initialized)return;initialized=true;competitivePanel.init({trigger:'#available-open-competitive',onUpdated:()=>render(),toast});bind();initMap();loadListings();window.addEventListener('slogi:locations-updated',render);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
