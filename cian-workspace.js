@@ -14,6 +14,7 @@
   if(!spaceCardModal)throw new Error('search_space_card_modal_unavailable');
   if(!competitivePanel)throw new Error('competitive_analysis_panel_unavailable');
   const MAX_FRESH_DAYS=30;
+  const PROJECT_GEOCODE_DEBOUNCE_MS=250;
   const HIDDEN_LISTINGS_KEY='slogi_cian_hidden_listing_ids_v1';
   const ALLOWED_PREMISE_TYPES=Object.freeze(['office','retail','free_purpose']);
   const FIXED_CRITERIA=Object.freeze({areaMin:100,areaMax:150,floor:1,premiseTypes:ALLOWED_PREMISE_TYPES,excludeBasementOrSocle:true,days:MAX_FRESH_DAYS,sort:'freshness-desc'});
@@ -37,7 +38,11 @@
   let activeLoadController=null;
   let loadGeneration=0;
   let yandexLoadPromise=null;
+  let projectGeocodeTimer=null;
+  let projectGeocodeController=null;
+  let projectGeocodeGeneration=0;
   const geocodeCache=(()=>{try{return mapData.createAddressCache(window.localStorage);}catch(_error){return mapData.createAddressCache(null);}})();
+  const projectGeocodeRuntime=mapData.createProjectGeocodeRuntime();
 
   const esc=value=>String(value==null?'':value).replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
   const number=value=>{if(value==null||String(value).trim()==='')return null;const parsed=Number(value);return Number.isFinite(parsed)?parsed:null;};
@@ -67,8 +72,15 @@
   }
   function spaceKey(item){return item&&item._projectId?'project:'+String(item._projectId):freshnessId(item);}
   function storedProjects(){const repository=projectRepository();return repository&&typeof repository.listPhase0==='function'?repository.listPhase0():[];}
+  function collectGeocodeTargets(){return mapData.collectProjectGeocodeTargets(all,storedProjects(),{findProject:existingProject,runtime:projectGeocodeRuntime,clusterService:clusterService()});}
+  function runtimeListingForProject(project,listing){
+    const savedState=mapData.mergeProjectListingGeo(project,null,clusterService());
+    if(mapData.coordinates(savedState)){projectGeocodeRuntime.delete(project);return listing||null;}
+    const runtime=projectGeocodeRuntime.get(project);if(!runtime)return listing||null;
+    return listing&&mapData.coordinates(listing)?listing:Object.assign({},listing||{},runtime);
+  }
   function exactClusterForProject(project,listing){
-    const state=mapData.mergeProjectListingGeo(project,listing,clusterService());
+    const state=mapData.mergeProjectListingGeo(project,runtimeListingForProject(project,listing),clusterService());
     return{id:String(state.clusterId||''),name:String(state.clusterName||''),status:String(state.clusterStatus||'not_computed'),matched:state.clusterStatus==='inside',resolutionSource:state.clusterResolutionSource||null};
   }
   function cardForProject(project,listing){
@@ -78,8 +90,8 @@
     return spaceCardModel.normalize(Object.assign({},stored,{id:project.id,source:phase.source==='cian'?'cian':'manual',address:project.address,cluster:Object.assign({},stored.cluster||{},context.cluster),competitive:Object.assign({},stored.competitive||{},context.competitive),rentMonthly:phase.rent&&phase.rent.amount,area:project.area,ceilingHeight:project.ceilingHeight,work}));
   }
   function projectToItem(project,listing){
-    const phase=project.phase0||{},geoState=mapData.mergeProjectListingGeo(project,listing,clusterService()),card=cardForProject(project,listing),source=phase.source==='cian'?'cian':'manual';
-    return Object.assign({},listing||{},{$project:project,_projectId:String(project.id),_card:card,source,externalId:String(phase.externalId||project.id),listingUrl:phase.listingUrl||listing&&listing.listingUrl||'',title:phase.listingTitle||listing&&listing.title||'Помещение',address:project.address||listing&&listing.address||'',latitude:geoState.latitude,longitude:geoState.longitude,coordinateSource:geoState.coordinateSource,area:project.area,rentMonthly:phase.rent&&phase.rent.amount,pricePerSquareMeter:card.pricePerSqm,floor:project.floor??phase.floor,ceilingHeight:project.ceilingHeight,freshnessAt:project.updatedAt||phase.updatedAt||'',freshnessKind:'updated',clusterId:card.cluster.id,clusterName:card.cluster.name,clusterStatus:card.cluster.status,clusterResolutionSource:card.cluster.resolutionSource,geocodeStatus:geoState.geocodeStatus});
+    const phase=project.phase0||{},effectiveListing=runtimeListingForProject(project,listing),geoState=mapData.mergeProjectListingGeo(project,effectiveListing,clusterService()),card=cardForProject(project,effectiveListing),source=phase.source==='cian'?'cian':'manual';
+    return Object.assign({},effectiveListing||{},{$project:project,_projectId:String(project.id),_card:card,source,externalId:String(phase.externalId||project.id),listingUrl:phase.listingUrl||effectiveListing&&effectiveListing.listingUrl||'',title:phase.listingTitle||effectiveListing&&effectiveListing.title||'Помещение',address:project.address||effectiveListing&&effectiveListing.address||'',latitude:geoState.latitude,longitude:geoState.longitude,coordinateSource:geoState.coordinateSource,area:project.area,rentMonthly:phase.rent&&phase.rent.amount,pricePerSquareMeter:card.pricePerSqm,floor:project.floor??phase.floor,ceilingHeight:project.ceilingHeight,freshnessAt:project.updatedAt||phase.updatedAt||'',freshnessKind:'updated',clusterId:card.cluster.id,clusterName:card.cluster.name,clusterStatus:card.cluster.status,clusterResolutionSource:card.cluster.resolutionSource,geocodeStatus:geoState.geocodeStatus,geocodeAttempts:Number(effectiveListing&&effectiveListing.geocodeAttempts)||0,geocodeDiagnostic:String(effectiveListing&&effectiveListing.geocodeDiagnostic||'')});
   }
   function cardForListing(item){
     const service=phase0Service(),baseCluster={id:String(item.clusterId||''),name:String(item.clusterName||''),status:String(item.clusterStatus||'not_computed'),matched:item.clusterStatus==='inside',resolutionSource:item.clusterResolutionSource||null,hasSlogiCenter:item.clusterStatus==='outside'?false:null,centerDetails:''};
@@ -221,6 +233,7 @@
   async function loadListings(){
     const generation=++loadGeneration;
     if(activeLoadController)activeLoadController.abort();
+    if(projectGeocodeController)projectGeocodeController.abort();clearTimeout(projectGeocodeTimer);projectGeocodeTimer=null;projectGeocodeGeneration++;
     const controller=new AbortController();activeLoadController=controller;
     loading=true;nodes.button.disabled=true;nodes.loading.hidden=false;nodes.empty.hidden=true;nodes.summary.textContent='Загружаем предложения…';
     try{
@@ -236,12 +249,13 @@
       all=applyFixedGate(loaded.items);loadPartial=loaded.partial;serverTotal=loaded.serverTotal;loadedPages=loaded.pages;
       setSource(loaded.meta);
       if(loadPartial){nodes.badge.textContent='Частично';nodes.badge.dataset.state='partial';}
+      const geocodeTargets=collectGeocodeTargets();
       render();
       const geocodingCfg=window.SLOGI_PHASE0_CONFIG&&window.SLOGI_PHASE0_CONFIG.geocoding||{};
       let serverGeocode=null;try{serverGeocode=mapData.createServerGeocoder({endpoint:geocodingCfg.endpoint,projectUrl:supabaseCfg.url,token,timeoutMs:Number(geocodingCfg.timeoutMs)||12000,maxAttempts:3});}catch(_error){serverGeocode=null;}
       const browserGeocode=createBrowserGeocoder();
       const geocode=mapData.createFallbackGeocoder(serverGeocode,browserGeocode);
-      await mapData.geocodeMissingListings(all,{geocode,clusterService:clusterService(),cache:geocodeCache,signal:controller.signal,concurrency:2,onProgress:progress=>{
+      await mapData.geocodeMissingListings(geocodeTargets,{geocode,clusterService:clusterService(),cache:geocodeCache,signal:controller.signal,concurrency:2,onProgress:progress=>{
         if(generation!==loadGeneration||controller.signal.aborted)return;
         if(progress.completed===progress.total||progress.completed%5===0)render();
         else updateMapStats(mapData.projection(displayedListings()));
@@ -296,6 +310,27 @@
         return{status:'failed',attempts:0,diagnostic:'map_geocoder_failed'};
       }
     };
+  }
+  async function geocodeChangedProjects(){
+    if(loading){scheduleProjectGeocoding();return;}
+    const generation=++projectGeocodeGeneration;
+    if(projectGeocodeController)projectGeocodeController.abort();
+    const controller=new AbortController();projectGeocodeController=controller;
+    try{
+      const targets=collectGeocodeTargets().filter(item=>item&&item._runtimeProjectId&&!mapData.coordinates(item));
+      render();if(!targets.length)return;
+      const token=await window.SlogiCloud.getAccessToken();if(generation!==projectGeocodeGeneration||controller.signal.aborted)return;
+      const geocodingCfg=window.SLOGI_PHASE0_CONFIG&&window.SLOGI_PHASE0_CONFIG.geocoding||{};
+      let serverGeocode=null;try{serverGeocode=mapData.createServerGeocoder({endpoint:geocodingCfg.endpoint,projectUrl:supabaseCfg.url,token,timeoutMs:Number(geocodingCfg.timeoutMs)||12000,maxAttempts:3});}catch(_error){serverGeocode=null;}
+      const geocode=mapData.createFallbackGeocoder(serverGeocode,createBrowserGeocoder());
+      await mapData.geocodeMissingListings(targets,{geocode,clusterService:clusterService(),cache:geocodeCache,signal:controller.signal,concurrency:2,onProgress:()=>{if(generation===projectGeocodeGeneration&&!controller.signal.aborted)render();}});
+      if(generation===projectGeocodeGeneration&&!controller.signal.aborted)render();
+    }catch(error){if(!(error&&error.name==='AbortError')&&generation===projectGeocodeGeneration)render();}
+    finally{if(generation===projectGeocodeGeneration)projectGeocodeController=null;}
+  }
+  function scheduleProjectGeocoding(){
+    clearTimeout(projectGeocodeTimer);if(projectGeocodeController)projectGeocodeController.abort();
+    projectGeocodeTimer=setTimeout(()=>{projectGeocodeTimer=null;geocodeChangedProjects();},PROJECT_GEOCODE_DEBOUNCE_MS);
   }
   function featureCoords(feature){const geometry=feature&&feature.geometry||{},convert=ring=>ring.map(point=>[point[1],point[0]]);if(geometry.type==='Polygon')return geometry.coordinates.map(convert);if(geometry.type==='MultiPolygon')return geometry.coordinates.map(poly=>poly.map(convert));return null;}
   function polygonStyle(_id,{hover=false}={}){return{fillColor:'#4F8580',strokeColor:'#285B58',strokeWidth:hover?2.4:1.5,fillOpacity:!clustersVisible?0:(hover?0.25:0.14),visible:clustersVisible};}
@@ -356,8 +391,8 @@
     nodes.list.addEventListener('focusin',event=>{const cardNode=event.target.closest('[data-listing-card]');if(cardNode)selectListing(cardNode.dataset.listingCard,{center:false});});
     nodes.clusterToggle.addEventListener('click',()=>{clustersVisible=!clustersVisible;nodes.clusterToggle.setAttribute('aria-pressed',String(clustersVisible));nodes.clusterToggle.textContent=clustersVisible?'Скрыть кластеры':'Показать кластеры';stylePolygons();});
     window.addEventListener('storage',event=>{if(event.key===HIDDEN_LISTINGS_KEY){hiddenListingIds=loadHiddenListingIds();render();}});
-    window.addEventListener('pagehide',()=>{activeLoadController&&activeLoadController.abort();markerById.forEach(marker=>marker&&marker.events&&typeof marker.events.removeAll==='function'&&marker.events.removeAll());},{once:true});
+    window.addEventListener('pagehide',()=>{activeLoadController&&activeLoadController.abort();projectGeocodeController&&projectGeocodeController.abort();clearTimeout(projectGeocodeTimer);markerById.forEach(marker=>marker&&marker.events&&typeof marker.events.removeAll==='function'&&marker.events.removeAll());},{once:true});
   }
-  function init(){if(initialized)return;initialized=true;competitivePanel.init({trigger:'#available-open-competitive',onUpdated:()=>render(),toast});bind();initMap();loadListings();window.addEventListener('slogi:locations-updated',render);}
+  function init(){if(initialized)return;initialized=true;competitivePanel.init({trigger:'#available-open-competitive',onUpdated:()=>render(),toast});bind();initMap();loadListings();window.addEventListener('slogi:locations-updated',()=>{collectGeocodeTargets();render();scheduleProjectGeocoding();});}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

@@ -111,6 +111,55 @@
     },classified);
   }
 
+  function parsedProject(project){
+    const phase=project&&project.phase0||{};
+    return Boolean(project&&project.id!=null&&!project.deletedAt&&phase&&typeof phase==='object'&&String(phase.source||project.source||'').trim().toLocaleLowerCase('ru-RU')==='cian');
+  }
+
+  function createProjectGeocodeRuntime(){
+    const entries=new Map();
+    const idOf=project=>String(project&&project.id||'').trim();
+    const addressKeyOf=project=>normalizeAddress(project&&project.address);
+    const get=project=>{
+      const id=idOf(project);if(!id||!parsedProject(project)){if(id)entries.delete(id);return null;}
+      const entry=entries.get(id);if(!entry)return null;
+      if(entry.addressKey!==addressKeyOf(project)){entries.delete(id);return null;}
+      return entry.item;
+    };
+    return{
+      get,
+      target(project){
+        const id=idOf(project);if(!id||!parsedProject(project))return null;
+        const current=get(project);if(current)return current;
+        const phase=project.phase0||{},item={
+          source:'cian',externalId:String(phase.externalId||project.externalId||project.id||''),listingUrl:String(phase.listingUrl||project.listingUrl||''),title:String(phase.listingTitle||project.title||'Помещение'),address:String(project.address||''),
+          latitude:null,longitude:null,coordinateSource:'',geocodeStatus:'not_computed',geocodeAttempts:0,geocodeDiagnostic:'',clusterId:'',clusterName:'',clusterStatus:'not_computed',clusterBoundary:false,clusterResolutionSource:null,
+          _runtimeProjectId:id
+        };
+        entries.set(id,{addressKey:addressKeyOf(project),item});return item;
+      },
+      delete(project){entries.delete(idOf(project));},
+      reconcile(projects){
+        const active=new Set();(Array.isArray(projects)?projects:[]).forEach(project=>{const id=idOf(project);if(!id||!parsedProject(project)){if(id)entries.delete(id);return;}active.add(id);get(project);});
+        [...entries.keys()].forEach(id=>{if(!active.has(id))entries.delete(id);});return entries.size;
+      },
+      size(){return entries.size;}
+    };
+  }
+
+  function collectProjectGeocodeTargets(feedItems,projects,{findProject,runtime,clusterService}={}){
+    const listings=Array.isArray(feedItems)?feedItems:[],saved=Array.isArray(projects)?projects:[],matched=new Set(),targets=listings.slice();
+    runtime&&typeof runtime.reconcile==='function'&&runtime.reconcile(saved);
+    if(typeof findProject==='function')listings.forEach(listing=>{const project=findProject(listing);if(project&&project.id!=null)matched.add(String(project.id));});
+    saved.forEach(project=>{
+      if(!project||project.id==null||!parsedProject(project)||matched.has(String(project.id))){runtime&&typeof runtime.delete==='function'&&runtime.delete(project);return;}
+      const merged=mergeProjectListingGeo(project,null,clusterService);
+      if(coordinates(merged)){runtime&&typeof runtime.delete==='function'&&runtime.delete(project);return;}
+      const target=runtime&&typeof runtime.target==='function'?runtime.target(project):null;if(target)targets.push(target);
+    });
+    return targets;
+  }
+
   function classify(value,clusterService){return Object.assign(value,clusterState(value,clusterService));}
 
   function projection(items){
@@ -265,5 +314,5 @@
     return{completed,total:tasks.length,cached,projection:projection(items)};
   }
 
-  return{SUCCESS_TTL_MS,FAILURE_TTL_MS,coordinates,normalizeAddress,addressQueryVariants,inferAddressCluster,canonicalUrl,listingId,deduplicate,clusterState,classify,mergeProjectListingGeo,projection,createAddressCache,configuredEdgeEndpoint,createServerGeocoder,createAddressVariantGeocoder,createFallbackGeocoder,geocodeMissingListings};
+  return{SUCCESS_TTL_MS,FAILURE_TTL_MS,coordinates,normalizeAddress,addressQueryVariants,inferAddressCluster,canonicalUrl,listingId,deduplicate,clusterState,classify,mergeProjectListingGeo,createProjectGeocodeRuntime,collectProjectGeocodeTargets,projection,createAddressCache,configuredEdgeEndpoint,createServerGeocoder,createAddressVariantGeocoder,createFallbackGeocoder,geocodeMissingListings};
 });

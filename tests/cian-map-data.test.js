@@ -16,6 +16,7 @@ const PROJECT_URL='https://fixture-ref.supabase.co';
 const GEOCODE_ENDPOINT=PROJECT_URL+'/functions/v1/geocode-address';
 
 function listing(id,overrides={}){return{source:'cian',externalId:String(id),listingUrl:`https://www.cian.ru/rent/commercial/${id}`,address:'Москва, тестовый адрес, 1',freshnessAt:new Date(NOW-86400000).toISOString(),freshnessKind:'published',marketStatus:'active',area:100,floor:1,premiseType:'office',hasBasementOrSocle:false,rentMonthly:300000,pricePerSquareMeter:3000,clusterId:'',clusterName:'',clusterStatus:'not_computed',...overrides};}
+function savedCianProject(id,overrides={}){return{id:`project-${id}`,address:'Москва, тестовый адрес, 1',geo:null,area:120,phase0:{source:'cian',externalId:String(id),listingUrl:`https://www.cian.ru/rent/commercial/${id}`,listingTitle:`Помещение ${id}`,rent:{amount:360000}},...overrides};}
 function memoryStorage(){const values=new Map();return{getItem:key=>values.has(key)?values.get(key):null,setItem:(key,value)=>values.set(key,String(value))};}
 function response(status,payload,headers={}){return{ok:status>=200&&status<300,status,headers:{get:name=>headers[String(name).toLowerCase()]||null},json:async()=>payload};}
 
@@ -89,6 +90,47 @@ test('a saved project without geo preserves geocoded parsed-listing coordinates 
   const merged=mapData.mergeProjectListingGeo(project,parsed,clusterService);
   assert.deepEqual({latitude:merged.latitude,longitude:merged.longitude,clusterId:merged.clusterId,clusterStatus:merged.clusterStatus,source:merged.clusterResolutionSource},{latitude:55.84,longitude:37.36,clusterId:'Митино',clusterStatus:'inside',source:'automatic'});
   assert.equal(merged.coordinateSource,'geocode_server');assert.equal(merged.geocodeStatus,'geocoded');
+});
+
+test('an orphan saved CIAN project joins the grouped geocoding pass and receives an exact cluster marker at runtime',async()=>{
+  const runtime=mapData.createProjectGeocodeRuntime(),project=savedCianProject(700,{address:'Москва, общий адрес, 7'}),live=listing(701,{address:'москва, общий адрес, 7'});
+  const targets=mapData.collectProjectGeocodeTargets([live],[project],{findProject:()=>null,runtime,clusterService});let calls=0;
+  await mapData.geocodeMissingListings(targets,{clusterService,geocode:async()=>{calls++;return{status:'geocoded',attempts:1,latitude:55.84,longitude:37.36,coordinateSource:'geocode_browser'};}});
+  const orphan=runtime.get(project),merged=mapData.mergeProjectListingGeo(project,orphan,clusterService),state=mapData.projection(targets);
+  assert.equal(calls,1,'the live listing and orphan project share one address lookup but remain separate objects');
+  assert.equal(targets.length,2);assert.equal(state.markerCount,2);assert.equal(orphan._runtimeProjectId,project.id);
+  assert.deepEqual({latitude:merged.latitude,longitude:merged.longitude,clusterId:merged.clusterId,status:merged.clusterStatus,source:merged.clusterResolutionSource},{latitude:55.84,longitude:37.36,clusterId:'Митино',status:'inside',source:'automatic'});
+  assert.equal(project.geo,null,'read-time geocoding must not persist into the saved workspace project');
+});
+
+test('orphan runtime geocoding exposes failures, invalidates on address edits and leaves normal feed matching unchanged',async()=>{
+  const runtime=mapData.createProjectGeocodeRuntime(),orphan=savedCianProject(710,{address:'Москва, ошибочный адрес, 10'}),matched=savedCianProject(711),manual={id:'manual-1',address:'Москва, вручную',geo:null,phase0:{source:'manual'}};
+  const current=listing(711),targets=mapData.collectProjectGeocodeTargets([current],[orphan,matched,manual],{findProject:item=>item.externalId==='711'?matched:null,runtime,clusterService});
+  assert.deepEqual(targets.map(item=>item.externalId),['711','710'],'matched live and manual projects must not create extra runtime targets');
+  await mapData.geocodeMissingListings(targets,{clusterService,geocode:async()=>({status:'timeout',attempts:3,diagnostic:'timeout'})});
+  assert.equal(runtime.get(orphan).geocodeStatus,'timeout');assert.equal(runtime.get(orphan).geocodeDiagnostic,'timeout');assert.equal(mapData.projection(targets).geocodeFailedCount,2);
+  orphan.address='Москва, новый адрес, 11';assert.equal(runtime.get(orphan),null,'a result from the old address must be discarded immediately');
+  const refreshed=mapData.collectProjectGeocodeTargets([current],[orphan,matched,manual],{findProject:item=>item.externalId==='711'?matched:null,runtime,clusterService});
+  assert.equal(refreshed.at(-1).address,'Москва, новый адрес, 11');assert.equal(refreshed.at(-1).geocodeStatus,'not_computed');
+});
+
+test('project runtime rejects ineligible state and reconciles matched, persisted and deleted projects',()=>{
+  const runtime=mapData.createProjectGeocodeRuntime(),changed=savedCianProject(730),matched=savedCianProject(731),persisted=savedCianProject(732),deleted=savedCianProject(733);
+  [changed,matched,persisted,deleted].forEach(project=>runtime.target(project));assert.equal(runtime.size(),4);
+  changed.phase0.source='manual';assert.equal(runtime.get(changed),null,'a project that stops being parsed CIAN cannot reuse runtime geo');
+  persisted.geo={lat:55.84,lng:37.36};
+  const live=listing(731),targets=mapData.collectProjectGeocodeTargets([live],[changed,matched,persisted],{findProject:()=>matched,runtime,clusterService});
+  assert.deepEqual(targets,[live]);assert.equal(runtime.get(matched),null,'a newly matched live listing owns its own geo state');assert.equal(runtime.get(persisted),null,'persisted project geo supersedes runtime state');
+  assert.equal(runtime.size(),0,'reconcile prunes projects missing from the current repository snapshot');
+});
+
+test('a reloaded orphan project reuses the v4 address cache without a second lookup',async()=>{
+  const storage=memoryStorage(),cache=mapData.createAddressCache(storage),project=savedCianProject(720,{address:'Москва, кэшируемый адрес, 20'});let calls=0;
+  const firstRuntime=mapData.createProjectGeocodeRuntime(),first=mapData.collectProjectGeocodeTargets([], [project],{findProject:()=>null,runtime:firstRuntime,clusterService});
+  await mapData.geocodeMissingListings(first,{clusterService,cache,geocode:async()=>{calls++;return{status:'geocoded',attempts:1,latitude:55.84,longitude:37.36,coordinateSource:'geocode_browser'};}});
+  const reloadedProject=JSON.parse(JSON.stringify(project)),secondRuntime=mapData.createProjectGeocodeRuntime(),second=mapData.collectProjectGeocodeTargets([], [reloadedProject],{findProject:()=>null,runtime:secondRuntime,clusterService});
+  await mapData.geocodeMissingListings(second,{clusterService,cache:mapData.createAddressCache(storage),geocode:async()=>{calls++;return{status:'failed'};}});
+  assert.equal(calls,1);assert.equal(secondRuntime.get(reloadedProject).coordinateSource,'geocode_cache_browser');assert.equal(secondRuntime.get(reloadedProject).clusterId,'Митино');
 });
 
 test('reload reuses the address cache and does not call the geocoder again',async()=>{
@@ -184,7 +226,7 @@ test('search page has no user filters, sends the fixed gate and removes saved-ba
   assert.doesNotMatch(html,/cian-filter-card|available-(?:cluster|area|min|max|rent|sqm|date|sort|reset)/);
   assert.doesNotMatch(html+source,/сохран[её]нн/i);
   assert.match(source,/areaMin:FIXED_CRITERIA\.areaMin,areaMax:FIXED_CRITERIA\.areaMax,floor:FIXED_CRITERIA\.floor,premiseTypes:\[\.\.\.FIXED_CRITERIA\.premiseTypes\]/);
-  assert.match(source,/applyFixedGate\(loaded\.items\)/);assert.match(source,/geocodeMissingListings\(all,/);
+  assert.match(source,/applyFixedGate\(loaded\.items\)/);assert.match(source,/collectProjectGeocodeTargets\(all,storedProjects\(\)/);assert.match(source,/geocodeMissingListings\(geocodeTargets,/);
   assert.match(source,/data-remove-space/);assert.match(source,/SlogiSearchSpaceCardModal/);
 });
 

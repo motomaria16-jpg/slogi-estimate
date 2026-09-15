@@ -56,7 +56,7 @@ function installMapFixture(){
   class Placemark{constructor(coords,properties={},options={}){this.geometry={getCoordinates:()=>coords};this.properties=new Properties(properties);this.options=new Options(options);this.events=new Events();this.balloon={open(){}};}}
   class Polygon{constructor(coords,properties={},options={}){this.coords=coords;this.properties=new Properties(properties);this.options=new Options(options);this.events=new Events();window.__slogiFixturePolygonCount+=1;}}
   class Clusterer{constructor(){this.items=[];}add(items){this.items.push(...items);window.__slogiFixtureMarkerCount=this.items.length;const node=document.getElementById('cian-map');if(node)items.slice(0,3).forEach((item,index)=>{const button=document.createElement('button');button.type='button';button.className='fixture-map-marker';button.setAttribute('aria-label',`Тестовый маркер ${index+1}`);button.textContent=`● ${index+1}`;button.addEventListener('click',()=>item.events.emit('click'));node.appendChild(button);});}removeAll(){this.items=[];window.__slogiFixtureMarkerCount=0;document.querySelectorAll('.fixture-map-marker').forEach(node=>node.remove());}getBounds(){if(!this.items.length)return null;const coords=this.items.map(item=>item.geometry.getCoordinates());return[[Math.min(...coords.map(point=>point[0])),Math.min(...coords.map(point=>point[1]))],[Math.max(...coords.map(point=>point[0])),Math.max(...coords.map(point=>point[1]))]];}}
-  const geocode=async query=>{window.__slogiFixtureGeocodeQueries.push(query);const match=query==='Москва, ш. Энтузиастов, 3 корпус 1';return{geoObjects:{get:index=>match&&index===0?{geometry:{getCoordinates:()=>[55.84,37.36]},properties:{get:key=>key==='text'?query:{precision:'exact'}}}:null}};};
+  const geocode=async query=>{window.__slogiFixtureGeocodeQueries.push(query);const match=query==='Москва, ш. Энтузиастов, 3 корпус 1'||query==='Москва, общий адрес сохраненного объявления, 77'||query==='Москва, измененный адрес сохраненного объявления, 79';return{geoObjects:{get:index=>match&&index===0?{geometry:{getCoordinates:()=>[55.84,37.36]},properties:{get:key=>key==='text'?query:{precision:'exact'}}}:null}};};
   window.ymaps={ready:callback=>callback(),Map:FakeMap,Placemark,Polygon,Clusterer,geocode,templateLayoutFactory:{createClass:()=>function(){}}};
 }
 
@@ -232,6 +232,47 @@ async function assertAvailableSpace(device,label){
   await device.page.reload({waitUntil:'domcontentloaded'});
   await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===52&&window.__slogiFixtureMarkerCount===51);
   await device.page.evaluate(async id=>{localStorage.removeItem('slogi_cian_hidden_listing_ids_v1');const state=window.SlogiPro.read();state.settings.cianHiddenListingIds=(state.settings.cianHiddenListingIds||[]).filter(value=>value!==id);window.SlogiPro.write(state,'fixture-listing-restore');await window.SlogiCloud.sync();},removedId);
+  await device.page.reload({waitUntil:'domcontentloaded'});
+  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53&&window.__slogiFixtureMarkerCount===52);
+  if(label==='desktop')await assertOrphanSavedCianGeocoding(device);
+}
+
+async function assertOrphanSavedCianGeocoding(device){
+  const original=await device.page.evaluate(()=>window.SlogiPro.readLocations());
+  await device.page.evaluate(async()=>{
+    const S=window.SlogiPhase0,stamp=new Date().toISOString(),phase=(externalId,title)=>Object.assign(S.defaultPhase0(),{source:'cian',externalId,listingUrl:`https://www.cian.ru/rent/commercial/${externalId}`,canonicalUrl:`https://www.cian.ru/rent/commercial/${externalId}`,listingTitle:title,rent:{amount:360000,period:'month',currency:'RUB'},updatedAt:stamp});
+    const projects=[
+      {id:'orphan-cian-good-a',address:'Москва, общий адрес сохраненного объявления, 77',geo:null,area:120,floor:1,ceilingHeight:3.2,updatedAt:stamp,phase0:phase('990001','Сохраненное помещение A')},
+      {id:'orphan-cian-good-b',address:' москва,  общий адрес сохраненного объявления , 77 ',geo:null,area:125,floor:1,ceilingHeight:3.2,updatedAt:stamp,phase0:phase('990002','Сохраненное помещение B')},
+      {id:'orphan-cian-failed',address:'Москва, неизвестный адрес сохраненного объявления, 88',geo:null,area:130,floor:1,ceilingHeight:3.2,updatedAt:stamp,phase0:phase('990003','Сохраненное помещение без координат')}
+    ];
+    localStorage.removeItem('slogi_cian_geocode_cache_v4');window.__slogiFixtureGeocodeQueries=[];
+    window.SlogiPro.writeLocations([...window.SlogiPro.readLocations(),...projects],'fixture-orphan-cian');await window.SlogiCloud.sync();
+  });
+  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===56&&document.querySelector('#cian-map-count')?.textContent==='54 из 56 на карте');
+  const outcome=await device.page.evaluate(()=>({
+    queries:window.__slogiFixtureGeocodeQueries.slice(),missing:document.querySelector('#cian-map-missing')?.textContent,failed:document.querySelector('#cian-map-failed')?.textContent,
+    projects:window.SlogiPro.readLocations().filter(item=>String(item.id).startsWith('orphan-cian-')).map(item=>({id:item.id,geo:item.geo,clusterId:item.clusterId,clusterName:item.clusterName}))
+  }));
+  assert.equal(outcome.queries.filter(query=>query==='Москва, общий адрес сохраненного объявления, 77').length,1,'same orphan address must use one browser lookup');
+  assert.equal(outcome.missing,'Без координат: 2');assert.equal(outcome.failed,'Не прошли геокодирование: 1');
+  assert.ok(outcome.projects.every(project=>project.geo==null&&!project.clusterId&&!project.clusterName),'read-time orphan geocoding must not write workspace data');
+  for(const id of ['orphan-cian-good-a','orphan-cian-good-b'])assert.match(await device.page.locator(`[data-listing-card="project:${id}"] .cian-badge.cluster`).textContent(),/Митино/,id+': exact cluster');
+  assert.match(await device.page.locator('[data-listing-card="project:orphan-cian-failed"] .cian-badge.cluster').textContent(),/Кластер не определён/);
+
+  await device.page.evaluate(()=>{
+    const projects=window.SlogiPro.readLocations(),target=projects.find(item=>item.id==='orphan-cian-good-a');target.address='Москва, измененный адрес сохраненного объявления, 79';window.__slogiFixtureGeocodeQueries=[];
+    window.SlogiPro.writeLocations(projects,'fixture-orphan-cian-address-change');
+  });
+  assert.equal(await device.page.locator('#cian-map-count').textContent(),'53 из 56 на карте','stale marker is removed synchronously when the project address changes');
+  await device.page.waitForFunction(()=>document.querySelector('#cian-map-count')?.textContent==='54 из 56 на карте');
+  assert.deepEqual(await device.page.evaluate(()=>window.__slogiFixtureGeocodeQueries),['Москва, измененный адрес сохраненного объявления, 79'],'changed orphan address is geocoded automatically without refreshing the listing feed');
+
+  await device.page.reload({waitUntil:'domcontentloaded'});
+  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===56&&document.querySelector('#cian-map-count')?.textContent==='54 из 56 на карте');
+  assert.deepEqual(await device.page.evaluate(()=>window.__slogiFixtureGeocodeQueries),[],'reload must reuse successful and failed v4 cache entries');
+
+  await device.page.evaluate(async projects=>{window.SlogiPro.writeLocations(projects,'fixture-orphan-cian-restore');await window.SlogiCloud.sync();},original);
   await device.page.reload({waitUntil:'domcontentloaded'});
   await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53&&window.__slogiFixtureMarkerCount===52);
 }
