@@ -36,7 +36,7 @@ const freshnessCutoff=new Date(new Date(snapshot).getTime()-30*86400000).toISOSt
 const freshness=new Date(Date.now()-86400000).toISOString();
 const cianListing=id=>({
   source:'cian',externalId:String(id),listingUrl:`https://www.cian.ru/rent/commercial/${id}`,
-  title:`Офисное помещение ${id}`,address:id>51?'':`Москва, Митино, тестовый адрес, ${id}`,
+  title:`Офисное помещение ${id}`,address:id===52?'Москва, ЮВАО, р-н Лефортово, ш. Энтузиастов, 3к1':id>52?'':`Москва, Митино, тестовый адрес, ${id}`,
   latitude:id>51?null:55.84+(id%5)*0.0001,longitude:id>51?null:37.36+(id%7)*0.0001,
   area:100+((id-1)%51),rentMonthly:300000+id*1000,pricePerSquareMeter:3000,premiseType:'office',hasBasementOrSocle:false,
   floor:1,totalFloors:5,ceilingHeight:3.2,firstSeenAt:new Date(new Date(snapshot).getTime()-id*1000).toISOString(),freshnessAt:freshness,freshnessKind:'published',
@@ -47,6 +47,7 @@ const listingPages={1:Array.from({length:50},(_,index)=>cianListing(index+1)),2:
 function installMapFixture(){
   window.__slogiFixturePolygonCount=0;
   window.__slogiFixtureMarkerCount=0;
+  window.__slogiFixtureGeocodeQueries=[];
   class Events{constructor(){this.handlers=new Map();}add(name,handler){if(!this.handlers.has(name))this.handlers.set(name,[]);this.handlers.get(name).push(handler);}emit(name){(this.handlers.get(name)||[]).forEach(handler=>handler());}removeAll(){this.handlers.clear();}}
   class Options{constructor(initial={}){this.value={...initial};}set(name,value){if(name&&typeof name==='object')Object.assign(this.value,name);else this.value[name]=value;}}
   class Properties{constructor(initial={}){this.value={...initial};}set(name,value){this.value[name]=value;}}
@@ -55,7 +56,8 @@ function installMapFixture(){
   class Placemark{constructor(coords,properties={},options={}){this.geometry={getCoordinates:()=>coords};this.properties=new Properties(properties);this.options=new Options(options);this.events=new Events();this.balloon={open(){}};}}
   class Polygon{constructor(coords,properties={},options={}){this.coords=coords;this.properties=new Properties(properties);this.options=new Options(options);this.events=new Events();window.__slogiFixturePolygonCount+=1;}}
   class Clusterer{constructor(){this.items=[];}add(items){this.items.push(...items);window.__slogiFixtureMarkerCount=this.items.length;const node=document.getElementById('cian-map');if(node)items.slice(0,3).forEach((item,index)=>{const button=document.createElement('button');button.type='button';button.className='fixture-map-marker';button.setAttribute('aria-label',`Тестовый маркер ${index+1}`);button.textContent=`● ${index+1}`;button.addEventListener('click',()=>item.events.emit('click'));node.appendChild(button);});}removeAll(){this.items=[];window.__slogiFixtureMarkerCount=0;document.querySelectorAll('.fixture-map-marker').forEach(node=>node.remove());}getBounds(){if(!this.items.length)return null;const coords=this.items.map(item=>item.geometry.getCoordinates());return[[Math.min(...coords.map(point=>point[0])),Math.min(...coords.map(point=>point[1]))],[Math.max(...coords.map(point=>point[0])),Math.max(...coords.map(point=>point[1]))]];}}
-  window.ymaps={ready:callback=>callback(),Map:FakeMap,Placemark,Polygon,Clusterer,templateLayoutFactory:{createClass:()=>function(){}}};
+  const geocode=async query=>{window.__slogiFixtureGeocodeQueries.push(query);const match=query==='Москва, ш. Энтузиастов, 3 корпус 1';return{geoObjects:{get:index=>match&&index===0?{geometry:{getCoordinates:()=>[55.84,37.36]},properties:{get:key=>key==='text'?query:{precision:'exact'}}}:null}};};
+  window.ymaps={ready:callback=>callback(),Map:FakeMap,Placemark,Polygon,Clusterer,geocode,templateLayoutFactory:{createClass:()=>function(){}}};
 }
 
 const mime={'.html':'text/html; charset=utf-8','.js':'application/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png'};
@@ -174,9 +176,9 @@ async function unlock(device,password=syntheticPassword){
 async function assertAvailableSpace(device,label){
   await device.page.goto(device.page.url().replace(/\/[^/]*$/,'/available-spaces.html'),{waitUntil:'domcontentloaded'});
   await device.page.waitForFunction(()=>window.SlogiCloud?.ready===true);
-  await device.page.evaluate(async()=>{localStorage.removeItem('slogi_cian_hidden_listing_ids_v1');const state=window.SlogiPro.read();state.settings.cianHiddenListingIds=[];window.SlogiPro.write(state,'fixture-listing-reset');await window.SlogiCloud.sync();});
+  await device.page.evaluate(async()=>{localStorage.removeItem('slogi_cian_hidden_listing_ids_v1');localStorage.removeItem('slogi_cian_geocode_cache_v4');const state=window.SlogiPro.read();state.settings.cianHiddenListingIds=[];window.SlogiPro.write(state,'fixture-listing-reset');await window.SlogiCloud.sync();});
   await device.page.reload({waitUntil:'domcontentloaded'});
-  try{await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53&&document.querySelector('#cian-map-count')?.textContent?.includes('51 из 53'));}
+  try{await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53&&document.querySelector('#cian-map-count')?.textContent?.includes('52 из 53'));}
   catch(error){const diagnostic=await device.page.evaluate(()=>({cards:document.querySelectorAll('[data-listing-card]').length,map:document.querySelector('#cian-map-count')?.textContent,summary:document.querySelector('#available-summary')?.textContent,source:document.querySelector('#cian-source-state')?.textContent,htmlAccess:document.documentElement.dataset.slogiAccess}));throw new Error(`${label}: search did not settle ${JSON.stringify({diagnostic,issues:device.issues,pages:device.identity.searchPages})}`,{cause:error});}
   const metrics=await device.page.evaluate(()=>{
     const cards=[...document.querySelectorAll('[data-listing-card]')];
@@ -187,15 +189,18 @@ async function assertAvailableSpace(device,label){
       mapCount:document.querySelector('#cian-map-count')?.textContent,
       missing:document.querySelector('#cian-map-missing')?.textContent,
       noAddress:document.querySelector('#cian-map-no-address')?.textContent,
-      markers:window.__slogiFixtureMarkerCount,polygons:window.__slogiFixturePolygonCount,
+      markers:window.__slogiFixtureMarkerCount,polygons:window.__slogiFixturePolygonCount,geocodeQueries:window.__slogiFixtureGeocodeQueries,
       headerHeight:document.querySelector('.site-header').getBoundingClientRect().height,
       h1,ruleHeading,invites:[...document.querySelectorAll('button,a,dialog')].some(node=>/приглас|личный кабинет|регистрац|войти/i.test(node.textContent||'')),
       overflow:Math.max(0,document.documentElement.scrollWidth-document.documentElement.clientWidth,document.body.scrollWidth-document.body.clientWidth),
     };
   });
   assert.equal(metrics.cards,53,label+': all listings');assert.equal(metrics.unique,53,label+': unique listings');
-  assert.equal(metrics.mapCount,'51 из 53 на карте',label+': honest map count');assert.equal(metrics.missing,'Без координат: 2',label+': honest missing count');assert.equal(metrics.noAddress,'Без адреса: 2',label+': honest missing-address count');
-  assert.equal(metrics.markers,51,label+': all coordinate-capable markers');assert.equal(metrics.polygons,58,label+': canonical polygons');
+  assert.equal(metrics.mapCount,'52 из 53 на карте',label+': honest map count');assert.equal(metrics.missing,'Без координат: 1',label+': honest missing count');assert.equal(metrics.noAddress,'Без адреса: 1',label+': honest missing-address count');
+  assert.equal(metrics.markers,52,label+': all coordinate-capable markers');assert.equal(metrics.polygons,58,label+': canonical polygons');
+  assert.equal(metrics.geocodeQueries[0],'Москва, ЮВАО, р-н Лефортово, ш. Энтузиастов, 3к1',label+': browser geocoder tries raw parsed address first');
+  assert.equal(metrics.geocodeQueries.at(-1),'Москва, ш. Энтузиастов, 3 корпус 1',label+': browser geocoder reaches cleaned normalized variant');
+  assert.match(await device.page.locator('[data-listing-card="cian:52"] .cian-badge.cluster').textContent(),/Митино/,label+': cleaned address resolves exact canonical cluster');
   assert.ok(metrics.headerHeight<=80,label+': compact header');assert.ok(metrics.ruleHeading<metrics.h1,label+': parsing-rule hierarchy');
   assert.equal(metrics.invites,false,label+': legacy access UI');assert.equal(metrics.overflow,0,label+': horizontal overflow');
   assert.deepEqual(device.identity.searchPages.slice(-2),[1,2],label+': complete pagination');
@@ -221,14 +226,14 @@ async function assertAvailableSpace(device,label){
   const removedId=await device.page.locator('[data-listing-card]').first().getAttribute('data-listing-card');
   device.page.once('dialog',dialog=>dialog.accept());
   await device.page.locator('.cian-remove-listing').first().click();
-  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===52&&window.__slogiFixtureMarkerCount===50);
+  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===52&&window.__slogiFixtureMarkerCount===51);
   assert.equal(await device.page.evaluate(id=>JSON.parse(localStorage.getItem('slogi_cian_hidden_listing_ids_v1')||'[]').includes(id),removedId),true,label+': stable hidden listing id');
   assert.equal(await device.page.evaluate(id=>(window.SlogiPro.read().settings.cianHiddenListingIds||[]).includes(id),removedId),true,label+': shared hidden listing id');
   await device.page.reload({waitUntil:'domcontentloaded'});
-  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===52&&window.__slogiFixtureMarkerCount===50);
+  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===52&&window.__slogiFixtureMarkerCount===51);
   await device.page.evaluate(async id=>{localStorage.removeItem('slogi_cian_hidden_listing_ids_v1');const state=window.SlogiPro.read();state.settings.cianHiddenListingIds=(state.settings.cianHiddenListingIds||[]).filter(value=>value!==id);window.SlogiPro.write(state,'fixture-listing-restore');await window.SlogiCloud.sync();},removedId);
   await device.page.reload({waitUntil:'domcontentloaded'});
-  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53&&window.__slogiFixtureMarkerCount===51);
+  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53&&window.__slogiFixtureMarkerCount===52);
 }
 
 async function seedLayoutProjects(device){

@@ -67,23 +67,22 @@
   }
   function spaceKey(item){return item&&item._projectId?'project:'+String(item._projectId):freshnessId(item);}
   function storedProjects(){const repository=projectRepository();return repository&&typeof repository.listPhase0==='function'?repository.listPhase0():[];}
-  function exactClusterForProject(project){
-    const geo=window.SlogiPhase0&&window.SlogiPhase0.normalizeGeo?window.SlogiPhase0.normalizeGeo(project&&project.geo):null;
-    if(geo){const located=clusterService()&&clusterService().locate(geo.lat,geo.lng);if(located&&located.status==='inside')return{id:String(located.clusterId||''),name:String(located.clusterName||''),status:'inside',matched:true};if(located&&located.status==='outside')return{id:'',name:'',status:'outside',matched:false};}
-    return{id:'',name:'',status:'not_computed',matched:false};
+  function exactClusterForProject(project,listing){
+    const state=mapData.mergeProjectListingGeo(project,listing,clusterService());
+    return{id:String(state.clusterId||''),name:String(state.clusterName||''),status:String(state.clusterStatus||'not_computed'),matched:state.clusterStatus==='inside',resolutionSource:state.clusterResolutionSource||null};
   }
-  function cardForProject(project){
-    const phase=project&&project.phase0||{},stored=phase.spaceCard&&typeof phase.spaceCard==='object'?phase.spaceCard:{},cluster=exactClusterForProject(project),service=phase0Service();
+  function cardForProject(project,listing){
+    const phase=project&&project.phase0||{},stored=phase.spaceCard&&typeof phase.spaceCard==='object'?phase.spaceCard:{},cluster=exactClusterForProject(project,listing),service=phase0Service();
     const context=cluster.matched&&service&&typeof service.spaceContext==='function'?service.spaceContext(cluster.id,cluster.name,project.id):{cluster:Object.assign(cluster,{hasSlogiCenter:cluster.status==='outside'?false:null,centerDetails:''}),competitive:{rating:null,rank:null,isTop30:null,averageRentPerSqm:null}};
     const work=stored.work&&typeof stored.work==='object'?stored.work:(Number(project.lifecyclePhase)>=1||project.status==='В работе'||project.projectStatus==='В работе'||project.actualOpeningDate?{status:'in_work'}:{});
     return spaceCardModel.normalize(Object.assign({},stored,{id:project.id,source:phase.source==='cian'?'cian':'manual',address:project.address,cluster:Object.assign({},stored.cluster||{},context.cluster),competitive:Object.assign({},stored.competitive||{},context.competitive),rentMonthly:phase.rent&&phase.rent.amount,area:project.area,ceilingHeight:project.ceilingHeight,work}));
   }
   function projectToItem(project,listing){
-    const phase=project.phase0||{},geo=window.SlogiPhase0&&window.SlogiPhase0.normalizeGeo?window.SlogiPhase0.normalizeGeo(project.geo):null,card=cardForProject(project),source=phase.source==='cian'?'cian':'manual';
-    return Object.assign({},listing||{},{$project:project,_projectId:String(project.id),_card:card,source,externalId:String(phase.externalId||project.id),listingUrl:phase.listingUrl||listing&&listing.listingUrl||'',title:phase.listingTitle||listing&&listing.title||'Помещение',address:project.address||listing&&listing.address||'',latitude:geo&&geo.lat,longitude:geo&&geo.lng,area:project.area,rentMonthly:phase.rent&&phase.rent.amount,pricePerSquareMeter:card.pricePerSqm,floor:project.floor??phase.floor,ceilingHeight:project.ceilingHeight,freshnessAt:project.updatedAt||phase.updatedAt||'',freshnessKind:'updated',clusterId:card.cluster.id,clusterName:card.cluster.name,clusterStatus:card.cluster.status,geocodeStatus:geo?'stored':'not_computed'});
+    const phase=project.phase0||{},geoState=mapData.mergeProjectListingGeo(project,listing,clusterService()),card=cardForProject(project,listing),source=phase.source==='cian'?'cian':'manual';
+    return Object.assign({},listing||{},{$project:project,_projectId:String(project.id),_card:card,source,externalId:String(phase.externalId||project.id),listingUrl:phase.listingUrl||listing&&listing.listingUrl||'',title:phase.listingTitle||listing&&listing.title||'Помещение',address:project.address||listing&&listing.address||'',latitude:geoState.latitude,longitude:geoState.longitude,coordinateSource:geoState.coordinateSource,area:project.area,rentMonthly:phase.rent&&phase.rent.amount,pricePerSquareMeter:card.pricePerSqm,floor:project.floor??phase.floor,ceilingHeight:project.ceilingHeight,freshnessAt:project.updatedAt||phase.updatedAt||'',freshnessKind:'updated',clusterId:card.cluster.id,clusterName:card.cluster.name,clusterStatus:card.cluster.status,clusterResolutionSource:card.cluster.resolutionSource,geocodeStatus:geoState.geocodeStatus});
   }
   function cardForListing(item){
-    const service=phase0Service(),baseCluster={id:String(item.clusterId||''),name:String(item.clusterName||''),status:String(item.clusterStatus||'not_computed'),matched:['inside','address'].includes(item.clusterStatus),hasSlogiCenter:item.clusterStatus==='outside'?false:null,centerDetails:''};
+    const service=phase0Service(),baseCluster={id:String(item.clusterId||''),name:String(item.clusterName||''),status:String(item.clusterStatus||'not_computed'),matched:item.clusterStatus==='inside',resolutionSource:item.clusterResolutionSource||null,hasSlogiCenter:item.clusterStatus==='outside'?false:null,centerDetails:''};
     const context=baseCluster.status==='inside'&&service&&typeof service.spaceContext==='function'?service.spaceContext(baseCluster.id,baseCluster.name):{cluster:baseCluster,competitive:baseCluster.name&&service&&typeof service.competitiveProfile==='function'?service.competitiveProfile(baseCluster.id,baseCluster.name):{rating:null,rank:null,isTop30:null,averageRentPerSqm:null}};
     return spaceCardModel.normalize({id:freshnessId(item),source:'cian',address:item.address,cluster:Object.assign({},baseCluster,context.cluster),competitive:context.competitive,rentMonthly:item.rentMonthly,area:item.area,areaConfirmed:null,separateEntrance:null,hasWindows:null,windowsOpen:null,ceilingHeight:item.ceilingHeight,ceilingHeightConfirmed:null,repair:null});
   }
@@ -241,7 +240,7 @@
       const geocodingCfg=window.SLOGI_PHASE0_CONFIG&&window.SLOGI_PHASE0_CONFIG.geocoding||{};
       let serverGeocode=null;try{serverGeocode=mapData.createServerGeocoder({endpoint:geocodingCfg.endpoint,projectUrl:supabaseCfg.url,token,timeoutMs:Number(geocodingCfg.timeoutMs)||12000,maxAttempts:3});}catch(_error){serverGeocode=null;}
       const browserGeocode=createBrowserGeocoder();
-      const geocode=createFallbackGeocoder(serverGeocode,browserGeocode);
+      const geocode=mapData.createFallbackGeocoder(serverGeocode,browserGeocode);
       await mapData.geocodeMissingListings(all,{geocode,clusterService:clusterService(),cache:geocodeCache,signal:controller.signal,concurrency:2,onProgress:progress=>{
         if(generation!==loadGeneration||controller.signal.aborted)return;
         if(progress.completed===progress.total||progress.completed%5===0)render();
@@ -283,26 +282,19 @@
       try{
         await loadYandex();
         if(signal&&signal.aborted)throw abortError();
-        if(!window.ymaps||typeof window.ymaps.geocode!=='function')return{status:'failed',attempts:1,diagnostic:'map_geocoder_unavailable'};
-        const response=await window.ymaps.geocode(String(address||''),{results:1,kind:'house'});
-        if(signal&&signal.aborted)throw abortError();
-        const object=response&&response.geoObjects&&response.geoObjects.get(0);
-        const coords=object&&object.geometry&&object.geometry.getCoordinates();
-        if(!Array.isArray(coords)||!Number.isFinite(Number(coords[0]))||!Number.isFinite(Number(coords[1])))return{status:'not_found',attempts:1,diagnostic:'map_geocoder_no_results'};
-        const metadata=object.properties&&object.properties.get('metaDataProperty.GeocoderMetaData');
-        return{status:'geocoded',attempts:1,latitude:Number(coords[0]),longitude:Number(coords[1]),precision:String(metadata&&metadata.precision||''),resolvedAddress:String(object.properties&&object.properties.get('text')||address),cacheHit:false,diagnostic:'yandex_maps_fallback'};
+        if(!window.ymaps||typeof window.ymaps.geocode!=='function')return{status:'failed',attempts:0,diagnostic:'map_geocoder_unavailable'};
+        const variantGeocode=mapData.createAddressVariantGeocoder(async query=>{
+          const response=await window.ymaps.geocode(query,{results:1,kind:'house'});
+          const object=response&&response.geoObjects&&response.geoObjects.get(0),coords=object&&object.geometry&&object.geometry.getCoordinates();
+          if(!Array.isArray(coords)||!Number.isFinite(Number(coords[0]))||!Number.isFinite(Number(coords[1])))return null;
+          const metadata=object.properties&&object.properties.get('metaDataProperty.GeocoderMetaData');
+          return{latitude:Number(coords[0]),longitude:Number(coords[1]),precision:String(metadata&&metadata.precision||''),resolvedAddress:String(object.properties&&object.properties.get('text')||query),cacheHit:false};
+        },{successDiagnostic:'yandex_maps_fallback',noResultsDiagnostic:'map_geocoder_no_results',failureDiagnostic:'map_geocoder_failed',coordinateSource:'geocode_browser'});
+        return await variantGeocode(address,{signal});
       }catch(error){
         if(error&&error.name==='AbortError')throw error;
-        return{status:'failed',attempts:1,diagnostic:'map_geocoder_failed'};
+        return{status:'failed',attempts:0,diagnostic:'map_geocoder_failed'};
       }
-    };
-  }
-  function createFallbackGeocoder(primary,fallback){
-    return async function geocode(address,options={}){
-      const first=typeof primary==='function'?await primary(address,options):{status:'failed',attempts:0,diagnostic:'server_geocoder_unavailable'};
-      if(first&&first.status==='geocoded')return first;
-      const second=typeof fallback==='function'?await fallback(address,options):null;
-      return second&&second.status==='geocoded'?second:first;
     };
   }
   function featureCoords(feature){const geometry=feature&&feature.geometry||{},convert=ring=>ring.map(point=>[point[1],point[0]]);if(geometry.type==='Polygon')return geometry.coordinates.map(convert);if(geometry.type==='MultiPolygon')return geometry.coordinates.map(poly=>poly.map(convert));return null;}

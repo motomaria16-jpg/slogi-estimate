@@ -76,6 +76,15 @@ function serviceHarness({ card, geo = null, locate, metric = null, otherProjects
   const repository = {
     get: (id) => String(id) === current.id ? JSON.parse(JSON.stringify(current)) : null,
     listAll: () => [current, ...otherProjects].map(project => JSON.parse(JSON.stringify(project))),
+    findDuplicates: () => [],
+    update: (id, shared, phase0, expectedRevision) => {
+      assert.equal(String(id), current.id);
+      assert.equal(Number(expectedRevision), Number(current.phase0.revision));
+      current = Object.assign({}, current, JSON.parse(JSON.stringify(shared)), {
+        phase0: Object.assign({}, current.phase0, JSON.parse(JSON.stringify(phase0)), { revision: Number(current.phase0.revision || 0) + 1 })
+      });
+      return JSON.parse(JSON.stringify(current));
+    },
     mutate: (id, mutator) => {
       assert.equal(String(id), current.id);
       current = mutator(JSON.parse(JSON.stringify(current)));
@@ -181,6 +190,32 @@ test('exact polygon containment overrides a conflicting manually selected cluste
   assert.equal(saved.phase0.spaceCard.cluster.resolutionSource, 'automatic');
   assert.equal(saved.phase0.spaceCard.competitive.rank, 18);
   assert.equal(saved.phase0.spaceCard.competitive.averageRentPerSqm, 4100);
+  assert.equal(saved.phase0.spaceCard.competitive.resolutionSource, 'automatic');
+});
+
+test('saving a geocoded parsed listing persists coordinates, exact cluster and automatic provenance in its unified card', async () => {
+  const card = readyCard({
+    source: 'cian',
+    cluster: { id: 'cluster-1', name: 'Кластер 1', status: 'inside', resolutionSource: 'automatic' },
+    competitive: { rating: 12, rank: 12, averageRentPerSqm: 3000, resolutionSource: 'automatic' }
+  });
+  const { service } = serviceHarness({ card, geo: null });
+  const saved = await service.save({
+    spaceCard: card,
+    listingUrl: 'https://www.cian.ru/rent/commercial/123456789',
+    externalId: '123456789',
+    address: card.address,
+    latitude: 55.84,
+    longitude: 37.36,
+    clusterId: card.cluster.id,
+    clusterName: card.cluster.name,
+    area: card.area,
+    rentMonthly: card.rentMonthly,
+    ceilingHeight: card.ceilingHeight
+  }, { projectId: 'space-1', expectedRevision: 1 });
+  assert.deepEqual(saved.geo, { lat: 55.84, lng: 37.36 });
+  assert.equal(saved.clusterId, 'cluster-1');
+  assert.equal(saved.phase0.spaceCard.cluster.resolutionSource, 'automatic');
   assert.equal(saved.phase0.spaceCard.competitive.resolutionSource, 'automatic');
 });
 

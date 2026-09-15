@@ -39,27 +39,73 @@ test('point-in-polygon is deterministic for inside, outside and boundary points'
   assert.equal(geometry.locate(POLYGONS,55.834088,37.388049).canonicalIndex,0);
 });
 
-test('administrative cluster is inferred from the address when a point is outside SLOGI polygons',()=>{
+test('administrative district text is never treated as exact SLOGI polygon containment',()=>{
   const item=listing(10,{address:'Москва, ЮВАО, р-н Лефортово, ш. Энтузиастов, 3к1',latitude:55.7480696,longitude:37.6904566});
   assert.equal(mapData.inferAddressCluster(item.address),'Лефортово');
   mapData.classify(item,clusterService);
-  assert.deepEqual({name:item.clusterName,status:item.clusterStatus,boundary:item.clusterBoundary},{name:'Лефортово',status:'address',boundary:false});
+  assert.deepEqual({name:item.clusterName,status:item.clusterStatus,boundary:item.clusterBoundary,source:item.clusterResolutionSource},{name:'',status:'outside',boundary:false,source:'automatic'});
 });
 
-test('same address is geocoded once while distinct canonical listings keep distinct markers',async()=>{
-  const items=[listing(1),listing(2)];let calls=0;
+test('address variants keep raw input, remove administrative noise and normalize building parts',()=>{
+  const raw='Москва, ЮВАО, р-н Лефортово, ш. Энтузиастов, 3к1';
+  const variants=mapData.addressQueryVariants(raw);
+  assert.equal(variants[0],raw);
+  assert.ok(variants.includes('Москва, ш. Энтузиастов, 3к1'));
+  assert.ok(variants.includes('Москва, ш. Энтузиастов, 3 корпус 1'));
+  assert.ok(mapData.addressQueryVariants('Москва, Тверская, 3с1').includes('Москва, Тверская, 3 строение 1'));
+  assert.ok(mapData.addressQueryVariants('Москва, Тверская, 3 корп. 2').includes('Москва, Тверская, 3 корпус 2'));
+  assert.ok(mapData.addressQueryVariants('Москва, р-н Лефортово, м. Авиамоторная, ш. Энтузиастов, 3к1').includes('Москва, ш. Энтузиастов, 3 корпус 1'));
+  const withoutRegion=mapData.addressQueryVariants('ш. Энтузиастов, 3к1');
+  assert.ok(withoutRegion.includes('Москва, ш. Энтузиастов, 3к1'));
+  assert.ok(withoutRegion.includes('Московская область, ш. Энтузиастов, 3 корпус 1'));
+});
+
+test('same normalized address is geocoded once while distinct canonical listings keep distinct markers and exact clusters',async()=>{
+  const items=[listing(1,{address:' Москва,  Тестовая улица, 1 '}),listing(2,{address:'москва, тестовая улица , 1'})];let calls=0;
   await mapData.geocodeMissingListings(items,{clusterService,geocode:async()=>{calls++;return{status:'geocoded',attempts:1,latitude:55.84,longitude:37.36};}});
   const state=mapData.projection(items);
   assert.equal(calls,1);assert.equal(state.markerCount,2);assert.equal(new Set(state.markers.map(mapData.listingId)).size,2);
-  assert.ok(items.every(item=>item.clusterId==='Митино'&&item.clusterName==='Митино'&&item.clusterStatus==='inside'));
+  assert.ok(items.every(item=>item.clusterId==='Митино'&&item.clusterName==='Митино'&&item.clusterStatus==='inside'&&item.clusterResolutionSource==='automatic'));
+});
+
+test('failed server falls back through browser address variants to exact polygon containment',async()=>{
+  const address='Москва, ЮВАО, р-н Лефортово, ш. Энтузиастов, 3к1',queries=[];let serverCalls=0;
+  const browser=mapData.createAddressVariantGeocoder(async query=>{
+    queries.push(query);
+    return query==='Москва, ш. Энтузиастов, 3 корпус 1'?{latitude:55.84,longitude:37.36,resolvedAddress:query}:null;
+  },{successDiagnostic:'yandex_maps_fallback',noResultsDiagnostic:'map_geocoder_no_results',failureDiagnostic:'map_geocoder_failed',coordinateSource:'geocode_browser'});
+  const geocode=mapData.createFallbackGeocoder(async()=>{serverCalls++;return{status:'failed',attempts:1,diagnostic:'http_502'};},browser);
+  const items=[listing(77,{address})];
+  await mapData.geocodeMissingListings(items,{clusterService,geocode});
+  assert.equal(serverCalls,1);assert.equal(queries[0],address);assert.equal(queries.at(-1),'Москва, ш. Энтузиастов, 3 корпус 1');
+  assert.deepEqual({latitude:items[0].latitude,longitude:items[0].longitude,clusterId:items[0].clusterId,status:items[0].clusterStatus,source:items[0].clusterResolutionSource},{latitude:55.84,longitude:37.36,clusterId:'Митино',status:'inside',source:'automatic'});
+  assert.equal(items[0].coordinateSource,'geocode_browser');
+  assert.equal(items[0].geocodeAttempts,5);assert.match(items[0].geocodeDiagnostic,/fallback:http_502 -> yandex_maps_fallback_variant_4/);
+});
+
+test('a saved project without geo preserves geocoded parsed-listing coordinates and exact cluster',()=>{
+  const parsed=listing(7,{latitude:55.84,longitude:37.36,coordinateSource:'geocode_server',geocodeStatus:'geocoded'});
+  const project={id:'project-7',address:parsed.address,geo:null,phase0:{source:'cian',externalId:'7'}};
+  const merged=mapData.mergeProjectListingGeo(project,parsed,clusterService);
+  assert.deepEqual({latitude:merged.latitude,longitude:merged.longitude,clusterId:merged.clusterId,clusterStatus:merged.clusterStatus,source:merged.clusterResolutionSource},{latitude:55.84,longitude:37.36,clusterId:'Митино',clusterStatus:'inside',source:'automatic'});
+  assert.equal(merged.coordinateSource,'geocode_server');assert.equal(merged.geocodeStatus,'geocoded');
 });
 
 test('reload reuses the address cache and does not call the geocoder again',async()=>{
   const storage=memoryStorage(),first=[listing(1)];let calls=0;
-  await mapData.geocodeMissingListings(first,{clusterService,cache:mapData.createAddressCache(storage),geocode:async()=>{calls++;return{status:'geocoded',attempts:1,latitude:55.84,longitude:37.36};}});
+  await mapData.geocodeMissingListings(first,{clusterService,cache:mapData.createAddressCache(storage),geocode:async()=>{calls++;return{status:'geocoded',attempts:1,latitude:55.84,longitude:37.36,coordinateSource:'geocode_browser'};}});
   const reloaded=[listing(1)];
   await mapData.geocodeMissingListings(reloaded,{clusterService,cache:mapData.createAddressCache(storage),geocode:async()=>{calls++;return{status:'failed'};}});
-  assert.equal(calls,1);assert.equal(reloaded[0].coordinateSource,'geocode_cache');assert.equal(reloaded[0].clusterId,'Митино');
+  assert.equal(calls,1);assert.equal(reloaded[0].coordinateSource,'geocode_cache_browser');assert.equal(reloaded[0].clusterId,'Митино');
+});
+
+test('v4 cache ignores old v3 failures so the new address fallback can run immediately after deployment',async()=>{
+  const storage=memoryStorage(),oldKey='slogi_cian_geocode_cache_v3',normalized=mapData.normalizeAddress('Москва, Тверская, 1');
+  storage.setItem(oldKey,JSON.stringify({[normalized]:{status:'failed',attempts:3,diagnostic:'legacy_failure',expiresAt:Date.now()+86400000}}));
+  let calls=0;const item=listing(91,{address:'Москва, Тверская, 1'});
+  await mapData.geocodeMissingListings([item],{clusterService,cache:mapData.createAddressCache(storage),geocode:async()=>{calls++;return{status:'geocoded',attempts:1,latitude:55.84,longitude:37.36,coordinateSource:'geocode_server'};}});
+  assert.equal(calls,1);assert.equal(item.coordinateSource,'geocode_server');assert.equal(item.clusterId,'Митино');
+  assert.ok(storage.getItem('slogi_cian_geocode_cache_v4'));
 });
 
 test('geocoder HTTP failure and timeout are explicit and never invent coordinates',async()=>{
@@ -110,6 +156,11 @@ test('UI binds marker-card selection and unified project removal without filter 
   assert.match(source,/marker\.events\.removeAll/);
   assert.match(source,/createFallbackGeocoder\(serverGeocode,browserGeocode\)/);
   assert.match(source,/window\.ymaps\.geocode/);
+});
+
+test('server geocoder marks successful coordinates with their real provider',async()=>{
+  const server=mapData.createServerGeocoder({endpoint:GEOCODE_ENDPOINT,projectUrl:PROJECT_URL,maxAttempts:1,fetchImpl:async()=>response(200,{results:[{lat:55.84,lng:37.36,address:'Москва, Тверская, 1',precision:'exact'}],diagnostic:{status:'ok',attempts:1}})});
+  const result=await server('Москва, Тверская, 1');assert.equal(result.status,'geocoded');assert.equal(result.coordinateSource,'geocode_server');
 });
 
 test('UI exposes separate missing-address, missing-coordinate, failed and pending DOM counters',()=>{

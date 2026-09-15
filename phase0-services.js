@@ -746,6 +746,7 @@ class GeocodingService{
     return endpoint.toString()
   }
   queryVariants(value){
+    const shared=window.SlogiCianMapData&&window.SlogiCianMapData.addressQueryVariants;if(typeof shared==='function')return shared(value);
     const raw=String(value||'').trim();if(!raw)return[];const variants=[];const push=v=>{v=String(v||'').replace(/\s+/g,' ').replace(/\s*,\s*/g,', ').trim();if(v&&!variants.includes(v))variants.push(v)};
     push(raw);
     const noNoise=raw.replace(/,\s*(?:ЦАО|САО|СВАО|ВАО|ЮВАО|ЮАО|ЮЗАО|ЗАО|СЗАО|ЗелАО|ТАО|НАО)\s*,?/gi,', ').replace(/,\s*р-н\s+[^,]+,?/gi,', ').replace(/,\s*м\.\s*[^,]+,?/gi,', ');push(noNoise);
