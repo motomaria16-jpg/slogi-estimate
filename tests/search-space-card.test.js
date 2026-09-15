@@ -34,12 +34,14 @@ test('manual and parsed payloads use one canonical field and derived-value model
   assert.deepEqual(withoutOrigin(parsed),withoutOrigin(manual));
 });
 
-test('rent per square metre and competitive delta are always calculated, never trusted from input',()=>{
+test('rent per square metre supports a persisted manual override and competitive comparison',()=>{
   const card=model.normalize(ready({pricePerSqm:999999,competitive:{rating:92,rank:12,averageRentPerSqm:3200}}));
   assert.equal(card.pricePerSqm,3000);
-  assert.deepEqual(card.competitive,{rating:92,rank:12,isTop30:true,resolutionSource:null,averageRentPerSqm:3200,deltaRentPerSqm:-200,deltaPercent:-6.25,priceDirection:'lower'});
+  assert.deepEqual(card.competitive,{rating:92,rank:12,isTop30:true,isTop35:true,resolutionSource:null,averageRentPerSqm:3200,comparisonPercentOverride:null,deltaRentPerSqm:-200,deltaPercent:-6.25,priceDirection:'lower'});
   const higher=model.normalize(ready({rentMonthly:420000,competitive:{rank:30,averageRentPerSqm:3000}}));
   assert.equal(higher.pricePerSqm,3500);assert.equal(higher.competitive.priceDirection,'higher');assert.equal(higher.competitive.deltaPercent,16.67);
+  const overridden=model.normalize(ready({pricePerSqmOverride:2800,competitive:{rank:30,averageRentPerSqm:3000,comparisonPercentOverride:-8}}));
+  assert.equal(overridden.calculatedPricePerSqm,3000);assert.equal(overridden.pricePerSqm,2800);assert.equal(overridden.competitive.deltaPercent,-8);
 });
 
 test('an address outside all clusters is explicit and can never be taken to work',()=>{
@@ -48,10 +50,10 @@ test('an address outside all clusters is explicit and can never be taken to work
   assert.equal(card.canTakeToWork,false);assert.deepEqual(card.eligibility.reasons,['cluster_outside']);
 });
 
-test('take-to-work is allowed only for an inside, free, top-30 and exactly completed card',()=>{
+test('take-to-work is allowed only for an inside, free, top-35 and exactly completed card',()=>{
   const card=model.normalize(ready());
-  assert.equal(card.cluster.hasSlogiCenter,false);assert.equal(card.competitive.isTop30,true);
-  assert.deepEqual(card.eligibility.checks,{clusterInside:true,clusterFree:true,clusterTop30:true,requiredComplete:true});
+  assert.equal(card.cluster.hasSlogiCenter,false);assert.equal(card.competitive.isTop35,true);
+  assert.deepEqual(card.eligibility.checks,{clusterInside:true,clusterFree:true,clusterTop35:true,requiredComplete:true});
   assert.equal(card.canTakeToWork,true);assert.deepEqual(card.eligibility.reasons,[]);
 });
 
@@ -62,10 +64,10 @@ test('an existing SLOGI center and unknown occupancy both block take-to-work',()
   assert.equal(unknown.eligible,false);assert.ok(unknown.reasons.includes('cluster_occupancy_unknown'));
 });
 
-test('rank 30 is admitted while rank 31 and a missing rank are blocked',()=>{
-  assert.equal(model.normalize(ready({competitive:{rank:30,averageRentPerSqm:3000}})).canTakeToWork,true);
-  const rank31=model.normalize(ready({competitive:{rank:31,averageRentPerSqm:3000}}));
-  assert.equal(rank31.top30,false);assert.ok(rank31.eligibility.reasons.includes('cluster_not_top30'));
+test('rank 35 is admitted while rank 36 and a missing rank are blocked',()=>{
+  assert.equal(model.normalize(ready({competitive:{rank:35,averageRentPerSqm:3000}})).canTakeToWork,true);
+  const rank36=model.normalize(ready({competitive:{rank:36,averageRentPerSqm:3000}}));
+  assert.equal(rank36.top35,false);assert.ok(rank36.eligibility.reasons.includes('cluster_not_top35'));
   assert.ok(model.evaluate(ready({competitive:{averageRentPerSqm:3000}})).reasons.includes('cluster_rank_unknown'));
 });
 
@@ -75,6 +77,17 @@ test('every required technical value is validated and windows-open is conditiona
   assert.deepEqual(incomplete.eligibility.missingFields,['address','rentMonthly','area','areaConfirmed','pricePerSqm','separateEntrance','windowsOpen','ceilingHeight','ceilingHeightConfirmed','repair','competitiveAverage']);
   const noWindows=model.normalize(ready({hasWindows:'no',windowsOpen:'yes'}));
   assert.equal(noWindows.windowsOpen,'unknown');assert.equal(noWindows.eligibility.required.windowsOpen,true);assert.equal(noWindows.canTakeToWork,true);
+});
+
+test('area decision is prefilled from the range but a saved manual decision wins',()=>{
+  const automaticYes=model.normalize(ready({area:120,areaConfirmed:undefined,areaConfirmedSource:undefined}));
+  assert.equal(automaticYes.areaConfirmed,'yes');assert.equal(automaticYes.areaConfirmedSource,'automatic');
+  const automaticNo=model.normalize(ready({area:160,areaConfirmed:undefined,areaConfirmedSource:undefined}));
+  assert.equal(automaticNo.areaConfirmed,'no');assert.equal(automaticNo.areaConfirmedSource,'automatic');
+  const manualNo=model.normalize(ready({area:120,areaConfirmed:'no',areaConfirmedSource:'manual'}));
+  assert.equal(manualNo.areaConfirmed,'no');assert.equal(manualNo.canTakeToWork,false);
+  const manualYes=model.normalize(ready({area:160,areaConfirmed:'yes',areaConfirmedSource:'manual'}));
+  assert.equal(manualYes.areaConfirmed,'yes');assert.equal(manualYes.canTakeToWork,true);
 });
 
 test('nested technical input and Russian option labels normalize deterministically',()=>{
@@ -95,7 +108,7 @@ test('manual cluster and competitive fallbacks preserve provenance and participa
   }));
   assert.equal(card.cluster.resolutionSource,'manual');
   assert.equal(card.competitive.resolutionSource,'manual');
-  assert.equal(card.competitive.isTop30,true);
+  assert.equal(card.competitive.isTop35,true);
   assert.equal(card.canTakeToWork,true);
 
   const automatic=model.normalize(ready({
@@ -104,4 +117,17 @@ test('manual cluster and competitive fallbacks preserve provenance and participa
   }));
   assert.equal(automatic.cluster.resolutionSource,'automatic');
   assert.equal(automatic.competitive.resolutionSource,'automatic');
+});
+
+test('listing URL, coordinates and manual overrides survive normalization',()=>{
+  const card=model.normalize(ready({
+    listingUrl:'https://www.cian.ru/rent/commercial/123456789',
+    geo:{lat:'55,7558',lng:'37,6176',resolutionSource:'manual'},
+    pricePerSqmOverride:'3500',
+    competitive:{rank:33,averageRentPerSqm:3200,comparisonPercentOverride:'9,4',resolutionSource:'manual'},
+  }));
+  assert.equal(card.listingUrl,'https://www.cian.ru/rent/commercial/123456789');
+  assert.deepEqual(card.geo,{lat:55.7558,lng:37.6176,resolutionSource:'manual'});
+  assert.equal(card.pricePerSqm,3500);assert.equal(card.competitive.deltaPercent,9.4);assert.equal(card.competitive.isTop35,true);
+  assert.equal(model.normalize({...ready(),listingUrl:'javascript:alert(1)'}).listingUrl,'');
 });

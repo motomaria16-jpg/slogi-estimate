@@ -6,7 +6,7 @@
 })(typeof window!=='undefined'?window:globalThis,function(){
   'use strict';
 
-  const CARD_SCHEMA_VERSION=1;
+  const CARD_SCHEMA_VERSION=2;
   const YES_NO=Object.freeze(['yes','no']);
   const TRI_STATE=Object.freeze(['yes','no','unknown']);
   const REPAIR_OPTIONS=Object.freeze(['none','rough','finished']);
@@ -22,6 +22,11 @@
   }
   const positive=value=>{const parsed=number(value);return parsed!=null&&parsed>0?parsed:null;};
   const rounded=(value,digits=2)=>value==null?null:Number(Number(value).toFixed(digits));
+  function listingUrl(value){
+    const raw=text(value);
+    if(!raw)return'';
+    try{const url=new URL(raw);return['http:','https:'].includes(url.protocol)?url.href:'';}catch(_error){return'';}
+  }
 
   function resolutionSource(value){
     const normalized=key(value);
@@ -98,15 +103,20 @@
     const rankValue=positive(first(source.rank,source.clusterRank,source.cluster_rank,input.clusterRank,input.cluster_rank));
     const rank=rankValue==null?null:Math.trunc(rankValue);
     const averageRentPerSqm=positive(first(source.averageRentPerSqm,source.average_rent_per_sqm,source.avgPricePerSqm,source.avg_price_per_sqm,input.averageRentPerSqm,input.average_rent_per_sqm,input.avgPricePerSqm,input.avg_price_per_sqm));
-    const deltaRentPerSqm=pricePerSqm!=null&&averageRentPerSqm!=null?rounded(pricePerSqm-averageRentPerSqm):null;
-    const deltaPercent=deltaRentPerSqm!=null?rounded(deltaRentPerSqm/averageRentPerSqm*100):null;
+    const comparisonPercentOverride=number(first(source.comparisonPercentOverride,source.comparison_percent_override,input.comparisonPercentOverride,input.comparison_percent_override));
+    const calculatedDeltaRentPerSqm=pricePerSqm!=null&&averageRentPerSqm!=null?rounded(pricePerSqm-averageRentPerSqm):null;
+    const calculatedDeltaPercent=calculatedDeltaRentPerSqm!=null?rounded(calculatedDeltaRentPerSqm/averageRentPerSqm*100):null;
+    const deltaPercent=comparisonPercentOverride==null?calculatedDeltaPercent:rounded(comparisonPercentOverride);
+    const deltaRentPerSqm=deltaPercent!=null&&averageRentPerSqm!=null?rounded(averageRentPerSqm*deltaPercent/100):calculatedDeltaRentPerSqm;
     const priceDirection=deltaRentPerSqm==null?'unknown':Math.abs(deltaRentPerSqm)<0.01?'equal':deltaRentPerSqm>0?'higher':'lower';
     return{
       rating,
       rank,
       isTop30:rank==null?null:rank>=1&&rank<=30,
+      isTop35:rank==null?null:rank>=1&&rank<=35,
       resolutionSource:resolutionSource(first(source.resolutionSource,source.resolution_source,input.competitiveResolutionSource,input.competitive_resolution_source)),
       averageRentPerSqm:rounded(averageRentPerSqm),
+      comparisonPercentOverride:comparisonPercentOverride==null?null:rounded(comparisonPercentOverride),
       deltaRentPerSqm,
       deltaPercent,
       priceDirection,
@@ -117,7 +127,19 @@
     const source=sourceState(input);
     const rentMonthly=positive(first(input.rentMonthly,input.rent_monthly,input.monthlyRent,input.monthly_rent,input.price));
     const area=positive(first(input.area,input.areaSqm,input.area_sqm,total(input,'technical','area')));
-    const pricePerSqm=rentMonthly!=null&&area!=null?rounded(rentMonthly/area):null;
+    const calculatedPricePerSqm=rentMonthly!=null&&area!=null?rounded(rentMonthly/area):null;
+    const pricePerSqmOverride=positive(first(input.pricePerSqmOverride,input.price_per_sqm_override,total(input,'technical','pricePerSqmOverride')));
+    const pricePerSqm=pricePerSqmOverride==null?calculatedPricePerSqm:rounded(pricePerSqmOverride);
+    const areaConfirmedInput=first(input.areaConfirmed,input.area_confirmed,total(input,'technical','areaConfirmed'));
+    const explicitAreaConfirmed=triState(areaConfirmedInput);
+    let areaConfirmedSource=resolutionSource(first(input.areaConfirmedSource,input.area_confirmed_source,total(input,'technical','areaConfirmedSource')));
+    let areaConfirmed=explicitAreaConfirmed;
+    if(areaConfirmedSource==='automatic'||areaConfirmed==='unknown'){
+      areaConfirmed=area==null?'unknown':area>=90&&area<=150?'yes':'no';
+      if(area!=null&&areaConfirmedSource!=='manual')areaConfirmedSource='automatic';
+    }else if(!areaConfirmedSource){
+      areaConfirmedSource='manual';
+    }
     const hasWindows=triState(first(input.hasWindows,input.has_windows,input.windows,total(input,'technical','hasWindows'),total(input,'technical','windows')));
     const windowsOpen=hasWindows==='yes'
       ?triState(first(input.windowsOpen,input.windows_open,input.openableWindows,input.openable_windows,total(input,'technical','windowsOpen')))
@@ -129,12 +151,21 @@
       id:text(first(input.id,input.cardId,input.card_id,input.externalId,input.external_id)),
       source:source.source,
       sourceProvider:source.sourceProvider,
+      listingUrl:listingUrl(first(input.listingUrl,input.listing_url,input.canonicalUrl,input.canonical_url)),
       address:text(first(input.address,input.fullAddress,input.full_address)),
+      geo:{
+        lat:number(first(total(input,'geo','lat'),total(input,'geo','latitude'),input.latitude,input.lat)),
+        lng:number(first(total(input,'geo','lng'),total(input,'geo','longitude'),input.longitude,input.lng)),
+        resolutionSource:resolutionSource(first(total(input,'geo','resolutionSource'),total(input,'geo','resolution_source'),input.geoResolutionSource,input.geo_resolution_source)),
+      },
       cluster,
       competitive,
       rentMonthly:rounded(rentMonthly),
       area:rounded(area),
-      areaConfirmed:triState(first(input.areaConfirmed,input.area_confirmed,total(input,'technical','areaConfirmed'))),
+      areaConfirmed,
+      areaConfirmedSource,
+      calculatedPricePerSqm,
+      pricePerSqmOverride:pricePerSqmOverride==null?null:rounded(pricePerSqmOverride),
       pricePerSqm,
       separateEntrance:triState(first(input.separateEntrance,input.separate_entrance,total(input,'technical','separateEntrance'))),
       hasWindows,
@@ -145,6 +176,7 @@
       work:input.work&&typeof input.work==='object'?Object.assign({},input.work):{},
       clusterRank:competitive.rank,
       top30:competitive.isTop30,
+      top35:competitive.isTop35,
     };
   }
 
@@ -172,14 +204,14 @@
     const checks={
       clusterInside:card.cluster.status==='inside'&&card.cluster.matched&&Boolean(card.cluster.id||card.cluster.name),
       clusterFree:card.cluster.hasSlogiCenter===false,
-      clusterTop30:card.competitive.isTop30,
+      clusterTop35:card.competitive.isTop35,
       requiredComplete:Object.values(required).every(Boolean),
     };
     const missingFields=Object.entries(required).filter(([,complete])=>!complete).map(([field])=>field);
     const reasons=[];
     if(!checks.clusterInside)reasons.push(card.cluster.status==='outside'?'cluster_outside':'cluster_not_confirmed');
     if(!checks.clusterFree)reasons.push(card.cluster.hasSlogiCenter===true?'cluster_occupied':'cluster_occupancy_unknown');
-    if(!checks.clusterTop30)reasons.push(card.competitive.rank==null?'cluster_rank_unknown':'cluster_not_top30');
+    if(!checks.clusterTop35)reasons.push(card.competitive.rank==null?'cluster_rank_unknown':'cluster_not_top35');
     if(missingFields.length)reasons.push('required_fields_incomplete');
     const alreadyInWork=key(card.work&&card.work.status)==='in_work';
     if(alreadyInWork)reasons.push('already_in_work');

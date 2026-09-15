@@ -128,28 +128,28 @@ test('the search page loads one shared card model before the modal and workspace
   assert.match(workspaceSource, /data-remove-space=/);
 });
 
-test('the model blocks outside, occupied, non-top-30 and incomplete cards', () => {
+test('the model blocks outside, occupied, non-top-35 and incomplete cards', () => {
   assert.equal(cardModel.normalize(readyCard()).canTakeToWork, true);
   assert.equal(cardModel.normalize(readyCard({ cluster: { status: 'outside' } })).canTakeToWork, false);
   assert.equal(cardModel.normalize(readyCard({ cluster: { hasSlogiCenter: true } })).canTakeToWork, false);
-  assert.equal(cardModel.normalize(readyCard({ competitive: { rank: 31 } })).canTakeToWork, false);
+  assert.equal(cardModel.normalize(readyCard({ competitive: { rank: 36 } })).canTakeToWork, false);
   assert.equal(cardModel.normalize(readyCard({ separateEntrance: null })).canTakeToWork, false);
 });
 
-test('missing competitive rank stays unknown instead of being reported as outside TOP-30', () => {
+test('missing competitive rank stays unknown instead of being reported as outside TOP-35', () => {
   const card = cardModel.normalize(readyCard({ competitive: { rank: null } }));
   assert.equal(card.competitive.rank, null);
-  assert.equal(card.competitive.isTop30, null,
-    'No imported rating means “нет данных”, which is different from a known rank below the TOP-30 cutoff.');
+  assert.equal(card.competitive.isTop35, null,
+    'No imported rating means “нет данных”, which is different from a known rank below the TOP-35 cutoff.');
   assert.ok(card.eligibility.reasons.includes('cluster_rank_unknown'));
 });
 
-test('TOP-30 uses the business rating value, which is already the rank', () => {
+test('TOP-35 uses the business rating value, which is already the rank', () => {
   const body = methodBody(servicesSource, 'competitiveProfile', 'openCentersInCluster');
   assert.doesNotMatch(body, /rank\s*=\s*index\s*>=\s*0\s*\?\s*index\s*\+\s*1/,
     'Do not renumber the imported rating rows: a business rating of 50 must not become rank 2 merely because only two rows are loaded.');
   assert.match(body, /rating\s*=\s*metric\s*&&\s*nullableNumber\(metric\.rating\)[\s\S]*rank\s*=\s*rating\s*!=\s*null\s*&&\s*rating\s*>=\s*1\s*\?\s*Math\.trunc\(rating\)\s*:\s*null/,
-    'The imported “РЕЙТИНГ(Население важнее)” is documented as the ordinal place (1 is best), so it must directly drive TOP-30.');
+    'The imported “РЕЙТИНГ(Население важнее)” is documented as the ordinal place (1 is best), so it must directly drive TOP-35.');
 });
 
 test('takeSpaceIntoWork revalidates the exact cluster from persisted coordinates', () => {
@@ -230,6 +230,27 @@ test('saving a geocoded parsed listing persists coordinates, exact cluster and a
   assert.equal(saved.phase0.spaceCard.competitive.resolutionSource, 'automatic');
 });
 
+test('saving a card accepts an external HTTPS listing URL and rejects unsafe protocols', async () => {
+  const card = readyCard({ listingUrl: 'https://example.org/listings/42' });
+  const { service } = serviceHarness({ card });
+  const saved = await service.save({
+    spaceCard: card,
+    listingUrl: card.listingUrl,
+    address: card.address,
+    clusterId: card.cluster.id,
+    clusterName: card.cluster.name,
+    area: card.area,
+    rentMonthly: card.rentMonthly,
+    ceilingHeight: card.ceilingHeight
+  }, { projectId: 'space-1', expectedRevision: 1 });
+  assert.equal(saved.phase0.listingUrl, 'https://example.org/listings/42');
+  assert.equal(saved.phase0.source, 'external');
+  const unsafe = service.prepare(Object.assign({}, card, { listingUrl: 'javascript:alert(1)', spaceCard: card }), saved);
+  assert.match(unsafe.errors.listingUrl, /безопасную ссылку http\(s\)/i);
+  const unsafeData = service.prepare(Object.assign({}, card, { listingUrl: 'data:text/html,unsafe', spaceCard: card }), saved);
+  assert.match(unsafeData.errors.listingUrl, /безопасную ссылку http\(s\)/i);
+});
+
 test('background geocodes persist as one guarded workspace write and never overwrite concurrent or incomplete cards',()=>{
   const projects=[
     {id:'parsed-ok',address:' Москва, Тестовая, 1 ',geo:null,clusterId:'',clusterName:'',phase0:{source:'cian',revision:4,spaceCard:{address:'Москва, Тестовая, 1'}}},
@@ -242,10 +263,24 @@ test('background geocodes persist as one guarded workspace write and never overw
     {projectId:'parsed-incomplete',expectedRevision:2,addressKey:'москва, третья, 3',clusterStatus:'not_computed',clusterResolutionSource:null}
   ]);
   assert.equal(result.updated.length,1);assert.deepEqual(JSON.parse(JSON.stringify(result.skipped)),[{projectId:'parsed-conflict',reason:'revision_conflict'},{projectId:'parsed-incomplete',reason:'incomplete'}]);assert.equal(h.writes(),1);assert.equal(h.pushes(),1);
-  const saved=h.locations().find(project=>project.id==='parsed-ok');assert.deepEqual(saved.geo,{lat:55.84,lng:37.36});assert.equal(saved.clusterId,'Митино');assert.equal(saved.clusterName,'Митино');assert.equal(saved.phase0.revision,5);assert.deepEqual({id:saved.phase0.spaceCard.cluster.id,status:saved.phase0.spaceCard.cluster.status,source:saved.phase0.spaceCard.cluster.resolutionSource},{id:'Митино',status:'inside',source:'automatic'});
+  const saved=h.locations().find(project=>project.id==='parsed-ok');assert.deepEqual(saved.geo,{lat:55.84,lng:37.36});assert.deepEqual(saved.phase0.spaceCard.geo,{lat:55.84,lng:37.36,resolutionSource:'automatic'});assert.equal(saved.clusterId,'Митино');assert.equal(saved.clusterName,'Митино');assert.equal(saved.phase0.revision,5);assert.deepEqual({id:saved.phase0.spaceCard.cluster.id,status:saved.phase0.spaceCard.cluster.status,source:saved.phase0.spaceCard.cluster.resolutionSource},{id:'Митино',status:'inside',source:'automatic'});
   const conflict=h.locations().find(project=>project.id==='parsed-conflict');assert.equal(conflict.geo,null);assert.equal(conflict.phase0.revision,9);
   const second=h.repository.persistAutomaticGeocodes([{projectId:'parsed-ok',expectedRevision:5,addressKey:'москва, тестовая, 1',latitude:55.84,longitude:37.36,clusterId:'Митино',clusterName:'Митино',clusterStatus:'inside',clusterResolutionSource:'automatic'}]);
   assert.equal(second.updated.length,0);assert.equal(second.skipped[0].reason,'already_persisted');assert.equal(h.writes(),1,'already persisted results must not start another sync');
+});
+
+test('background geocoding never overwrites manual geo, cluster or competitive decisions',()=>{
+  const manualCard=readyCard({
+    geo:{lat:55.7,lng:37.5,resolutionSource:'manual'},
+    cluster:{id:'manual-cluster',name:'Ручной кластер',status:'inside',hasSlogiCenter:false,resolutionSource:'manual'},
+    competitive:{rank:7,averageRentPerSqm:3200,resolutionSource:'manual'}
+  });
+  const project={id:'manual-protected',address:manualCard.address,geo:null,clusterId:'manual-cluster',clusterName:'Ручной кластер',phase0:{source:'cian',revision:3,spaceCard:manualCard}};
+  const h=repositoryHarness([project]);
+  const result=h.repository.persistAutomaticGeocodes([{projectId:'manual-protected',expectedRevision:3,addressKey:'москва, тестовая улица, 1',latitude:55.84,longitude:37.36,clusterId:'auto-cluster',clusterName:'Автокластер',clusterStatus:'inside',clusterResolutionSource:'automatic'}]);
+  assert.equal(result.updated.length,0);assert.equal(result.skipped[0].reason,'manual_override');assert.equal(h.writes(),0);
+  assert.deepEqual(h.locations()[0],JSON.parse(JSON.stringify(project)));
+  assert.match(workspaceSource, /storedGeo\.resolutionSource==='manual'\?storedGeo/);
 });
 
 test('a currently known open center blocks a manual free-cluster assertion', () => {

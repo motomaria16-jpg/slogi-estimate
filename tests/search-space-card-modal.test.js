@@ -14,7 +14,7 @@ const CARD_MODEL = require(path.join(ROOT, 'search-space-card.js'));
 function loadApi(model) {
   const window = { SlogiSearchSpaceCard: model || null };
   const document = {};
-  vm.runInNewContext(SOURCE, { window, document, Intl, Number, Object, Array, String, Boolean, Math, Set });
+  vm.runInNewContext(SOURCE, { window, document, Intl, Number, Object, Array, String, Boolean, Math, Set, URL });
   return window.SlogiSearchSpaceCardModal;
 }
 
@@ -41,7 +41,7 @@ test('modal exposes one shared manual/parsed card contract', () => {
 
   assert.equal(card.source, 'parsed');
   assert.equal(card.cluster.name, 'Лефортово');
-  assert.equal(card.competitive.isTop30, true);
+  assert.equal(card.competitive.isTop35, true);
   assert.equal(api.evaluate(card).canTakeToWork, true);
   assert.equal(api.evaluate(card).computed.rentPerSqm, 4000);
 });
@@ -51,12 +51,12 @@ test('take-to-work gate reports occupied cluster, ranking and missing exact valu
   const evaluation = api.evaluate(api.normalize({
     address: 'Москва',
     cluster: { id: 'cluster-44', matched: true, hasSlogiCenter: true },
-    competitive: { rank: 44, isTop30: false }
+    competitive: { rank: 44, isTop35: false }
   }));
 
   assert.equal(evaluation.canTakeToWork, false);
   assert.match(evaluation.reasons.join(' '), /уже есть открытый центр Слоги/i);
-  assert.match(evaluation.reasons.join(' '), /не входит в ТОП-30/i);
+  assert.match(evaluation.reasons.join(' '), /ниже ТОП-35/i);
   assert.match(evaluation.missing.join(' '), /стоимость аренды/i);
   assert.match(evaluation.missing.join(' '), /состояние ремонта/i);
 });
@@ -66,7 +66,7 @@ test('outside-cluster state is explicit and blocks transition', () => {
   const evaluation = api.evaluate(api.normalize({
     address: 'Московская область',
     cluster: { matched: false, hasSlogiCenter: false },
-    competitive: { isTop30: false }
+    competitive: { isTop35: false }
   }));
   assert.equal(evaluation.canTakeToWork, false);
   assert.match(evaluation.reasons.join(' '), /не попало ни в один кластер/i);
@@ -84,13 +84,13 @@ test('adapter keeps unknown choices empty and renders model reason codes as Russ
   assert.match(evaluation.missing.join(' '), /средней стоимости аренды/i);
 });
 
-test('round-trip preserves outside status, center details, source provider, work and explicit top-30', () => {
+test('round-trip preserves outside status, center details, source provider, work and explicit top-35', () => {
   const api = loadApi(CARD_MODEL);
   const card = api.normalize({
     source: 'parsed',
     sourceProvider: 'cian',
     cluster: { status: 'outside', centerDetails: 'Центр на соседней улице' },
-    competitive: { isTop30: true },
+    competitive: { rank: 33, isTop35: true },
     work: { status: 'draft', owner: 'team' }
   });
 
@@ -98,7 +98,7 @@ test('round-trip preserves outside status, center details, source provider, work
   assert.equal(card.cluster.matched, false);
   assert.equal(card.cluster.centerDetails, 'Центр на соседней улице');
   assert.equal(card.sourceProvider, 'cian');
-  assert.equal(card.competitive.isTop30, true);
+  assert.equal(card.competitive.isTop35, true);
   assert.equal(JSON.stringify(card.work), JSON.stringify({ status: 'draft', owner: 'team' }));
 });
 
@@ -135,17 +135,31 @@ test('markup and styles preserve accessible labels, live feedback and responsive
   assert.match(SOURCE, /role="status" aria-live="polite"/);
   assert.match(SOURCE, /aria-describedby="ss-card-take-help"/);
   assert.match(SOURCE, /choice\('windowsOpen', 'true', 'Да'\)/);
-  assert.match(SOURCE, /choice\('repair', 'none', 'Нет ремонта'\)/);
+  assert.match(SOURCE, /choice\('areaConfirmed', 'true', 'Да'\)/);
+  assert.match(SOURCE, /Соответствует диапазону 90–150 м²/);
+  assert.match(SOURCE, /value === 'yes' \|\| value === true/);
+  assert.match(SOURCE, /value === 'no' \|\| value === false/);
+  assert.match(SOURCE, /choice\('repair', 'none', 'Бетон'\)/);
   assert.match(SOURCE, /choice\('repair', 'rough', 'Черновой'\)/);
   assert.match(SOURCE, /choice\('repair', 'finished', 'Чистовой'\)/);
   assert.match(SOURCE, /data-manual-location/);
+  assert.match(SOURCE, /name="listingUrl"/);
+  assert.match(SOURCE, /rel="noopener noreferrer"/);
+  assert.match(SOURCE, /name="latitudeManual"/);
+  assert.match(SOURCE, /name="longitudeManual"/);
   assert.match(SOURCE, /name="clusterNameManual"/);
   assert.match(SOURCE, /name="clusterRankManual"/);
   assert.match(SOURCE, /name="averageRentManual"/);
-  assert.match(SOURCE, /Площадь подходит/);
-  assert.match(SOURCE, /Высота подходит/);
-  assert.doesNotMatch(SOURCE, /Площадь подтверждена|Высота подтверждена/);
+  assert.match(SOURCE, /name="pricePerSqmOverride"/);
+  assert.match(SOURCE, /name="comparisonPercentOverride"/);
+  assert.match(SOURCE, /ТОП-35/);
+  assert.doesNotMatch(SOURCE, /подходит|не подходит/i);
+  assert.doesNotMatch(SOURCE, /Вопросы собственнику/i);
   assert.match(CSS, /\.ss-card-manual-grid/);
+  assert.match(CSS, /input\[value="true"\]:checked/);
+  assert.match(CSS, /input\[value="false"\]:checked/);
+  assert.match(CSS, /\.ss-card-center-choice \.ss-card-choice input\[value="true"\]:checked \+ span \{[^}]*var\(--ss-card-danger\)/);
+  assert.match(CSS, /\.ss-card-center-choice \.ss-card-choice input\[value="false"\]:checked \+ span \{[^}]*#376441/);
   assert.match(CSS, /@media \(max-width: 540px\)/);
   assert.match(CSS, /:focus-visible/);
   assert.match(CSS, /@media \(forced-colors: active\)/);

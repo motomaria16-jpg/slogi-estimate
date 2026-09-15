@@ -49,9 +49,10 @@ function normalizeGeo(value){
 }
 function rentPerSqm(area,rent){const a=nullableNumber(area),r=nullableNumber(rent);return a&&a>0&&r!=null?round(r/a,2):null}
 function deviationPercent(value,average){const v=nullableNumber(value),a=nullableNumber(average);return v!=null&&a&&a>0?round((v-a)/a*100,1):null}
+function safeHttpUrl(value){const raw=String(value||'').trim();if(!raw)return'';try{const url=new URL(raw);return['http:','https:'].includes(url.protocol)?url.href:''}catch(_){return''}}
 function normalizeUrl(value){
-  const raw=String(value||'').trim();if(!raw)return'';
-  try{const u=new URL(raw);u.hash='';['utm_source','utm_medium','utm_campaign','utm_term','utm_content','yclid','gclid'].forEach(k=>u.searchParams.delete(k));return u.toString().replace(/\/$/,'').toLowerCase()}catch(_){return raw.toLowerCase().replace(/\/$/,'')}
+  const safe=safeHttpUrl(value);if(!safe)return'';
+  const u=new URL(safe);u.hash='';['utm_source','utm_medium','utm_campaign','utm_term','utm_content','yclid','gclid'].forEach(k=>u.searchParams.delete(k));return u.toString().replace(/\/$/,'').toLowerCase()
 }
 function detectListingSource(url){try{const host=new URL(String(url||'').trim()).hostname.toLowerCase();if(host==='cian.ru'||host.endsWith('.cian.ru'))return'cian'}catch(_){}return''}
 function normalizeRentPeriod(value){const period=String(value||'').toLowerCase();if(['month','monthly','месяц','в месяц'].includes(period))return'month';if(['day','daily','день','в день'].includes(period))return'day';if(['year','yearly','annual','год','в год'].includes(period))return'year';return period||'month'}
@@ -115,17 +116,18 @@ class ProjectRepository{
     (Array.isArray(updates)?updates:[]).forEach(update=>{const id=String(update&&update.projectId||'').trim();if(id)unique.set(id,update)});
     unique.forEach((update,id)=>{
       const index=all.findIndex(project=>project&&String(project.id)===id);if(index<0){result.skipped.push({projectId:id,reason:'not_found'});return}
-      const current=all[index],phase=current.phase0||{},revision=Number(phase.revision)||0,geo=normalizeGeo({lat:update.latitude,lng:update.longitude}),status=String(update.clusterStatus||''),resolution=String(update.clusterResolutionSource||'');
+      const current=all[index],phase=current.phase0||{},revision=Number(phase.revision)||0,geo=normalizeGeo({lat:update.latitude,lng:update.longitude}),status=String(update.clusterStatus||''),resolution=String(update.clusterResolutionSource||''),card=phase.spaceCard&&typeof phase.spaceCard==='object'?phase.spaceCard:{};
       if(current.deletedAt||norm(phase.source||current.source)!=='cian'){result.skipped.push({projectId:id,reason:'ineligible'});return}
       if(addressKey(current.address)!==addressKey(update.addressKey)){result.skipped.push({projectId:id,reason:'address_changed'});return}
       if(update.expectedRevision==null||Number(update.expectedRevision)!==revision){result.skipped.push({projectId:id,reason:'revision_conflict'});return}
+      if(['geo','cluster','competitive'].some(key=>card[key]&&card[key].resolutionSource==='manual')){result.skipped.push({projectId:id,reason:'manual_override'});return}
       if(projectGeo(current)){result.skipped.push({projectId:id,reason:'already_persisted'});return}
       if(!geo||resolution!=='automatic'||!['inside','outside'].includes(status)){result.skipped.push({projectId:id,reason:'incomplete'});return}
       const clusterId=status==='inside'?String(update.clusterId||'').trim():'',clusterName=status==='inside'?String(update.clusterName||'').trim():'';
       if(status==='inside'&&(!clusterId||!clusterName)){result.skipped.push({projectId:id,reason:'incomplete_cluster'});return}
-      const stamp=now(),next=clone(current),card=phase.spaceCard&&typeof phase.spaceCard==='object'?clone(phase.spaceCard):{},previousCluster=card.cluster&&typeof card.cluster==='object'?card.cluster:{};
+      const stamp=now(),next=clone(current),nextCard=clone(card),previousCluster=nextCard.cluster&&typeof nextCard.cluster==='object'?nextCard.cluster:{};
       next.geo=geo;next.clusterId=clusterId;next.clusterName=clusterName;
-      next.phase0=Object.assign(defaultPhase0(),phase,{spaceCard:Object.assign({},card,{id:card.id||next.id,source:'cian',address:String(next.address||''),cluster:Object.assign({},previousCluster,{id:clusterId,name:clusterName,status,matched:status==='inside',hasSlogiCenter:status==='outside'?false:null,centerDetails:'',resolutionSource:'automatic'})}),revision:revision+1,updatedAt:stamp});
+      next.phase0=Object.assign(defaultPhase0(),phase,{spaceCard:Object.assign({},nextCard,{id:nextCard.id||next.id,source:'cian',address:String(next.address||''),geo:{lat:geo.lat,lng:geo.lng,resolutionSource:'automatic'},cluster:Object.assign({},previousCluster,{id:clusterId,name:clusterName,status,matched:status==='inside',hasSlogiCenter:status==='outside'?false:null,centerDetails:'',resolutionSource:'automatic'})}),revision:revision+1,updatedAt:stamp});
       next.updatedAt=stamp;all[index]=next;touched=true;result.updated.push(clone(next));
     });
     if(touched)this.write(all,'phase0-background-geocode');return result;
@@ -612,7 +614,7 @@ class Phase0Service{
   constructor({projectRepository,competitiveRepository,fileService,auditService}){this.projects=projectRepository;this.competitive=competitiveRepository;this.files=fileService;this.audit=auditService}
   actor(){return P.actor()}
   buildCandidate(draft,existing){
-    const base=existing&&existing.phase0?clone(existing.phase0):defaultPhase0(),stamp=now(),actor=this.actor(),status=STATUSES.includes(draft.status)?draft.status:STATUS.NO_ANSWER,listingUrl=String(draft.listingUrl||'').trim(),source=listingUrl?(detectListingSource(listingUrl)||'manual'):'manual';
+    const base=existing&&existing.phase0?clone(existing.phase0):defaultPhase0(),stamp=now(),actor=this.actor(),status=STATUSES.includes(draft.status)?draft.status:STATUS.NO_ANSWER,rawListingUrl=String(draft.listingUrl||'').trim(),listingUrl=safeHttpUrl(rawListingUrl)||rawListingUrl,source=safeHttpUrl(listingUrl)?(detectListingSource(listingUrl)||'external'):'manual';
     const existingGlobalStatus=String(existing&&(existing.status||existing.projectStatus)||''),globalStatus=STATUSES.includes(existingGlobalStatus)?(Number(existing&&existing.lifecyclePhase)>=1?'В работе':'Новый'):(existingGlobalStatus||'Новый');
     let rejection=base.rejection||null;
     if(status===STATUS.REJECTED){const reason=String(draft.rejectionReason||'').trim();if(!rejection||rejection.reason!==reason)rejection={reason,date:stamp,user:actor}}
@@ -640,7 +642,7 @@ class Phase0Service{
     const phase=candidate.phase0;
     if(phase.status===STATUS.REJECTED&&!(phase.rejection&&phase.rejection.reason))errors.rejectionReason='Для статуса «Не подошло» укажите причину отказа.';
     if(['Запланирован','Выполнен'].includes(phase.measurement.status)&&!phase.measurement.date)errors.measurementDate='Укажите дату замера.';
-    if(phase.listingUrl&&phase.source!=='cian')errors.listingUrl='Ссылка должна вести на объявление ЦИАН либо оставьте поле пустым.';
+    if(phase.listingUrl&&!safeHttpUrl(phase.listingUrl))errors.listingUrl='Укажите безопасную ссылку http(s) либо оставьте поле пустым.';
     return errors;
   }
   prepare(draft,existing){const candidate=this.buildCandidate(draft,existing);return{candidate,errors:this.validate(candidate),duplicates:this.projects.findDuplicates(candidate,existing&&existing.id||'')}}
@@ -687,7 +689,7 @@ class Phase0Service{
   applyCompetitiveRows(state){const changes=this.projects.applyCompetitiveMetrics(state.rows,{version:state.version,syncedAt:state.lastSuccess});changes.forEach(change=>this.audit.recordRating(change));return changes}
   competitiveProfile(clusterId,clusterName){
     const metric=this.competitive.metricFor(clusterId,clusterName),rating=metric&&nullableNumber(metric.rating),rank=rating!=null&&rating>=1?Math.trunc(rating):null;
-    return{rating,rank,isTop30:rank==null?null:rank<=30,averageRentPerSqm:metric&&nullableNumber(metric.averageRentPerSqm)};
+    return{rating,rank,isTop30:rank==null?null:rank<=30,isTop35:rank==null?null:rank<=35,averageRentPerSqm:metric&&nullableNumber(metric.averageRentPerSqm)};
   }
   openCentersInCluster(clusterId,clusterName,excludeProjectId=''){
     const openStatuses=['open','opened','operating','active','открыт','открыта','работает','действует','завершён'];
@@ -715,7 +717,7 @@ class Phase0Service{
     const manualRank=manualAllowed?nullableNumber(competitive.rank):null,manualRating=manualAllowed?nullableNumber(competitive.rating):null,effectiveManualRating=manualRating==null?manualRank:manualRating,manualAverage=manualAllowed?nullableNumber(competitive.averageRentPerSqm):null;
     const selectedRank=systemRank==null?manualRank:systemRank,selectedRating=systemRating==null?effectiveManualRating:systemRating,selectedAverage=systemAverage==null?manualAverage:systemAverage;
     const usedManual=(systemRank==null&&manualRank!=null)||(systemRating==null&&effectiveManualRating!=null)||(systemAverage==null&&manualAverage!=null);
-    const selectedCompetitive={rating:selectedRating,rank:selectedRank==null?null:Math.trunc(selectedRank),isTop30:selectedRank==null?null:selectedRank>=1&&selectedRank<=30,averageRentPerSqm:selectedAverage,resolutionSource:usedManual?'manual':[systemRating,systemRank,systemAverage].some(value=>value!=null)?'automatic':'not_computed'};
+    const selectedCompetitive={rating:selectedRating,rank:selectedRank==null?null:Math.trunc(selectedRank),isTop30:selectedRank==null?null:selectedRank>=1&&selectedRank<=30,isTop35:selectedRank==null?null:selectedRank>=1&&selectedRank<=35,averageRentPerSqm:selectedAverage,resolutionSource:usedManual?'manual':[systemRating,systemRank,systemAverage].some(value=>value!=null)?'automatic':'not_computed'};
     return{
       cluster:{id:clusterId,name:clusterName,status:'inside',matched:true,hasSlogiCenter:centers.length>0?true:cluster.hasSlogiCenter,centerDetails:centers.length?centers.map(center=>center.name).join(', '):String(cluster.centerDetails||''),resolutionSource:'manual'},
       competitive:selectedCompetitive,centers
@@ -727,13 +729,13 @@ class Phase0Service{
       if(manual&&[automatic.competitive.rating,automatic.competitive.rank,automatic.competitive.averageRentPerSqm].some(value=>nullableNumber(value)==null))automatic.competitive=manual.competitive;
       automatic.cluster.resolutionSource='automatic';return automatic;
     }
-    return this.manualSpaceContext(stored,excludeProjectId)||{cluster:{id:'',name:'',status:located&&located.status==='outside'?'outside':'not_computed',matched:false,hasSlogiCenter:located&&located.status==='outside'?false:null,centerDetails:'',resolutionSource:'not_computed'},competitive:{rating:null,rank:null,isTop30:null,averageRentPerSqm:null,resolutionSource:'not_computed'},centers:[]};
+    return this.manualSpaceContext(stored,excludeProjectId)||{cluster:{id:'',name:'',status:located&&located.status==='outside'?'outside':'not_computed',matched:false,hasSlogiCenter:located&&located.status==='outside'?false:null,centerDetails:'',resolutionSource:'not_computed'},competitive:{rating:null,rank:null,isTop30:null,isTop35:null,averageRentPerSqm:null,resolutionSource:'not_computed'},centers:[]};
   }
   async resolveSpaceAddress(address,excludeProjectId=''){
     const result=await geocodingService.geocode(address,{allowNearest:false});
-    if(!result||!result.geo)return{address:String(address||'').trim(),geo:null,cluster:{id:'',name:'',status:'not_computed',matched:false,hasSlogiCenter:null,centerDetails:''},competitive:{rating:null,rank:null,isTop30:null,averageRentPerSqm:null},centers:[]};
+    if(!result||!result.geo)return{address:String(address||'').trim(),geo:null,cluster:{id:'',name:'',status:'not_computed',matched:false,hasSlogiCenter:null,centerDetails:''},competitive:{rating:null,rank:null,isTop30:null,isTop35:null,averageRentPerSqm:null},centers:[]};
     const located=clusterService.locate(result.geo.lat,result.geo.lng),inside=located&&located.status==='inside',clusterId=inside?String(located.clusterId||''):'',clusterName=inside?String(located.clusterName||''):'';
-    if(!inside)return{address:String(result.address||address||'').trim(),geo:clone(result.geo),cluster:{id:'',name:'',status:'outside',matched:false,hasSlogiCenter:false,centerDetails:''},competitive:{rating:null,rank:null,isTop30:null,averageRentPerSqm:null},centers:[]};
+    if(!inside)return{address:String(result.address||address||'').trim(),geo:clone(result.geo),cluster:{id:'',name:'',status:'outside',matched:false,hasSlogiCenter:false,centerDetails:''},competitive:{rating:null,rank:null,isTop30:null,isTop35:null,averageRentPerSqm:null},centers:[]};
     return Object.assign({address:String(result.address||address||'').trim(),geo:clone(result.geo)},this.spaceContext(clusterId,clusterName,excludeProjectId));
   }
   takeSpaceIntoWork(projectId){
@@ -854,6 +856,6 @@ window.SlogiPhase0={
   STATUS,STATUSES,MEASUREMENT_STATUSES,CRITERIA_KEYS,CRITERIA_LABELS,
   ProjectRepository,Phase0Service,ListingImportService,CianListingProvider,ClusterService,CompetitiveAnalysisRepository,MapService,GeocodingService,FileService,AuditService,
   projectRepository,competitiveRepository,clusterService,auditService,fileService,listingImportService,geocodingService,phase0Service,
-  defaultPhase0,normalizeGeo,nullableNumber,rentPerSqm,deviationPercent,metricForProject,viewModel,transitionRequirements,sourceLabel,detectListingSource,normalizeRentPeriod,canonicalListingFetchUrl,esc,norm,round,clone
+  defaultPhase0,normalizeGeo,nullableNumber,rentPerSqm,deviationPercent,metricForProject,viewModel,transitionRequirements,sourceLabel,detectListingSource,safeHttpUrl,normalizeRentPeriod,canonicalListingFetchUrl,esc,norm,round,clone
 };
 })();
