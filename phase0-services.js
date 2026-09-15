@@ -23,6 +23,7 @@ const clone=v=>v==null?v:JSON.parse(JSON.stringify(v));
 const now=()=>new Date().toISOString();
 const esc=v=>String(v==null?'':v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 const norm=v=>String(v||'').trim().toLowerCase().replace(/ё/g,'е').replace(/\s+/g,' ');
+const addressKey=v=>norm(v).replace(/\s*,\s*/g,', ');
 const clusterKey=v=>norm(v).replace(/^\s*(?:№|#)?\s*\d+[.)-]?\s*/,'').replace(/\b(?:кластер|район|локация)\b/g,'').replace(/[№#]/g,'').replace(/[«»"'`()\[\]{}.,;:_–—-]+/g,' ').replace(/\s+/g,' ').trim();
 const sameCluster=(a,b)=>{const x=clusterKey(a),y=clusterKey(b);if(!x||!y)return false;if(x===y)return true;if(x.length>=6&&y.length>=6&&(x.includes(y)||y.includes(x)))return true;const xt=x.split(' ').filter(t=>t.length>2),yt=y.split(' ').filter(t=>t.length>2),shared=xt.filter(t=>yt.includes(t));return shared.length>=2&&shared.length>=Math.min(xt.length,yt.length)-1};
 const nullableNumber=v=>{
@@ -108,6 +109,26 @@ class ProjectRepository{
     const next=mutator(current)||current;
     next.phase0=Object.assign(defaultPhase0(),next.phase0||{},{revision:currentRevision+1,updatedAt:now()});next.updatedAt=now();
     all[index]=next;this.write(all,reason);return clone(next);
+  }
+  persistAutomaticGeocodes(updates){
+    const all=P.readLocations(),result={updated:[],skipped:[]},unique=new Map();let touched=false;
+    (Array.isArray(updates)?updates:[]).forEach(update=>{const id=String(update&&update.projectId||'').trim();if(id)unique.set(id,update)});
+    unique.forEach((update,id)=>{
+      const index=all.findIndex(project=>project&&String(project.id)===id);if(index<0){result.skipped.push({projectId:id,reason:'not_found'});return}
+      const current=all[index],phase=current.phase0||{},revision=Number(phase.revision)||0,geo=normalizeGeo({lat:update.latitude,lng:update.longitude}),status=String(update.clusterStatus||''),resolution=String(update.clusterResolutionSource||'');
+      if(current.deletedAt||norm(phase.source||current.source)!=='cian'){result.skipped.push({projectId:id,reason:'ineligible'});return}
+      if(addressKey(current.address)!==addressKey(update.addressKey)){result.skipped.push({projectId:id,reason:'address_changed'});return}
+      if(update.expectedRevision==null||Number(update.expectedRevision)!==revision){result.skipped.push({projectId:id,reason:'revision_conflict'});return}
+      if(projectGeo(current)){result.skipped.push({projectId:id,reason:'already_persisted'});return}
+      if(!geo||resolution!=='automatic'||!['inside','outside'].includes(status)){result.skipped.push({projectId:id,reason:'incomplete'});return}
+      const clusterId=status==='inside'?String(update.clusterId||'').trim():'',clusterName=status==='inside'?String(update.clusterName||'').trim():'';
+      if(status==='inside'&&(!clusterId||!clusterName)){result.skipped.push({projectId:id,reason:'incomplete_cluster'});return}
+      const stamp=now(),next=clone(current),card=phase.spaceCard&&typeof phase.spaceCard==='object'?clone(phase.spaceCard):{},previousCluster=card.cluster&&typeof card.cluster==='object'?card.cluster:{};
+      next.geo=geo;next.clusterId=clusterId;next.clusterName=clusterName;
+      next.phase0=Object.assign(defaultPhase0(),phase,{spaceCard:Object.assign({},card,{id:card.id||next.id,source:'cian',address:String(next.address||''),cluster:Object.assign({},previousCluster,{id:clusterId,name:clusterName,status,matched:status==='inside',hasSlogiCenter:status==='outside'?false:null,centerDetails:'',resolutionSource:'automatic'})}),revision:revision+1,updatedAt:stamp});
+      next.updatedAt=stamp;all[index]=next;touched=true;result.updated.push(clone(next));
+    });
+    if(touched)this.write(all,'phase0-background-geocode');return result;
   }
   softDelete(id){
     const all=P.readLocations(),index=all.findIndex(x=>x&&String(x.id)===String(id));

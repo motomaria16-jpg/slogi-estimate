@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { GeocodeAddressService, GeocodeServiceError } from './service.ts';
+import { addressQueryVariants, GeocodeAddressService, GeocodeServiceError } from './service.ts';
 
-function providerPayload(lng = 37.36, lat = 55.84) {
-  return { response: { GeoObjectCollection: { featureMember: [{ GeoObject: { Point: { pos: `${lng} ${lat}` }, metaDataProperty: { GeocoderMetaData: { precision: 'exact', Address: { formatted: 'Москва, тестовый адрес, 1' } } } } }] } } };
+function providerPayload(lng = 37.36, lat = 55.84, precision = 'exact') {
+  return { response: { GeoObjectCollection: { featureMember: [{ GeoObject: { Point: { pos: `${lng} ${lat}` }, metaDataProperty: { GeocoderMetaData: { precision, Address: { formatted: 'Москва, тестовый адрес, 1' } } } } }] } } };
 }
 
 function response(status: number, payload: unknown, headers: Record<string, string> = {}): Response {
@@ -35,4 +35,12 @@ test('per-client rate limit rejects a distinct uncached request with Retry-After
   await service.geocode({ address: 'Москва, Тверская, 4', apiKey: 'test', clientKey: 'client' });
   await assert.rejects(() => service.geocode({ address: 'Москва, Тверская, 5', apiKey: 'test', clientKey: 'client' }), (error: unknown) => error instanceof GeocodeServiceError && error.code === 'geocoder_rate_limited' && error.status === 429 && Number(error.retryAfterSeconds) >= 1);
   assert.equal(calls, 1);
+});
+
+test('server geocoder tries bounded cleaned address variants and keeps configured search bounds',async()=>{
+  const address='Москва, ЮВАО, р-н Лефортово, ш. Энтузиастов, 3к1',queries:string[]=[],urls:URL[]=[];
+  const variants=addressQueryVariants(address);assert.equal(variants[0],address);assert.ok(variants.length<=8);assert.ok(variants.includes('Москва, ш. Энтузиастов, 3 корпус 1'));
+  const service=new GeocodeAddressService({maxAttempts:1,minProviderIntervalMs:0,fetchImpl:async value=>{const url=new URL(String(value));urls.push(url);const query=String(url.searchParams.get('geocode'));queries.push(query);if(query===address)return response(200,providerPayload(38,56,'street'));return response(200,query==='Москва, ш. Энтузиастов, 3 корпус 1'?providerPayload(37.36,55.84,'exact'):{});}});
+  const result=await service.geocode({address,apiKey:'test',clientKey:'client',ll:'37.6176,55.7558',spn:'4.2,3.0'});
+  assert.equal(result.results.length,1);assert.equal(result.results[0].precision,'exact');assert.equal(result.results[0].lat,55.84);assert.equal(result.diagnostic.attempts,queries.length);assert.equal(queries.at(-1),'Москва, ш. Энтузиастов, 3 корпус 1');assert.ok(urls.every(url=>url.searchParams.get('ll')==='37.6176,55.7558'&&url.searchParams.get('spn')==='4.2,3.0'));
 });

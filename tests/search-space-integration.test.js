@@ -98,6 +98,17 @@ function serviceHarness({ card, geo = null, locate, metric = null, otherProjects
   return { service, current: () => current };
 }
 
+function repositoryHarness(projects) {
+  let locations=JSON.parse(JSON.stringify(projects)),writes=0,pushes=0;const sharedState={settings:{}};
+  const window={
+    SlogiPro:{readLocations:()=>JSON.parse(JSON.stringify(locations)),writeLocations:items=>{writes++;locations=JSON.parse(JSON.stringify(items));},read:()=>sharedState,write:()=>{},actor:()=> 'integration-test',uid:prefix=>`${prefix}-test`,activity:()=>{}},
+    SlogiWorkflow:{},SLOGI_PHASE0_CONFIG:{competitiveAnalysis:{provider:'none',cacheSchemaVersion:1}},SLOGI_CLUSTERS_GEOJSON:{type:'FeatureCollection',features:[]},
+    SlogiCloud:{schedulePush:()=>{pushes++;}}
+  };
+  vm.runInNewContext(servicesSource,{window,URL,AbortController,setTimeout,clearTimeout,console},{filename:'phase0-services.js'});
+  return{repository:new window.SlogiPhase0.ProjectRepository(),locations:()=>JSON.parse(JSON.stringify(locations)),writes:()=>writes,pushes:()=>pushes};
+}
+
 function manualReadyCard(overrides = {}) {
   return readyCard(Object.assign({}, overrides, {
     cluster: Object.assign({ resolutionSource: 'manual' }, overrides.cluster || {}),
@@ -217,6 +228,24 @@ test('saving a geocoded parsed listing persists coordinates, exact cluster and a
   assert.equal(saved.clusterId, 'cluster-1');
   assert.equal(saved.phase0.spaceCard.cluster.resolutionSource, 'automatic');
   assert.equal(saved.phase0.spaceCard.competitive.resolutionSource, 'automatic');
+});
+
+test('background geocodes persist as one guarded workspace write and never overwrite concurrent or incomplete cards',()=>{
+  const projects=[
+    {id:'parsed-ok',address:' Москва, Тестовая, 1 ',geo:null,clusterId:'',clusterName:'',phase0:{source:'cian',revision:4,spaceCard:{address:'Москва, Тестовая, 1'}}},
+    {id:'parsed-conflict',address:'Москва, Другая, 2',geo:null,clusterId:'',clusterName:'',phase0:{source:'cian',revision:9,spaceCard:null}},
+    {id:'parsed-incomplete',address:'Москва, Третья, 3',geo:null,clusterId:'',clusterName:'',phase0:{source:'cian',revision:2,spaceCard:null}}
+  ],h=repositoryHarness(projects);
+  const result=h.repository.persistAutomaticGeocodes([
+    {projectId:'parsed-ok',expectedRevision:4,addressKey:'москва, тестовая, 1',latitude:55.84,longitude:37.36,clusterId:'Митино',clusterName:'Митино',clusterStatus:'inside',clusterResolutionSource:'automatic'},
+    {projectId:'parsed-conflict',expectedRevision:8,addressKey:'москва, другая, 2',latitude:55.84,longitude:37.36,clusterId:'Митино',clusterName:'Митино',clusterStatus:'inside',clusterResolutionSource:'automatic'},
+    {projectId:'parsed-incomplete',expectedRevision:2,addressKey:'москва, третья, 3',clusterStatus:'not_computed',clusterResolutionSource:null}
+  ]);
+  assert.equal(result.updated.length,1);assert.deepEqual(JSON.parse(JSON.stringify(result.skipped)),[{projectId:'parsed-conflict',reason:'revision_conflict'},{projectId:'parsed-incomplete',reason:'incomplete'}]);assert.equal(h.writes(),1);assert.equal(h.pushes(),1);
+  const saved=h.locations().find(project=>project.id==='parsed-ok');assert.deepEqual(saved.geo,{lat:55.84,lng:37.36});assert.equal(saved.clusterId,'Митино');assert.equal(saved.clusterName,'Митино');assert.equal(saved.phase0.revision,5);assert.deepEqual({id:saved.phase0.spaceCard.cluster.id,status:saved.phase0.spaceCard.cluster.status,source:saved.phase0.spaceCard.cluster.resolutionSource},{id:'Митино',status:'inside',source:'automatic'});
+  const conflict=h.locations().find(project=>project.id==='parsed-conflict');assert.equal(conflict.geo,null);assert.equal(conflict.phase0.revision,9);
+  const second=h.repository.persistAutomaticGeocodes([{projectId:'parsed-ok',expectedRevision:5,addressKey:'москва, тестовая, 1',latitude:55.84,longitude:37.36,clusterId:'Митино',clusterName:'Митино',clusterStatus:'inside',clusterResolutionSource:'automatic'}]);
+  assert.equal(second.updated.length,0);assert.equal(second.skipped[0].reason,'already_persisted');assert.equal(h.writes(),1,'already persisted results must not start another sync');
 });
 
 test('a currently known open center blocks a manual free-cluster assertion', () => {

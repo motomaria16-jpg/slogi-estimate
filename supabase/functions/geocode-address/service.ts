@@ -59,6 +59,32 @@ function normalizeAddress(value: unknown): string {
   return String(value || '').trim().toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/\s+/g, ' ').replace(/\s*,\s*/g, ', ');
 }
 
+export function addressQueryVariants(value: unknown): string[] {
+  const variants: string[] = [], seen = new Set<string>();
+  const tidy = (input: unknown) => String(input || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').replace(/\s*,\s*/g, ', ').replace(/(?:,\s*){2,}/g, ', ').replace(/^,\s*|,\s*$/g, '').trim();
+  const push = (input: unknown) => { const candidate = tidy(input), key = normalizeAddress(candidate);if (candidate.length >= 5 && !seen.has(key) && variants.length < 8) { seen.add(key);variants.push(candidate); } };
+  const raw = tidy(value);if (!raw) return variants;push(raw);
+  const withoutUi = tidy(raw.replace(/\s+На карте(?:\s.*)?$/iu, ''));
+  const cleaned = tidy(withoutUi
+    .replace(/(?:^|,\s*)(?:ЦАО|САО|СВАО|ВАО|ЮВАО|ЮАО|ЮЗАО|ЗАО|СЗАО|ЗелАО|ТАО|НАО)(?=\s*,|$)/giu, ', ')
+    .replace(/(?:^|,\s*)(?:р[\s.-]*н|район)\s+[^,]+(?=\s*,|$)/giu, ', ')
+    .replace(/(?:^|,\s*)м\.\s*[^,]+(?=\s*,|$)/giu, ', '));
+  push(cleaned);
+  [withoutUi, cleaned].forEach((base) => {
+    push(base.replace(/\b(\d[0-9\/-]*)\s*[kк]\s*(\d+)\b/giu, '$1 корпус $2'));
+    push(base.replace(/\b(\d[0-9\/-]*)\s*(?:корп(?:ус)?\.?|корпус)\s*(\d+)\b/giu, '$1 корпус $2'));
+    push(base.replace(/\b(\d[0-9\/-]*)\s*[cс]\s*(\d+)\b/giu, '$1 строение $2'));
+    push(base.replace(/\b(\d[0-9\/-]*)\s*стр(?:оение)?\.?\s*(\d+)\b/giu, '$1 строение $2'));
+  });
+  if (!/(?:москва|московск|санкт-петербург|ленинградск)/iu.test(raw)) [...variants].forEach((variant) => push(`Москва, ${variant}`));
+  return variants;
+}
+
+export function geocodePrecisionRank(value: unknown): number {
+  const precision = String(value || '').trim().toLowerCase();
+  return ({ exact: 6, number: 5, near: 4, range: 3, street: 2, other: 1 } as Record<string, number>)[precision] || 0;
+}
+
 function retryAfterMilliseconds(response: Response, attempt: number, baseBackoffMs: number): number {
   const header = String(response.headers.get('retry-after') || '').trim();
   const seconds = Number(header);
@@ -212,6 +238,19 @@ export class GeocodeAddressService {
     throw new GeocodeServiceError(lastCode, 502);
   }
 
+  private async providerVariants(address: string, apiKey: string, ll: string, spn: string, referer: string): Promise<GeocodeResponse> {
+    let attempts = 0, best: GeocodeResponse | null = null, bestRank = -1;
+    for (const query of addressQueryVariants(address)) {
+      const response = await this.providerRequest(query, apiKey, ll, spn, referer);
+      attempts += response.diagnostic.attempts;
+      let candidate: GeocodeResult | null = null, rank = -1;
+      response.results.forEach((item) => { const itemRank = geocodePrecisionRank(item.precision);if (!candidate || itemRank > rank) { candidate = item;rank = itemRank; } });
+      if (candidate && rank > bestRank) { best = { ...response, results: [candidate] };bestRank = rank; }
+      if (bestRank >= geocodePrecisionRank('number')) return { results: best!.results, diagnostic: { status: 'ok', cacheHit: false, attempts } };
+    }
+    return best ? { results: best.results, diagnostic: { status: 'ok', cacheHit: false, attempts } } : { results: [], diagnostic: { status: 'not_found', cacheHit: false, attempts } };
+  }
+
   async geocode(input: { address: string; apiKey: string; ll?: string; spn?: string; clientKey?: string; referer?: string }): Promise<GeocodeResponse> {
     const address = String(input.address || '').trim();
     if (address.length < 5) throw new GeocodeServiceError('geocoder_address_invalid', 400);
@@ -220,7 +259,7 @@ export class GeocodeAddressService {
     const cached = this.cached(key); if (cached) return cached;
     const pending = this.inFlight.get(key); if (pending) return pending;
     this.enforceClientRate(String(input.clientKey || 'anonymous'));
-    const request = this.providerRequest(address, String(input.apiKey).trim(), ll, spn, String(input.referer || '').trim()).then((response) => {
+    const request = this.providerVariants(address, String(input.apiKey).trim(), ll, spn, String(input.referer || '').trim()).then((response) => {
       const ttl = response.results.length ? this.successTtlMs : this.notFoundTtlMs;
       this.storeCache(key, { expiresAt: this.now() + ttl, response });
       return response;

@@ -124,7 +124,7 @@ test('project runtime rejects ineligible state and reconciles matched, persisted
   assert.equal(runtime.size(),0,'reconcile prunes projects missing from the current repository snapshot');
 });
 
-test('a reloaded orphan project reuses the v4 address cache without a second lookup',async()=>{
+test('a reloaded orphan project reuses the v5 address cache without a second lookup',async()=>{
   const storage=memoryStorage(),cache=mapData.createAddressCache(storage),project=savedCianProject(720,{address:'Москва, кэшируемый адрес, 20'});let calls=0;
   const firstRuntime=mapData.createProjectGeocodeRuntime(),first=mapData.collectProjectGeocodeTargets([], [project],{findProject:()=>null,runtime:firstRuntime,clusterService});
   await mapData.geocodeMissingListings(first,{clusterService,cache,geocode:async()=>{calls++;return{status:'geocoded',attempts:1,latitude:55.84,longitude:37.36,coordinateSource:'geocode_browser'};}});
@@ -141,13 +141,34 @@ test('reload reuses the address cache and does not call the geocoder again',asyn
   assert.equal(calls,1);assert.equal(reloaded[0].coordinateSource,'geocode_cache_browser');assert.equal(reloaded[0].clusterId,'Митино');
 });
 
-test('v4 cache ignores old v3 failures so the new address fallback can run immediately after deployment',async()=>{
+test('v5 cache ignores old v3 failures so the new address fallback can run immediately after deployment',async()=>{
   const storage=memoryStorage(),oldKey='slogi_cian_geocode_cache_v3',normalized=mapData.normalizeAddress('Москва, Тверская, 1');
   storage.setItem(oldKey,JSON.stringify({[normalized]:{status:'failed',attempts:3,diagnostic:'legacy_failure',expiresAt:Date.now()+86400000}}));
   let calls=0;const item=listing(91,{address:'Москва, Тверская, 1'});
   await mapData.geocodeMissingListings([item],{clusterService,cache:mapData.createAddressCache(storage),geocode:async()=>{calls++;return{status:'geocoded',attempts:1,latitude:55.84,longitude:37.36,coordinateSource:'geocode_server'};}});
   assert.equal(calls,1);assert.equal(item.coordinateSource,'geocode_server');assert.equal(item.clusterId,'Митино');
-  assert.ok(storage.getItem('slogi_cian_geocode_cache_v4'));
+  assert.ok(storage.getItem('slogi_cian_geocode_cache_v5'));
+});
+
+test('v5 cache migrates only unexpired v4 successes and immediately retries v4 failures',async()=>{
+  const storage=memoryStorage(),now=Date.now(),successAddress='Москва, успешный адрес, 1',failedAddress='Москва, прежняя ошибка, 2';
+  storage.setItem('slogi_cian_geocode_cache_v4',JSON.stringify({
+    [mapData.normalizeAddress(successAddress)]:{status:'geocoded',attempts:1,latitude:55.84,longitude:37.36,coordinateSource:'geocode_server',savedAt:now-1000,expiresAt:now+86400000},
+    [mapData.normalizeAddress(failedAddress)]:{status:'failed',attempts:3,diagnostic:'http_502',savedAt:now-1000,expiresAt:now+86400000}
+  }));
+  const items=[listing(201,{address:successAddress}),listing(202,{address:failedAddress})];let calls=0;
+  await mapData.geocodeMissingListings(items,{clusterService,cache:mapData.createAddressCache(storage,{now:()=>now}),geocode:async address=>{calls++;assert.equal(address,failedAddress);return{status:'geocoded',attempts:1,latitude:55.84,longitude:37.36,coordinateSource:'geocode_server'};}});
+  assert.equal(calls,1);assert.equal(items[0].coordinateSource,'geocode_cache_server');assert.equal(items[1].coordinateSource,'geocode_server');
+  const migrated=JSON.parse(storage.getItem('slogi_cian_geocode_cache_v5'));assert.ok(migrated[mapData.normalizeAddress(successAddress)]);assert.ok(migrated[mapData.normalizeAddress(failedAddress)]);
+});
+
+test('only complete successful automatic project geocodes become persistence updates',async()=>{
+  const project=savedCianProject(810,{address:'Москва, проектный адрес, 10',phase0:{source:'cian',externalId:'810',revision:7}}),listingItem=listing(810,{address:' москва,  проектный адрес, 10 '});
+  const runtime=mapData.createProjectGeocodeRuntime(),targets=mapData.collectProjectGeocodeTargets([listingItem],[project],{findProject:()=>project,runtime,clusterService});
+  await mapData.geocodeMissingListings(targets,{clusterService,geocode:async()=>({status:'geocoded',attempts:1,latitude:55.84,longitude:37.36,coordinateSource:'geocode_server'})});
+  assert.deepEqual(mapData.projectGeocodeUpdates(targets),[{projectId:project.id,expectedRevision:7,addressKey:mapData.normalizeAddress(project.address),latitude:55.84,longitude:37.36,clusterId:'Митино',clusterName:'Митино',clusterStatus:'inside',clusterBoundary:false,clusterResolutionSource:'automatic'}]);
+  listingItem.geocodeStatus='failed';assert.deepEqual(mapData.projectGeocodeUpdates(targets),[],'failed results must never be written');
+  listingItem.geocodeStatus='geocoded';listingItem.clusterStatus='not_computed';assert.deepEqual(mapData.projectGeocodeUpdates(targets),[],'unclassified results must never be written');
 });
 
 test('geocoder HTTP failure and timeout are explicit and never invent coordinates',async()=>{
@@ -203,6 +224,12 @@ test('UI binds marker-card selection and unified project removal without filter 
 test('server geocoder marks successful coordinates with their real provider',async()=>{
   const server=mapData.createServerGeocoder({endpoint:GEOCODE_ENDPOINT,projectUrl:PROJECT_URL,maxAttempts:1,fetchImpl:async()=>response(200,{results:[{lat:55.84,lng:37.36,address:'Москва, Тверская, 1',precision:'exact'}],diagnostic:{status:'ok',attempts:1}})});
   const result=await server('Москва, Тверская, 1');assert.equal(result.status,'geocoded');assert.equal(result.coordinateSource,'geocode_server');
+});
+
+test('server geocoder forwards configured bounds and selects by precision then provider order, never polygon membership',async()=>{
+  let body=null;
+  const server=mapData.createServerGeocoder({endpoint:GEOCODE_ENDPOINT,projectUrl:PROJECT_URL,searchCenter:'37.6176,55.7558',searchSpan:'4.2,3.0',maxAttempts:1,fetchImpl:async(_url,options)=>{body=JSON.parse(options.body);return response(200,{results:[{lat:55.84,lng:37.36,address:'Неточный результат внутри зоны',precision:'street'},{lat:56,lng:38,address:'Точный результат вне зоны',precision:'exact'},{lat:55.85,lng:37.37,address:'Второй точный результат',precision:'exact'}],diagnostic:{status:'ok',attempts:1}});}});
+  const result=await server('Москва, Тверская, 1');assert.deepEqual(body,{address:'Москва, Тверская, 1',ll:'37.6176,55.7558',spn:'4.2,3.0'});assert.deepEqual({lat:result.latitude,lng:result.longitude},{lat:56,lng:38});assert.equal(mapData.clusterState(result,clusterService).clusterStatus,'outside');
 });
 
 test('UI exposes separate missing-address, missing-coordinate, failed and pending DOM counters',()=>{

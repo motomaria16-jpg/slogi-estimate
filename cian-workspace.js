@@ -41,6 +41,7 @@
   let projectGeocodeTimer=null;
   let projectGeocodeController=null;
   let projectGeocodeGeneration=0;
+  let persistingProjectGeocodes=false;
   const geocodeCache=(()=>{try{return mapData.createAddressCache(window.localStorage);}catch(_error){return mapData.createAddressCache(null);}})();
   const projectGeocodeRuntime=mapData.createProjectGeocodeRuntime();
 
@@ -169,6 +170,10 @@
     const node=$('available-toast');node.textContent=message;node.dataset.error=isError?'true':'false';node.classList.add('show');clearTimeout(node._timer);node._timer=setTimeout(()=>node.classList.remove('show'),3200);
   }
   async function syncWorkspace(){if(window.SlogiCloud&&window.SlogiCloud.ready&&typeof window.SlogiCloud.sync==='function')await window.SlogiCloud.sync();}
+  async function persistProjectGeocodes(targets){
+    const repository=projectRepository(),updates=mapData.projectGeocodeUpdates(targets);if(!repository||typeof repository.persistAutomaticGeocodes!=='function'||!updates.length)return{updated:[],skipped:[]};
+    persistingProjectGeocodes=true;try{const result=repository.persistAutomaticGeocodes(updates);if(result.updated.length)try{await syncWorkspace();}catch(error){console.warn('background_geocode_sync_failed',error);}return result;}catch(error){console.warn('background_geocode_persist_failed',error);return{updated:[],skipped:updates.map(update=>({projectId:update.projectId,reason:'persist_failed'}))};}finally{persistingProjectGeocodes=false;}
+  }
   function draftForSave(item,cardData,geo,project){
     const phase=project&&project.phase0||{},source=item&&item.source==='cian'?'cian':'manual',listingUrl=source==='cian'?safeCianUrl(item.listingUrl||phase.listingUrl):'';
     return{spaceCard:cardData,listingUrl,canonicalUrl:listingUrl,externalId:String(item&&item.externalId||phase.externalId||''),listingTitle:String(item&&item.title||phase.listingTitle||''),address:cardData.address,latitude:geo&&geo.lat,longitude:geo&&geo.lng,clusterId:cardData.cluster.id,clusterName:cardData.cluster.name,area:cardData.area,rentMonthly:cardData.rentMonthly,rentPeriod:'month',rentCurrency:'RUB',floor:item&&item.floor!=null?item.floor:project&&project.floor!=null?project.floor:phase.floor,totalFloors:item&&item.totalFloors!=null?item.totalFloors:phase.totalFloors,ceilingHeight:cardData.ceilingHeight,publishedAt:item&&item.publishedAt||phase.listingPublishedAt,sourceUpdatedAt:item&&item.sourceUpdatedAt||phase.listingUpdatedAt,parserWarnings:item&&item.parseWarnings||phase.parserWarnings,status:phase.status||window.SlogiPhase0.STATUS.NO_ANSWER,rejectionReason:phase.rejection&&phase.rejection.reason,selectionCriteria:phase.selectionCriteria,interestConfirmed:phase.interest&&phase.interest.confirmed,measurementStatus:phase.measurement&&phase.measurement.status,measurementDate:phase.measurement&&phase.measurement.date,measurementComment:phase.measurement&&phase.measurement.comment,windowsCount:phase.windowsCount,roomsCount:phase.roomsCount,comments:phase.comments};
@@ -252,7 +257,7 @@
       const geocodeTargets=collectGeocodeTargets();
       render();
       const geocodingCfg=window.SLOGI_PHASE0_CONFIG&&window.SLOGI_PHASE0_CONFIG.geocoding||{};
-      let serverGeocode=null;try{serverGeocode=mapData.createServerGeocoder({endpoint:geocodingCfg.endpoint,projectUrl:supabaseCfg.url,token,timeoutMs:Number(geocodingCfg.timeoutMs)||12000,maxAttempts:3});}catch(_error){serverGeocode=null;}
+      let serverGeocode=null;try{serverGeocode=mapData.createServerGeocoder({endpoint:geocodingCfg.endpoint,projectUrl:supabaseCfg.url,token,timeoutMs:Number(geocodingCfg.timeoutMs)||12000,maxAttempts:3,searchCenter:geocodingCfg.searchCenter,searchSpan:geocodingCfg.searchSpan});}catch(_error){serverGeocode=null;}
       const browserGeocode=createBrowserGeocoder();
       const geocode=mapData.createFallbackGeocoder(serverGeocode,browserGeocode);
       await mapData.geocodeMissingListings(geocodeTargets,{geocode,clusterService:clusterService(),cache:geocodeCache,signal:controller.signal,concurrency:2,onProgress:progress=>{
@@ -261,6 +266,7 @@
         else updateMapStats(mapData.projection(displayedListings()));
       }});
       if(generation!==loadGeneration||controller.signal.aborted)return;
+      await persistProjectGeocodes(geocodeTargets);if(generation!==loadGeneration||controller.signal.aborted)return;
       render();
     }catch(error){
       if(error&&error.name==='AbortError')return;
@@ -321,10 +327,10 @@
       render();if(!targets.length)return;
       const token=await window.SlogiCloud.getAccessToken();if(generation!==projectGeocodeGeneration||controller.signal.aborted)return;
       const geocodingCfg=window.SLOGI_PHASE0_CONFIG&&window.SLOGI_PHASE0_CONFIG.geocoding||{};
-      let serverGeocode=null;try{serverGeocode=mapData.createServerGeocoder({endpoint:geocodingCfg.endpoint,projectUrl:supabaseCfg.url,token,timeoutMs:Number(geocodingCfg.timeoutMs)||12000,maxAttempts:3});}catch(_error){serverGeocode=null;}
+      let serverGeocode=null;try{serverGeocode=mapData.createServerGeocoder({endpoint:geocodingCfg.endpoint,projectUrl:supabaseCfg.url,token,timeoutMs:Number(geocodingCfg.timeoutMs)||12000,maxAttempts:3,searchCenter:geocodingCfg.searchCenter,searchSpan:geocodingCfg.searchSpan});}catch(_error){serverGeocode=null;}
       const geocode=mapData.createFallbackGeocoder(serverGeocode,createBrowserGeocoder());
       await mapData.geocodeMissingListings(targets,{geocode,clusterService:clusterService(),cache:geocodeCache,signal:controller.signal,concurrency:2,onProgress:()=>{if(generation===projectGeocodeGeneration&&!controller.signal.aborted)render();}});
-      if(generation===projectGeocodeGeneration&&!controller.signal.aborted)render();
+      if(generation===projectGeocodeGeneration&&!controller.signal.aborted){await persistProjectGeocodes(targets);render();}
     }catch(error){if(!(error&&error.name==='AbortError')&&generation===projectGeocodeGeneration)render();}
     finally{if(generation===projectGeocodeGeneration)projectGeocodeController=null;}
   }
@@ -393,6 +399,6 @@
     window.addEventListener('storage',event=>{if(event.key===HIDDEN_LISTINGS_KEY){hiddenListingIds=loadHiddenListingIds();render();}});
     window.addEventListener('pagehide',()=>{activeLoadController&&activeLoadController.abort();projectGeocodeController&&projectGeocodeController.abort();clearTimeout(projectGeocodeTimer);markerById.forEach(marker=>marker&&marker.events&&typeof marker.events.removeAll==='function'&&marker.events.removeAll());},{once:true});
   }
-  function init(){if(initialized)return;initialized=true;competitivePanel.init({trigger:'#available-open-competitive',onUpdated:()=>render(),toast});bind();initMap();loadListings();window.addEventListener('slogi:locations-updated',()=>{collectGeocodeTargets();render();scheduleProjectGeocoding();});}
+  function init(){if(initialized)return;initialized=true;competitivePanel.init({trigger:'#available-open-competitive',onUpdated:()=>render(),toast});bind();initMap();loadListings();window.addEventListener('slogi:locations-updated',()=>{collectGeocodeTargets();render();if(!persistingProjectGeocodes)scheduleProjectGeocoding();});}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

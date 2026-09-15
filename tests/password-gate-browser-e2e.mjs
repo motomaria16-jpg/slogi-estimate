@@ -196,7 +196,7 @@ async function assertAvailableSpace(device,label){
     ]},
     {title:'',items:[{label:'МОИ ОБЪЕКТЫ',href:'index.html',disabled:null}]}
   ],label+': shared left-menu structure and routes');
-  await device.page.evaluate(async()=>{localStorage.removeItem('slogi_cian_hidden_listing_ids_v1');localStorage.removeItem('slogi_cian_geocode_cache_v4');const state=window.SlogiPro.read();state.settings.cianHiddenListingIds=[];window.SlogiPro.write(state,'fixture-listing-reset');await window.SlogiCloud.sync();});
+  await device.page.evaluate(async()=>{localStorage.removeItem('slogi_cian_hidden_listing_ids_v1');localStorage.removeItem('slogi_cian_geocode_cache_v4');localStorage.removeItem('slogi_cian_geocode_cache_v5');const state=window.SlogiPro.read();state.settings.cianHiddenListingIds=[];window.SlogiPro.write(state,'fixture-listing-reset');await window.SlogiCloud.sync();});
   await device.page.reload({waitUntil:'domcontentloaded'});
   try{await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53&&document.querySelector('#cian-map-count')?.textContent?.includes('52 из 53'));}
   catch(error){const diagnostic=await device.page.evaluate(()=>({cards:document.querySelectorAll('[data-listing-card]').length,map:document.querySelector('#cian-map-count')?.textContent,summary:document.querySelector('#available-summary')?.textContent,source:document.querySelector('#cian-source-state')?.textContent,htmlAccess:document.documentElement.dataset.slogiAccess}));throw new Error(`${label}: search did not settle ${JSON.stringify({diagnostic,issues:device.issues,pages:device.identity.searchPages})}`,{cause:error});}
@@ -266,22 +266,24 @@ async function assertOrphanSavedCianGeocoding(device){
       {id:'orphan-cian-good-b',address:' москва,  общий адрес сохраненного объявления , 77 ',geo:null,area:125,floor:1,ceilingHeight:3.2,updatedAt:stamp,phase0:phase('990002','Сохраненное помещение B')},
       {id:'orphan-cian-failed',address:'Москва, неизвестный адрес сохраненного объявления, 88',geo:null,area:130,floor:1,ceilingHeight:3.2,updatedAt:stamp,phase0:phase('990003','Сохраненное помещение без координат')}
     ];
-    localStorage.removeItem('slogi_cian_geocode_cache_v4');window.__slogiFixtureGeocodeQueries=[];
+    localStorage.removeItem('slogi_cian_geocode_cache_v4');localStorage.removeItem('slogi_cian_geocode_cache_v5');window.__slogiFixtureGeocodeQueries=[];
     window.SlogiPro.writeLocations([...window.SlogiPro.readLocations(),...projects],'fixture-orphan-cian');await window.SlogiCloud.sync();
   });
   await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===56&&document.querySelector('#cian-map-count')?.textContent==='54 из 56 на карте');
+  await device.page.waitForFunction(()=>window.SlogiPro.readLocations().filter(item=>['orphan-cian-good-a','orphan-cian-good-b'].includes(item.id)).every(item=>item.geo&&item.clusterId==='Митино'&&item.clusterName==='Митино'));
   const outcome=await device.page.evaluate(()=>({
     queries:window.__slogiFixtureGeocodeQueries.slice(),missing:document.querySelector('#cian-map-missing')?.textContent,failed:document.querySelector('#cian-map-failed')?.textContent,
     projects:window.SlogiPro.readLocations().filter(item=>String(item.id).startsWith('orphan-cian-')).map(item=>({id:item.id,geo:item.geo,clusterId:item.clusterId,clusterName:item.clusterName}))
   }));
   assert.equal(outcome.queries.filter(query=>query==='Москва, общий адрес сохраненного объявления, 77').length,1,'same orphan address must use one browser lookup');
   assert.equal(outcome.missing,'Без координат: 2');assert.equal(outcome.failed,'Не прошли геокодирование: 1');
-  assert.ok(outcome.projects.every(project=>project.geo==null&&!project.clusterId&&!project.clusterName),'read-time orphan geocoding must not write workspace data');
+  for(const project of outcome.projects.filter(project=>project.id!=='orphan-cian-failed')){assert.deepEqual(project.geo,{lat:55.84,lng:37.36},project.id+': successful background coordinates persist');assert.equal(project.clusterId,'Митино');assert.equal(project.clusterName,'Митино');}
+  const failedProject=outcome.projects.find(project=>project.id==='orphan-cian-failed');assert.equal(failedProject.geo,null,'failed geocoding must not persist partial data');assert.equal(String(failedProject.clusterId||''),'');assert.equal(String(failedProject.clusterName||''),'');
   for(const id of ['orphan-cian-good-a','orphan-cian-good-b'])assert.match(await device.page.locator(`[data-listing-card="project:${id}"] .cian-badge.cluster`).textContent(),/Митино/,id+': exact cluster');
   assert.match(await device.page.locator('[data-listing-card="project:orphan-cian-failed"] .cian-badge.cluster').textContent(),/Кластер не определён/);
 
   await device.page.evaluate(()=>{
-    const projects=window.SlogiPro.readLocations(),target=projects.find(item=>item.id==='orphan-cian-good-a');target.address='Москва, измененный адрес сохраненного объявления, 79';window.__slogiFixtureGeocodeQueries=[];
+    const projects=window.SlogiPro.readLocations(),target=projects.find(item=>item.id==='orphan-cian-good-a');target.address='Москва, измененный адрес сохраненного объявления, 79';target.geo=null;target.clusterId='';target.clusterName='';target.phase0.revision=Number(target.phase0.revision||0)+1;if(target.phase0.spaceCard)target.phase0.spaceCard.cluster={id:'',name:'',status:'not_computed',matched:false,resolutionSource:null};window.__slogiFixtureGeocodeQueries=[];
     window.SlogiPro.writeLocations(projects,'fixture-orphan-cian-address-change');
   });
   assert.equal(await device.page.locator('#cian-map-count').textContent(),'53 из 56 на карте','stale marker is removed synchronously when the project address changes');
@@ -290,7 +292,7 @@ async function assertOrphanSavedCianGeocoding(device){
 
   await device.page.reload({waitUntil:'domcontentloaded'});
   await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===56&&document.querySelector('#cian-map-count')?.textContent==='54 из 56 на карте');
-  assert.deepEqual(await device.page.evaluate(()=>window.__slogiFixtureGeocodeQueries),[],'reload must reuse successful and failed v4 cache entries');
+  assert.deepEqual(await device.page.evaluate(()=>window.__slogiFixtureGeocodeQueries),[],'reload must reuse persisted successes and current v5 failure cache entries');
 
   await device.page.evaluate(async projects=>{window.SlogiPro.writeLocations(projects,'fixture-orphan-cian-restore');await window.SlogiCloud.sync();},original);
   await device.page.reload({waitUntil:'domcontentloaded'});
