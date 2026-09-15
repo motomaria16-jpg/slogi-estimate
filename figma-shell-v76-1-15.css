@@ -110,12 +110,20 @@ body.available-spaces-page.figma-shell-v76115 textarea{font-family:"Ubuntu Sans"
   border-bottom:1px solid rgba(255,255,255,.10);
 }
 .figma-shell-nav-group:last-child{border-bottom:0}
+.figma-shell-nav-title{
+  margin:3px 12px 2px;
+  color:rgba(255,255,255,.58);
+  font-size:9px;
+  font-weight:500;
+  line-height:1.25;
+  letter-spacing:.08em;
+}
 .figma-shell-nav-link{
   display:flex;
   align-items:center;
   gap:10px;
   min-height:40px;
-  padding:0 12px;
+  padding:8px 12px;
   border-radius:11px;
   color:#e5ecec;
   font-size:12px;
@@ -126,6 +134,9 @@ body.available-spaces-page.figma-shell-v76115 textarea{font-family:"Ubuntu Sans"
 .figma-shell-nav-link svg{width:16px;height:16px;flex:0 0 auto;opacity:.88}
 .figma-shell-nav-link:hover{background:rgba(255,255,255,.07);color:#fff}
 .figma-shell-nav-link.active{background:#fff;color:var(--figma-gold-deep);font-weight:500;box-shadow:0 2px 8px rgba(52,67,70,.06)}
+.figma-shell-nav-link.disabled{color:rgba(229,236,236,.48);cursor:not-allowed}
+.figma-shell-nav-link.disabled:hover{background:transparent;color:rgba(229,236,236,.48)}
+.figma-shell-nav-link.top-level{font-size:10px;font-weight:500;letter-spacing:.07em}
 .figma-shell-spacer{flex:1;min-height:28px}
 .figma-shell-help{
   position:relative;

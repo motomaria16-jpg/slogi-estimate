@@ -5,7 +5,7 @@ window.__slogiFigmaShell76115=true;
 
 const page=(location.pathname.split('/').pop()||'index.html').toLowerCase();
 const query=new URLSearchParams(location.search);
-const route=page==='available-spaces.html'?'search':page==='index.html'?'premises':page==='workspace.html'?(query.get('section')==='repair'?'repair':'estimate'):['source-specification.html','specification.html','proposal.html'].includes(page)?'estimate':page==='passport.html'?'premises':page==='team.html'?'team':page==='settings.html'?'settings':'premises';
+const route=page==='available-spaces.html'?'search':page==='workspace.html'?(query.get('section')==='repair'?'repair-process':'kp'):['source-specification.html','specification.html','proposal.html'].includes(page)?'kp':['index.html','passport.html','all-locations.html','measure-index.html','measure-passport.html'].includes(page)?'objects':'';
 const esc=value=>String(value==null?'':value).replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
 const icon=name=>({
   home:'<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/>',
@@ -21,21 +21,28 @@ const icon=name=>({
 }[name]||'');
 const svg=name=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon(name)}</svg>`;
 const groups=[
-  [
-    {id:'home',href:'index.html',label:'Главная',icon:'home'},
-    {id:'search',href:'available-spaces.html',label:'Поиск помещений',icon:'search'},
-    {id:'premises',href:'index.html',label:'Мои помещения',icon:'building'}
-  ],
-  [
-    {id:'estimate',href:'workspace.html?section=estimate',label:'Смета и КП',icon:'estimate'},
-    {id:'repair',href:'workspace.html?section=repair',label:'Ремонт',icon:'repair'}
-  ],
-  [
-    {id:'team',href:'team.html',label:'Команда',icon:'team'},
-    {id:'settings',href:'settings.html',label:'Настройки',icon:'settings'}
-  ]
+  {title:'ПОИСК ПОМЕЩЕНИЯ',items:[
+    {id:'search',href:'available-spaces.html',label:'Поиск помещения',icon:'search'},
+    {id:'in-work',label:'Помещение в работе',icon:'building',disabled:true},
+    {id:'kp',href:'workspace.html?section=estimate',label:'КП',icon:'estimate'},
+    {id:'approval',label:'Согласование',icon:'estimate',disabled:true}
+  ]},
+  {title:'РЕМОНТ',items:[
+    {id:'repair-documents',label:'Формирование документов для ремонта',icon:'estimate',disabled:true},
+    {id:'repair-process',href:'workspace.html?section=repair',label:'Процесс ремонта',icon:'repair'},
+    {id:'repair-exit',label:'Выход из ремонта',icon:'repair',disabled:true}
+  ]},
+  {items:[
+    {id:'objects',href:'index.html',label:'МОИ ОБЪЕКТЫ',icon:'building',topLevel:true}
+  ]}
 ];
-const navHtml=groups.map(group=>`<div class="figma-shell-nav-group">${group.map(item=>`<a class="figma-shell-nav-link ${route===item.id?'active':''}" href="${item.href}" ${route===item.id?'aria-current="page"':''}>${svg(item.icon)}<span>${esc(item.label)}</span></a>`).join('')}</div>`).join('');
+const navItemHtml=item=>{
+  const classes=`figma-shell-nav-link${route===item.id?' active':''}${item.disabled?' disabled':''}${item.topLevel?' top-level':''}`;
+  const body=`${svg(item.icon)}<span>${esc(item.label)}</span>`;
+  if(item.disabled)return`<span class="${classes}" aria-disabled="true">${body}</span>`;
+  return`<a class="${classes}" href="${item.href}" ${route===item.id?'aria-current="page"':''}>${body}</a>`;
+};
+const navHtml=groups.map(group=>`<div class="figma-shell-nav-group">${group.title?`<div class="figma-shell-nav-title">${esc(group.title)}</div>`:''}${group.items.map(navItemHtml).join('')}</div>`).join('');
 const helpHtml=`<div class="figma-shell-help"><img src="documents-owl-approved-v2.png" alt="Фирменная сова СЛОГИ"><div><strong>Нужна<br>помощь?</strong><span>Мы на связи!</span><a href="team.html" aria-label="Перейти к контактам команды">Связаться</a></div></div>`;
 const sidebar=document.createElement('aside');
 sidebar.className='figma-shell-sidebar';

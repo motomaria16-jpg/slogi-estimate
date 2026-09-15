@@ -176,6 +176,26 @@ async function unlock(device,password=syntheticPassword){
 async function assertAvailableSpace(device,label){
   await device.page.goto(device.page.url().replace(/\/[^/]*$/,'/available-spaces.html'),{waitUntil:'domcontentloaded'});
   await device.page.waitForFunction(()=>window.SlogiCloud?.ready===true);
+  const menu=await device.page.locator('.figma-shell-sidebar nav').evaluate(node=>({
+    groups:[...node.querySelectorAll('.figma-shell-nav-group')].map(group=>({
+      title:group.querySelector('.figma-shell-nav-title')?.textContent.trim()||'',
+      items:[...group.querySelectorAll('.figma-shell-nav-link')].map(item=>({label:item.textContent.trim(),href:item.getAttribute('href'),disabled:item.getAttribute('aria-disabled')}))
+    }))
+  }));
+  assert.deepEqual(menu.groups,[
+    {title:'ПОИСК ПОМЕЩЕНИЯ',items:[
+      {label:'Поиск помещения',href:'available-spaces.html',disabled:null},
+      {label:'Помещение в работе',href:null,disabled:'true'},
+      {label:'КП',href:'workspace.html?section=estimate',disabled:null},
+      {label:'Согласование',href:null,disabled:'true'}
+    ]},
+    {title:'РЕМОНТ',items:[
+      {label:'Формирование документов для ремонта',href:null,disabled:'true'},
+      {label:'Процесс ремонта',href:'workspace.html?section=repair',disabled:null},
+      {label:'Выход из ремонта',href:null,disabled:'true'}
+    ]},
+    {title:'',items:[{label:'МОИ ОБЪЕКТЫ',href:'index.html',disabled:null}]}
+  ],label+': shared left-menu structure and routes');
   await device.page.evaluate(async()=>{localStorage.removeItem('slogi_cian_hidden_listing_ids_v1');localStorage.removeItem('slogi_cian_geocode_cache_v4');const state=window.SlogiPro.read();state.settings.cianHiddenListingIds=[];window.SlogiPro.write(state,'fixture-listing-reset');await window.SlogiCloud.sync();});
   await device.page.reload({waitUntil:'domcontentloaded'});
   try{await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53&&document.querySelector('#cian-map-count')?.textContent?.includes('52 из 53'));}

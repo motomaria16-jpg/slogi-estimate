@@ -189,6 +189,32 @@ test('desktop navigation uses the approved sidebar geometry and exact brand asse
   assert.ok(shell.includes('documents-owl-approved-v2.png'));
 });
 
+test('left menu follows the two-stage product structure without placeholder routes',()=>{
+  const shell=read('figma-shell-v76-1-15.js');
+  const labels=[
+    'ПОИСК ПОМЕЩЕНИЯ',
+    'Поиск помещения',
+    'Помещение в работе',
+    'КП',
+    'Согласование',
+    'РЕМОНТ',
+    'Формирование документов для ремонта',
+    'Процесс ремонта',
+    'Выход из ремонта',
+    'МОИ ОБЪЕКТЫ'
+  ];
+  let previous=-1;
+  for(const label of labels){
+    const position=shell.indexOf(label);
+    assert.ok(position>previous,label+' is present in the requested order');
+    previous=position;
+  }
+  for(const route of ['available-spaces.html','workspace.html?section=estimate','workspace.html?section=repair','index.html'])assert.ok(shell.includes(route),route);
+  for(const item of ['in-work','approval','repair-documents','repair-exit'])assert.match(shell,new RegExp(`id:'${item}'[^}]*disabled:true`),item+' is disabled until its page exists');
+  assert.match(shell,/if\(item\.disabled\)return`<span class="\$\{classes\}" aria-disabled="true">/);
+  for(const formerLabel of ['Главная','Мои помещения','Смета и КП','Команда','Настройки'])assert.equal(shell.includes(`label:'${formerLabel}'`),false,formerLabel);
+});
+
 test('v76.1.15 approved shell audit covers every active page on desktop, tablet and mobile',()=>{
   const directory=resolve(root,'docs','design-v76-1-15-figma-shell','after');
   const slugs=['search','my-premises','estimate-and-proposal','repair','passport','source-specification','specification','proposal','team','settings','add-object'];
