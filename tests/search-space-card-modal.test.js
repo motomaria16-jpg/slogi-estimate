@@ -130,7 +130,7 @@ test('successful mutating callbacks use a forced close while action is busy', ()
   assert.match(SOURCE, /\(state\.busy && !force\)/);
 });
 
-test('markup and styles preserve accessible labels, live feedback and responsive layout', () => {
+test('markup is compact, accessible and uses one editable control per value', () => {
   assert.match(SOURCE, /<dialog[^>]+aria-labelledby="ss-card-title"/);
   assert.match(SOURCE, /role="status" aria-live="polite"/);
   assert.match(SOURCE, /aria-describedby="ss-card-take-help"/);
@@ -142,7 +142,6 @@ test('markup and styles preserve accessible labels, live feedback and responsive
   assert.match(SOURCE, /choice\('repair', 'none', 'Бетон'\)/);
   assert.match(SOURCE, /choice\('repair', 'rough', 'Черновой'\)/);
   assert.match(SOURCE, /choice\('repair', 'finished', 'Чистовой'\)/);
-  assert.match(SOURCE, /data-manual-location/);
   assert.match(SOURCE, /name="listingUrl"/);
   assert.match(SOURCE, /rel="noopener noreferrer"/);
   assert.match(SOURCE, /name="latitudeManual"/);
@@ -150,17 +149,55 @@ test('markup and styles preserve accessible labels, live feedback and responsive
   assert.match(SOURCE, /name="clusterNameManual"/);
   assert.match(SOURCE, /name="clusterRankManual"/);
   assert.match(SOURCE, /name="averageRentManual"/);
-  assert.match(SOURCE, /name="pricePerSqmOverride"/);
-  assert.match(SOURCE, /name="comparisonPercentOverride"/);
+  assert.match(SOURCE, /name="pricePerSqm"/);
+  assert.match(SOURCE, /name="comparisonPercent"/);
   assert.match(SOURCE, /ТОП-35/);
   assert.doesNotMatch(SOURCE, /подходит|не подходит/i);
   assert.doesNotMatch(SOURCE, /Вопросы собственнику/i);
-  assert.match(CSS, /\.ss-card-manual-grid/);
+  assert.doesNotMatch(SOURCE, /Ручные данные|data-manual-location|ss-card-status-card|data-status="(?:cluster|center|ranking)"/);
+  assert.doesNotMatch(SOURCE, /data-header-(?:address|area|rent)|data-listing-link/);
+  ['address','listingUrl','latitudeManual','longitudeManual','clusterNameManual','clusterRankManual','rentMonthly','area','pricePerSqm','averageRentManual','comparisonPercent','ceilingHeight'].forEach((name) => {
+    assert.equal((SOURCE.match(new RegExp(`name="${name}"`, 'g')) || []).length, 1, `${name} must have one form control`);
+  });
+  Object.entries({
+    clusterStatusManual: 2,
+    hasSlogiCenterManual: 2,
+    areaConfirmed: 2,
+    separateEntrance: 2,
+    hasWindows: 2,
+    windowsOpen: 2,
+    ceilingHeightConfirmed: 2,
+    repair: 3
+  }).forEach(([name, expectedChoices]) => {
+    assert.equal((SOURCE.match(new RegExp(`choice\\('${name}'`, 'g')) || []).length, expectedChoices, `${name} must have one radio group`);
+  });
+  assert.match(SOURCE, /resolutionSource: groups\.cluster \? 'manual'/);
+  assert.match(SOURCE, /resolutionSource: groups\.competitive \? 'manual'/);
+  assert.match(SOURCE, /resolutionSource: groups\.coordinates \? 'manual'/);
+  assert.match(SOURCE, /current\.pricePerSqmOverride/);
+  assert.match(SOURCE, /current\.competitive\.comparisonPercentOverride/);
   assert.match(CSS, /input\[value="true"\]:checked/);
   assert.match(CSS, /input\[value="false"\]:checked/);
+  assert.match(CSS, /input:checked \+ span::before \{ content: "✓"/);
+  assert.match(CSS, /\.ss-card-field input \{[^}]*min-height: 40px/);
+  assert.match(CSS, /\.ss-card-choice span \{[^}]*min-height: 36px/);
+  assert.doesNotMatch(CSS, /\.ss-card-status-card|\.ss-card-manual(?:\s|\{|\.)/);
   assert.match(CSS, /\.ss-card-center-choice \.ss-card-choice input\[value="true"\]:checked \+ span \{[^}]*var\(--ss-card-danger\)/);
   assert.match(CSS, /\.ss-card-center-choice \.ss-card-choice input\[value="false"\]:checked \+ span \{[^}]*#376441/);
   assert.match(CSS, /@media \(max-width: 540px\)/);
   assert.match(CSS, /:focus-visible/);
   assert.match(CSS, /@media \(forced-colors: active\)/);
+});
+
+test('input flow preserves in-progress address and calculated-field edits', () => {
+  const addressStart = SOURCE.indexOf("      if (event.target.name === 'address') {");
+  const derivedStart = SOURCE.indexOf("      if (event.target.name === 'pricePerSqm'", addressStart);
+  assert.ok(addressStart >= 0 && derivedStart > addressStart);
+  const addressInputBody = SOURCE.slice(addressStart, derivedStart);
+  assert.match(addressInputBody, /state\.draft\.address = event\.target\.value/);
+  assert.doesNotMatch(addressInputBody, /collectDraft|fillForm/);
+  assert.match(SOURCE, /event\.target\.name === 'pricePerSqm' \|\| event\.target\.name === 'comparisonPercent'\) return/);
+  assert.match(SOURCE, /document\.activeElement === control\) return/);
+  assert.match(SOURCE, /addEventListener\('focusout', finishDeferredEdit\)/);
+  assert.match(SOURCE, /name="comparisonPercent" type="text"[^>]+pattern="-\?\[0-9\]/);
 });

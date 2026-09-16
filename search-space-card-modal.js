@@ -306,18 +306,6 @@
       .replace(/'/g, '&#39;');
   }
 
-  function formatNumber(value, maximumFractionDigits) {
-    const parsed = numberOrNull(value);
-    if (parsed == null) return '—';
-    return new Intl.NumberFormat('ru-RU', { maximumFractionDigits }).format(parsed);
-  }
-
-  function formatMoney(value) {
-    const parsed = numberOrNull(value);
-    if (parsed == null) return '—';
-    return `${formatNumber(Math.round(parsed), 0)} ₽`;
-  }
-
   function choice(name, value, label) {
     return `<label class="ss-card-choice"><input type="radio" name="${name}" value="${value}"><span>${label}</span></label>`;
   }
@@ -329,13 +317,7 @@
           <div>
             <h2 id="ss-card-title">Карточка помещения</h2>
             <p class="ss-card-visually-hidden" id="ss-card-subtitle">Данные помещения и решение специалиста</p>
-            <div class="ss-card-header-meta">
-              <span data-header-address>Адрес не указан</span>
-              <span data-source-label>Добавлено вручную</span>
-              <span data-header-area>Площадь не указана</span>
-              <span data-header-rent>Аренда не указана</span>
-              <a data-listing-link target="_blank" rel="noopener noreferrer" hidden>Открыть объявление</a>
-            </div>
+            <span class="ss-card-source" data-source-label>Добавлено вручную</span>
           </div>
           <button class="ss-card-close" type="button" data-action="close" aria-label="Закрыть карточку">×</button>
         </header>
@@ -354,22 +336,14 @@
               <a class="ss-card-button ss-card-button-secondary" data-listing-field-link target="_blank" rel="noopener noreferrer" hidden>Открыть объявление</a>
             </div>
             <div class="ss-card-resolution" data-resolution role="status" aria-live="polite"></div>
-            <div class="ss-card-status-grid">
-              <article class="ss-card-status-card" data-status="cluster"><span>Попадание в кластер</span><strong>Нет данных</strong><p>Кластер не указан</p></article>
-              <article class="ss-card-status-card" data-status="center"><span>Объект СЛОГИ в кластере</span><strong>Нет данных</strong><p>—</p></article>
-              <article class="ss-card-status-card" data-status="ranking"><span>Рейтинг кластера</span><strong>Нет данных</strong><p>ТОП-35</p></article>
+            <div class="ss-card-cluster-grid">
+              <label class="ss-card-field" data-manual-coordinates data-tone-field="latitude"><span>Широта</span><input name="latitudeManual" type="number" min="-90" max="90" step="0.000001" inputmode="decimal" placeholder="55.7558"></label>
+              <label class="ss-card-field" data-manual-coordinates data-tone-field="longitude"><span>Долгота</span><input name="longitudeManual" type="number" min="-180" max="180" step="0.000001" inputmode="decimal" placeholder="37.6176"></label>
+              <label class="ss-card-field" data-manual-cluster data-tone-field="cluster-name"><span>Название кластера</span><input name="clusterNameManual" type="text" placeholder="Название"></label>
+              <fieldset class="ss-card-option" data-manual-cluster data-tone-field="cluster-status"><legend>Помещение входит в кластер</legend><div>${choice('clusterStatusManual', 'inside', 'Да')}${choice('clusterStatusManual', 'outside', 'Нет')}</div></fieldset>
+              <fieldset class="ss-card-option ss-card-center-choice" data-manual-cluster data-tone-field="cluster-center"><legend>В кластере есть объект СЛОГИ</legend><div>${choice('hasSlogiCenterManual', 'true', 'Да')}${choice('hasSlogiCenterManual', 'false', 'Нет')}</div></fieldset>
+              <label class="ss-card-field" data-manual-competitive data-tone-field="cluster-rank"><span>Место в рейтинге ТОП-35</span><input name="clusterRankManual" type="number" min="1" step="1" inputmode="numeric" placeholder="1–35"></label>
             </div>
-            <fieldset class="ss-card-manual" data-manual-location>
-              <legend>Ручные данные</legend>
-              <div class="ss-card-manual-grid">
-                <label class="ss-card-field" data-manual-coordinates><span>Широта</span><input name="latitudeManual" type="number" min="-90" max="90" step="0.000001" inputmode="decimal" placeholder="55.7558"></label>
-                <label class="ss-card-field" data-manual-coordinates><span>Долгота</span><input name="longitudeManual" type="number" min="-180" max="180" step="0.000001" inputmode="decimal" placeholder="37.6176"></label>
-                <label class="ss-card-field" data-manual-cluster><span>Название кластера</span><input name="clusterNameManual" type="text" placeholder="Название"></label>
-                <fieldset class="ss-card-option" data-manual-cluster><legend>Помещение входит в кластер</legend><div>${choice('clusterStatusManual', 'inside', 'Да')}${choice('clusterStatusManual', 'outside', 'Нет')}</div></fieldset>
-                <fieldset class="ss-card-option ss-card-center-choice" data-manual-cluster><legend>В кластере есть объект СЛОГИ</legend><div>${choice('hasSlogiCenterManual', 'true', 'Да')}${choice('hasSlogiCenterManual', 'false', 'Нет')}</div></fieldset>
-                <label class="ss-card-field" data-manual-competitive><span>Место в рейтинге</span><input name="clusterRankManual" type="number" min="1" step="1" inputmode="numeric" placeholder="1–35"></label>
-              </div>
-            </fieldset>
           </section>
 
           <section class="ss-card-section" aria-labelledby="ss-card-technical-title">
@@ -380,9 +354,9 @@
                 <label class="ss-card-field"><span>Площадь, м² <b aria-hidden="true">*</b></span><input name="area" type="number" min="0" step="0.01" inputmode="decimal" placeholder="90–150"></label>
                 <fieldset class="ss-card-binary ss-card-area-confirmation" data-manual-area-confirmation><legend>Соответствует диапазону 90–150 м²</legend>${choice('areaConfirmed', 'true', 'Да')}${choice('areaConfirmed', 'false', 'Нет')}</fieldset>
               </div>
-              <label class="ss-card-field" data-tone-field="price"><span>Цена за 1 м², ₽</span><input name="pricePerSqmOverride" type="number" min="0" step="1" inputmode="decimal" placeholder="Автоматически"><small data-value="calculated-rent-per-sqm">—</small></label>
+              <label class="ss-card-field" data-manual-price data-tone-field="price"><span>Цена за 1 м², ₽</span><input name="pricePerSqm" type="number" min="0" step="1" inputmode="decimal" placeholder="0"></label>
               <label class="ss-card-field" data-manual-competitive data-tone-field="average"><span>Средняя цена в кластере, ₽/м²</span><input name="averageRentManual" type="number" min="0" step="1" inputmode="decimal" placeholder="0"></label>
-              <label class="ss-card-field" data-tone-field="comparison"><span>Сравнение со средней, %</span><input name="comparisonPercentOverride" type="number" step="0.1" inputmode="decimal" placeholder="Автоматически"><small data-value="calculated-rent-delta">—</small></label>
+              <label class="ss-card-field" data-manual-comparison data-tone-field="comparison"><span>Сравнение со средней, %</span><input name="comparisonPercent" type="text" inputmode="decimal" pattern="-?[0-9]+(?:\\.[0-9]+)?" placeholder="0"></label>
             </div>
             <div class="ss-card-technical-grid">
               <fieldset class="ss-card-option"><legend>Входная группа</legend><div>${choice('separateEntrance', 'true', 'Да')}${choice('separateEntrance', 'false', 'Нет')}</div></fieldset>
@@ -470,8 +444,14 @@
     const manualAverage = numberOrNull(input('averageRentManual') && input('averageRentManual').value);
     const latitude = numberOrNull(input('latitudeManual') && input('latitudeManual').value);
     const longitude = numberOrNull(input('longitudeManual') && input('longitudeManual').value);
-    const pricePerSqmOverride = numberOrNull(input('pricePerSqmOverride') && input('pricePerSqmOverride').value);
-    const comparisonPercentOverride = numberOrNull(input('comparisonPercentOverride') && input('comparisonPercentOverride').value);
+    const pricePerSqmValue = numberOrNull(input('pricePerSqm') && input('pricePerSqm').value);
+    const pricePerSqmOverride = groups.price
+      ? pricePerSqmValue
+      : current.pricePerSqmOverride;
+    const comparisonPercentValue = numberOrNull(input('comparisonPercent') && input('comparisonPercent').value);
+    const comparisonPercentOverride = groups.comparison
+      ? comparisonPercentValue
+      : current.competitive.comparisonPercentOverride;
     const area = numberOrNull(input('area') && input('area').value);
     const selectedAreaConfirmed = boolOrNull(readRadio('areaConfirmed'));
     const areaConfirmedSource = groups.areaConfirmation
@@ -532,11 +512,11 @@
     setControl('hasSlogiCenterManual', card.cluster.hasSlogiCenter);
     setControl('clusterRankManual', card.competitive.rank);
     setControl('averageRentManual', card.competitive.averageRentPerSqm);
-    setControl('comparisonPercentOverride', card.competitive.comparisonPercentOverride);
+    setControl('comparisonPercent', card.competitive.deltaPercent);
     setControl('rentMonthly', card.rentMonthly);
     setControl('area', card.area);
     setControl('areaConfirmed', card.areaConfirmed);
-    setControl('pricePerSqmOverride', card.pricePerSqmOverride);
+    setControl('pricePerSqm', card.pricePerSqm);
     setControl('separateEntrance', card.separateEntrance);
     setControl('hasWindows', card.hasWindows);
     setControl('windowsOpen', card.windowsOpen);
@@ -554,55 +534,23 @@
     });
   }
 
-  function setStatus(name, tone, title, description) {
-    const node = state.dialog.querySelector(`[data-status="${name}"]`);
-    node.dataset.tone = tone;
-    node.querySelector('strong').textContent = title;
-    node.querySelector('p').textContent = description;
-  }
-
-  function renderLocation(card) {
-    if (card.cluster.status === 'inside') {
-      setStatus('cluster', 'success', 'Да', card.cluster.name || card.cluster.id || 'Название не указано');
-    } else if (card.cluster.status === 'address') {
-      setStatus('cluster', 'warning', 'Предварительно', card.cluster.name || 'Название не указано');
-    } else if (card.cluster.status === 'outside') {
-      setStatus('cluster', 'danger', 'Нет', 'Вне кластеров');
-    } else {
-      setStatus('cluster', 'neutral', 'Нет данных', 'Кластер не указан');
-    }
-
-    if (card.cluster.hasSlogiCenter === true) {
-      setStatus('center', 'danger', 'Да', card.cluster.centerDetails || 'Кластер занят');
-    } else if (card.cluster.hasSlogiCenter === false) {
-      setStatus('center', 'success', 'Нет', 'Кластер свободен');
-    } else {
-      setStatus('center', 'neutral', 'Нет данных', '—');
-    }
-
-    const rank = card.competitive.rank;
-    if (card.competitive.isTop35 === true) {
-      setStatus('ranking', 'success', `${formatNumber(rank, 0)} место`, 'ТОП-35');
-    } else if (card.competitive.isTop35 === false) {
-      setStatus('ranking', 'danger', `${formatNumber(rank, 0)} место`, 'Ниже ТОП-35');
-    } else {
-      setStatus('ranking', 'neutral', 'Нет данных', 'ТОП-35');
-    }
-  }
-
   function setToneField(name, tone) {
     const node = state.dialog.querySelector(`[data-tone-field="${name}"]`);
     if (node) node.dataset.tone = tone || 'neutral';
+  }
+
+  function setComputedControl(name, value) {
+    const control = input(name);
+    if (control && document.activeElement === control) return;
+    setControl(name, value);
   }
 
   function renderEconomy(evaluation) {
     const computed = evaluation.computed || {};
     const rentPerSqm = numberOrNull(computed.rentPerSqm);
     const deviation = numberOrNull(computed.deviationPercent);
-    const calculatedRent = state.dialog.querySelector('[data-value="calculated-rent-per-sqm"]');
-    const calculatedDelta = state.dialog.querySelector('[data-value="calculated-rent-delta"]');
-    calculatedRent.textContent = rentPerSqm == null ? '—' : `${formatMoney(rentPerSqm)} / м²`;
-    calculatedDelta.textContent = deviation == null ? '—' : `${deviation > 0 ? '+' : ''}${formatNumber(deviation, 1)}%`;
+    setComputedControl('pricePerSqm', rentPerSqm);
+    setComputedControl('comparisonPercent', deviation);
     const priceTone = deviation == null ? 'neutral' : deviation > 0 ? 'danger' : 'success';
     setToneField('rent', state.draft.rentMonthly > 0 ? 'success' : 'warning');
     setToneField('area', state.draft.areaConfirmed == null ? 'warning' : state.draft.areaConfirmed === true ? 'success' : 'danger');
@@ -612,6 +560,12 @@
     setToneField('address', state.draft.address ? 'success' : 'warning');
     setToneField('listing-url', state.draft.listingUrl ? 'success' : 'neutral');
     setToneField('ceiling', state.draft.ceilingHeightConfirmed == null ? 'warning' : state.draft.ceilingHeightConfirmed ? 'success' : 'danger');
+    setToneField('latitude', state.draft.geo && state.draft.geo.lat != null ? 'success' : 'warning');
+    setToneField('longitude', state.draft.geo && state.draft.geo.lng != null ? 'success' : 'warning');
+    setToneField('cluster-name', state.draft.cluster.name ? (state.draft.cluster.status === 'inside' ? 'success' : 'warning') : 'warning');
+    setToneField('cluster-status', state.draft.cluster.status === 'inside' ? 'success' : state.draft.cluster.status === 'outside' ? 'danger' : 'warning');
+    setToneField('cluster-center', state.draft.cluster.hasSlogiCenter == null ? 'warning' : state.draft.cluster.hasSlogiCenter ? 'danger' : 'success');
+    setToneField('cluster-rank', state.draft.competitive.rank == null ? 'warning' : state.draft.competitive.isTop35 ? 'success' : 'danger');
   }
 
   function renderReadiness(evaluation) {
@@ -645,16 +599,11 @@
     state.evaluation = evaluate(state.draft);
     const sourceLabel = state.dialog.querySelector('[data-source-label]');
     sourceLabel.textContent = state.draft.source === 'parsed' ? 'Получено из парсинга' : 'Добавлено вручную';
-    state.dialog.querySelector('[data-header-address]').textContent = state.draft.address || 'Адрес не указан';
-    state.dialog.querySelector('[data-header-area]').textContent = state.draft.area == null ? 'Площадь не указана' : `${formatNumber(state.draft.area, 1)} м²`;
-    state.dialog.querySelector('[data-header-rent]').textContent = state.draft.rentMonthly == null ? 'Аренда не указана' : `${formatMoney(state.draft.rentMonthly)} / мес`;
     const listingUrl = safeHttpUrl(state.draft.listingUrl);
-    [state.dialog.querySelector('[data-listing-link]'), state.dialog.querySelector('[data-listing-field-link]')].forEach((link) => {
-      link.hidden = !listingUrl;
-      if (listingUrl) link.href = listingUrl;
-      else link.removeAttribute('href');
-    });
-    renderLocation(state.draft);
+    const listingLink = state.dialog.querySelector('[data-listing-field-link]');
+    listingLink.hidden = !listingUrl;
+    if (listingUrl) listingLink.href = listingUrl;
+    else listingLink.removeAttribute('href');
     renderEconomy(state.evaluation);
     renderReadiness(state.evaluation);
     renderResolution();
@@ -675,9 +624,25 @@
       cluster: Boolean(target && target.closest && target.closest('[data-manual-cluster]')),
       competitive: Boolean(target && target.closest && target.closest('[data-manual-competitive]')),
       coordinates: Boolean(target && target.closest && target.closest('[data-manual-coordinates]')),
-      areaConfirmation: Boolean(target && target.closest && target.closest('[data-manual-area-confirmation]'))
+      areaConfirmation: Boolean(target && target.closest && target.closest('[data-manual-area-confirmation]')),
+      price: Boolean(target && target.closest && target.closest('[data-manual-price]')),
+      comparison: Boolean(target && target.closest && target.closest('[data-manual-comparison]'))
     });
     render();
+  }
+
+  function finishDeferredEdit(event) {
+    const target = event && event.target;
+    const name = target && target.name;
+    if (name !== 'address' && name !== 'pricePerSqm' && name !== 'comparisonPercent') return;
+    syncFromForm(event);
+    if (name === 'address') {
+      setControl('address', state.draft.address);
+      return;
+    }
+    const computed = state.evaluation && state.evaluation.computed || {};
+    if (name === 'pricePerSqm') setControl(name, numberOrNull(computed.rentPerSqm));
+    if (name === 'comparisonPercent') setControl(name, numberOrNull(computed.deviationPercent));
   }
 
   function showAlert(message) {
@@ -717,11 +682,7 @@
       state.draft.cluster.resolutionSource = 'automatic';
       state.draft.competitive.resolutionSource = 'automatic';
       state.resolution = 'success';
-      state.resolutionMessage = state.draft.cluster.status === 'outside'
-        ? 'Адрес определён. Помещение находится вне действующих кластеров.'
-        : state.draft.cluster.status === 'inside'
-          ? `Адрес определён. Кластер: ${state.draft.cluster.name || state.draft.cluster.id}.`
-          : 'Адрес определён, но кластер установить не удалось.';
+      state.resolutionMessage = '';
       fillForm(state.draft);
       emit(EVENTS.resolve, { card: state.draft, evaluation: evaluate(state.draft) });
     } catch (error) {
@@ -763,19 +724,20 @@
     state.form.addEventListener('input', (event) => {
       if (event.target.name === 'address') {
         event.target.setCustomValidity('');
-        state.draft = collectDraft();
+        state.draft.address = event.target.value;
         state.draft.geo = { lat: null, lng: null, resolutionSource: null };
         state.draft.cluster = { id: '', name: '', status: 'not_computed', matched: null, resolutionSource: null, hasSlogiCenter: null, centerDetails: '' };
         state.draft.competitive = { rating: null, rank: null, isTop30: null, isTop35: null, resolutionSource: null, averageRentPerSqm: null, comparisonPercentOverride: null };
         state.resolution = 'idle';
-        state.resolutionMessage = 'Адрес изменён — определите кластер повторно.';
-        fillForm(state.draft);
+        state.resolutionMessage = '';
         render();
         return;
       }
+      if (event.target.name === 'pricePerSqm' || event.target.name === 'comparisonPercent') return;
       syncFromForm(event);
     });
     state.form.addEventListener('change', syncFromForm);
+    state.form.addEventListener('focusout', finishDeferredEdit);
     state.form.addEventListener('submit', (event) => event.preventDefault());
     state.dialog.addEventListener('click', (event) => {
       const button = event.target.closest('[data-action]');

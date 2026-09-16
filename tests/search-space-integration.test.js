@@ -360,10 +360,11 @@ test('editing an address invalidates stale cluster and competitive results', () 
 
 test('an address-only district hint is never presented as exact polygon containment', () => {
   const modalSource = read('search-space-card-modal.js');
-  const start = modalSource.indexOf('  function renderLocation(');
-  const end = modalSource.indexOf('\n  function renderEconomy(', start);
+  const start = modalSource.indexOf('  function renderEconomy(');
+  const end = modalSource.indexOf('\n  function renderReadiness(', start);
   assert.ok(start >= 0 && end > start);
   const body = modalSource.slice(start, end);
-  assert.doesNotMatch(body, /cluster\.status\s*===\s*'inside'\s*\|\|\s*card\.cluster\.status\s*===\s*'address'/,
+  assert.match(body, /cluster\.status\s*===\s*'inside'\s*\?\s*'success'/);
+  assert.doesNotMatch(body, /cluster\.status\s*===\s*'inside'\s*\|\|\s*(?:card\.)?cluster\.status\s*===\s*'address'/,
     'The “address” state is an administrative text fallback, not proof that coordinates are inside a SLOGI polygon. It must not say “входит в границы кластера”.');
 });
