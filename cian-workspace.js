@@ -19,7 +19,7 @@
   const ALLOWED_PREMISE_TYPES=Object.freeze(['office','retail','free_purpose']);
   const FIXED_CRITERIA=Object.freeze({areaMin:100,areaMax:150,floor:1,premiseTypes:ALLOWED_PREMISE_TYPES,excludeBasementOrSocle:true,days:MAX_FRESH_DAYS,sort:'freshness-desc'});
   const $=id=>document.getElementById(id);
-  const nodes={button:$('available-search'),addButton:$('available-add-space'),count:$('available-count'),updated:$('available-last-update'),source:$('cian-source-state'),badge:$('cian-source-badge'),summary:$('available-summary'),loading:$('available-loading'),list:$('available-list'),empty:$('available-empty'),map:$('cian-map'),mapLoading:$('cian-map-loading'),mapMessage:$('cian-map-message'),mapCount:$('cian-map-count'),mapMissing:$('cian-map-missing'),mapNoAddress:$('cian-map-no-address'),mapFailed:$('cian-map-failed'),mapPending:$('cian-map-pending'),clusterToggle:$('cian-clusters-toggle')};
+  const nodes={button:$('available-search'),addButton:$('available-add-space'),updated:$('available-last-update'),source:$('cian-source-state'),badge:$('cian-source-badge'),loading:$('available-loading'),list:$('available-list'),empty:$('available-empty'),map:$('cian-map'),mapLoading:$('cian-map-loading'),mapMessage:$('cian-map-message'),mapCount:$('cian-map-count'),mapMissing:$('cian-map-missing'),mapNoAddress:$('cian-map-no-address'),mapFailed:$('cian-map-failed'),mapPending:$('cian-map-pending'),clusterToggle:$('cian-clusters-toggle')};
   let all=[];
   let hiddenListingIds=loadHiddenListingIds();
   let loading=false;
@@ -153,12 +153,6 @@
     const items=displayedListings(),sharedHidden=sharedHiddenListingIds(),hiddenCount=all.filter(item=>(hiddenListingIds.has(freshnessId(item))||sharedHidden.has(freshnessId(item)))&&!existingProject(item)).length;
     const sourceUnavailable=sourceHealth.status==='error'&&Boolean(sourceHealth.errorCode);
     nodes.loading.hidden=true;
-    nodes.count.textContent=String(items.length);
-    const manualCount=items.filter(item=>item._card&&item._card.source==='manual').length,parsedCount=items.length-manualCount;
-    if(loadPartial)nodes.summary.textContent=`Показано ${items.length} помещений (${parsedCount} из парсинга, ${manualCount} вручную). Выдача источника неполная (${loadedPages} стр.).`;
-    else if(sourceUnavailable)nodes.summary.textContent=`В списке ${items.length} помещений. Новые объявления временно не поступают; карточки системы доступны.`;
-    else if(hiddenCount>0)nodes.summary.textContent=`В списке ${items.length} помещений. Скрыто предложений на этом устройстве: ${hiddenCount}.`;
-    else nodes.summary.textContent=`В списке ${items.length} помещений: ${parsedCount} из парсинга, ${manualCount} добавлено вручную.`;
     nodes.empty.hidden=items.length!==0;
     if(items.length===0){
       nodes.empty.querySelector('h3').textContent=loadPartial?'Выдача загружена не полностью':sourceUnavailable?'Сбор временно приостановлен':'Помещений пока нет';

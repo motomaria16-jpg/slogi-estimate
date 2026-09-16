@@ -166,8 +166,9 @@ test('v76.1.14 layout hooks remain presentation-only and data-dense',()=>{
   const index=read('index.html');
   const app=read('phase0-app.js');
   const stage=read('stage-workspace.js');
-  assert.match(search,/id="available-count"/);
+  assert.doesNotMatch(search,/Подходящие предложения коммерческой аренды|Список подходящих помещений|id="available-count"|id="available-summary"/);
   assert.match(search,/id="available-last-update"/);
+  assert.match(search,/class="cian-hero-actions"><button[^>]+>Конкурентный анализ<\/button><button[^>]+>Добавить помещение<\/button><button[^>]+>Обновить<\/button><\/div>/);
   assert.match(search,/id="available-list"/);
   assert.match(search,/id="cian-map"/);
   assert.match(index,/<span>Экономика<\/span>/);

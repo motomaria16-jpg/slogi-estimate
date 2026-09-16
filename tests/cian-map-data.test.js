@@ -240,7 +240,10 @@ test('UI exposes separate missing-address, missing-coordinate, failed and pendin
 
 test('search layout keeps compact hero, map controls in heading and card actions vertical',()=>{
   const html=fs.readFileSync(path.join(ROOT,'available-spaces.html'),'utf8'),source=fs.readFileSync(path.join(ROOT,'cian-workspace.js'),'utf8'),css=fs.readFileSync(path.join(ROOT,'cian-workspace.css'),'utf8');
-  assert.match(html,/class="cian-hero-content"[^>]*><h1 id="available-title">Поиск помещений<\/h1><div class="cian-hero-details">/);
+  assert.match(html,/class="cian-hero-content"[^>]*><h1 id="available-title">Поиск помещений<\/h1><div class="cian-hero-meta"/);
+  assert.doesNotMatch(html,/Подходящие предложения коммерческой аренды|Список подходящих помещений|id="available-count"|id="available-summary"/);
+  assert.match(html,/class="cian-hero-actions"><button[^>]+>Конкурентный анализ<\/button><button[^>]+>Добавить помещение<\/button><button[^>]+>Обновить<\/button><\/div>/);
+  assert.match(css,/body\.available-spaces-page \.cian-hero-actions\{display:flex;flex-wrap:nowrap/);
   assert.match(html,/class="cian-map-heading-actions">[\s\S]*id="cian-map-count"[\s\S]*id="cian-clusters-toggle"/);
   assert.doesNotMatch(html,/class="cian-map-toolbar"/);
   assert.doesNotMatch(source,/>Карточка помещения<\/button>/);
