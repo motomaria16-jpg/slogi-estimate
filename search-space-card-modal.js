@@ -314,69 +314,73 @@
     return `<dialog class="ss-card-dialog" id="${ROOT_ID}" aria-labelledby="ss-card-title" aria-describedby="ss-card-subtitle">
       <form class="ss-card-form" method="dialog" novalidate>
         <header class="ss-card-header">
-          <div>
-            <h2 id="ss-card-title">Карточка помещения</h2>
-            <p class="ss-card-visually-hidden" id="ss-card-subtitle">Данные помещения и решение специалиста</p>
-            <span class="ss-card-source" data-source-label>Добавлено вручную</span>
-          </div>
+          <h2 id="ss-card-title">Карточка помещения</h2>
+          <p class="ss-card-visually-hidden" id="ss-card-subtitle">Единая карточка помещения</p>
           <button class="ss-card-close" type="button" data-action="close" aria-label="Закрыть карточку">×</button>
         </header>
 
         <div class="ss-card-body">
           <div class="ss-card-alert" data-alert role="alert" hidden></div>
 
-          <section class="ss-card-section" aria-labelledby="ss-card-location-title">
-            <div class="ss-card-section-heading"><span>01</span><div><h3 id="ss-card-location-title">Прохождение отбора кластера по конкурентному анализу</h3></div></div>
-            <div class="ss-card-address-row">
-              <label class="ss-card-field ss-card-field-wide" data-tone-field="address"><span>Адрес помещения <b aria-hidden="true">*</b></span><input name="address" type="text" autocomplete="street-address" placeholder="Город, улица, дом" required></label>
-              <button class="ss-card-button ss-card-button-secondary" type="button" data-action="resolve-address">Определить автоматически</button>
-            </div>
-            <div class="ss-card-listing-row">
-              <label class="ss-card-field" data-tone-field="listing-url"><span>Ссылка на объявление</span><input name="listingUrl" type="url" inputmode="url" autocomplete="url" placeholder="https://…"></label>
-              <a class="ss-card-button ss-card-button-secondary" data-listing-field-link target="_blank" rel="noopener noreferrer" hidden>Открыть объявление</a>
-            </div>
-            <div class="ss-card-resolution" data-resolution role="status" aria-live="polite"></div>
-            <div class="ss-card-cluster-grid">
-              <label class="ss-card-field" data-manual-coordinates data-tone-field="latitude"><span>Широта</span><input name="latitudeManual" type="number" min="-90" max="90" step="0.000001" inputmode="decimal" placeholder="55.7558"></label>
-              <label class="ss-card-field" data-manual-coordinates data-tone-field="longitude"><span>Долгота</span><input name="longitudeManual" type="number" min="-180" max="180" step="0.000001" inputmode="decimal" placeholder="37.6176"></label>
-              <label class="ss-card-field" data-manual-cluster data-tone-field="cluster-name"><span>Название кластера</span><input name="clusterNameManual" type="text" placeholder="Название"></label>
-              <fieldset class="ss-card-option" data-manual-cluster data-tone-field="cluster-status"><legend>Помещение входит в кластер</legend><div>${choice('clusterStatusManual', 'inside', 'Да')}${choice('clusterStatusManual', 'outside', 'Нет')}</div></fieldset>
-              <fieldset class="ss-card-option ss-card-center-choice" data-manual-cluster data-tone-field="cluster-center"><legend>В кластере есть объект СЛОГИ</legend><div>${choice('hasSlogiCenterManual', 'true', 'Да')}${choice('hasSlogiCenterManual', 'false', 'Нет')}</div></fieldset>
-              <label class="ss-card-field" data-manual-competitive data-tone-field="cluster-rank"><span>Место в рейтинге ТОП-35</span><input name="clusterRankManual" type="number" min="1" step="1" inputmode="numeric" placeholder="1–35"></label>
+          <section class="ss-card-identity" aria-label="Адрес и объявление">
+            <label class="ss-card-inline-field ss-card-address" data-tone-field="address"><span>Адрес</span><input name="address" type="text" autocomplete="street-address" placeholder="Город, улица, дом" required></label>
+            <button class="ss-card-button ss-card-button-secondary ss-card-compact-action" type="button" data-action="resolve-address">Определить</button>
+            <label class="ss-card-inline-field ss-card-listing" data-tone-field="listing-url"><span>Объявление</span><input name="listingUrl" type="url" inputmode="url" autocomplete="url" placeholder="https://…"></label>
+            <a class="ss-card-button ss-card-button-secondary ss-card-compact-action" data-listing-field-link target="_blank" rel="noopener noreferrer" hidden>Открыть</a>
+            <div class="ss-card-inline-field ss-card-coordinates" data-manual-coordinates>
+              <span>Координаты</span>
+              <div class="ss-card-coordinate-inputs">
+                <label class="ss-card-visually-hidden" for="ss-card-latitude">Широта</label><input id="ss-card-latitude" name="latitudeManual" type="number" min="-90" max="90" step="0.000001" inputmode="decimal" placeholder="55.7558" aria-label="Широта">
+                <label class="ss-card-visually-hidden" for="ss-card-longitude">Долгота</label><input id="ss-card-longitude" name="longitudeManual" type="number" min="-180" max="180" step="0.000001" inputmode="decimal" placeholder="37.6176" aria-label="Долгота">
+              </div>
             </div>
           </section>
 
-          <section class="ss-card-section" aria-labelledby="ss-card-technical-title">
-            <div class="ss-card-section-heading"><span>02</span><div><h3 id="ss-card-technical-title">Прохождение технических условий</h3></div></div>
-            <div class="ss-card-economy-fields">
-              <label class="ss-card-field" data-tone-field="rent"><span>Стоимость аренды в месяц, ₽ <b aria-hidden="true">*</b></span><input name="rentMonthly" type="number" min="0" step="1" inputmode="decimal" placeholder="0"></label>
-              <div class="ss-card-area-field" data-tone-field="area">
-                <label class="ss-card-field"><span>Площадь, м² <b aria-hidden="true">*</b></span><input name="area" type="number" min="0" step="0.01" inputmode="decimal" placeholder="90–150"></label>
-                <fieldset class="ss-card-binary ss-card-area-confirmation" data-manual-area-confirmation><legend>Соответствует диапазону 90–150 м²</legend>${choice('areaConfirmed', 'true', 'Да')}${choice('areaConfirmed', 'false', 'Нет')}</fieldset>
+          <div class="ss-card-columns">
+            <section class="ss-card-section" aria-labelledby="ss-card-cluster-title">
+              <div class="ss-card-section-heading"><span>01</span><h3 id="ss-card-cluster-title">Кластер и рейтинг</h3></div>
+              <div class="ss-card-section-content">
+                <label class="ss-card-row" data-manual-cluster data-tone-field="cluster-name"><span>Название кластера</span><input name="clusterNameManual" type="text" placeholder="Название"></label>
+                <fieldset class="ss-card-row ss-card-option" data-manual-cluster data-tone-field="cluster-status"><legend>Входит в кластер</legend><div>${choice('clusterStatusManual', 'inside', 'Да')}${choice('clusterStatusManual', 'outside', 'Нет')}</div></fieldset>
+                <fieldset class="ss-card-row ss-card-option ss-card-center-choice" data-manual-cluster data-tone-field="cluster-center"><legend>Объект СЛОГИ</legend><div>${choice('hasSlogiCenterManual', 'true', 'Да')}${choice('hasSlogiCenterManual', 'false', 'Нет')}</div></fieldset>
+                <label class="ss-card-row" data-manual-competitive data-tone-field="cluster-rank"><span>Место в ТОП-35</span><input class="ss-card-short" name="clusterRankManual" type="number" min="1" step="1" inputmode="numeric" placeholder="1–35"></label>
               </div>
-              <label class="ss-card-field" data-manual-price data-tone-field="price"><span>Цена за 1 м², ₽</span><input name="pricePerSqm" type="number" min="0" step="1" inputmode="decimal" placeholder="0"></label>
-              <label class="ss-card-field" data-manual-competitive data-tone-field="average"><span>Средняя цена в кластере, ₽/м²</span><input name="averageRentManual" type="number" min="0" step="1" inputmode="decimal" placeholder="0"></label>
-              <label class="ss-card-field" data-manual-comparison data-tone-field="comparison"><span>Сравнение со средней, %</span><input name="comparisonPercent" type="text" inputmode="decimal" pattern="-?[0-9]+(?:\\.[0-9]+)?" placeholder="0"></label>
-            </div>
-            <div class="ss-card-technical-grid">
-              <fieldset class="ss-card-option"><legend>Входная группа</legend><div>${choice('separateEntrance', 'true', 'Да')}${choice('separateEntrance', 'false', 'Нет')}</div></fieldset>
-              <fieldset class="ss-card-option"><legend>Окна есть</legend><div>${choice('hasWindows', 'true', 'Да')}${choice('hasWindows', 'false', 'Нет')}</div></fieldset>
-              <fieldset class="ss-card-option" data-windows-open><legend>Окна открываются</legend><div>${choice('windowsOpen', 'true', 'Да')}${choice('windowsOpen', 'false', 'Нет')}</div></fieldset>
-              <div class="ss-card-combined-field" data-tone-field="ceiling">
-                <label class="ss-card-field"><span>Высота потолков, м <b aria-hidden="true">*</b></span><input name="ceilingHeight" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0"></label>
-                <fieldset class="ss-card-binary"><legend>Норматив</legend>${choice('ceilingHeightConfirmed', 'true', 'Да')}${choice('ceilingHeightConfirmed', 'false', 'Нет')}</fieldset>
-              </div>
-              <fieldset class="ss-card-option ss-card-repair"><legend>Ремонт</legend><div>${choice('repair', 'none', 'Бетон')}${choice('repair', 'rough', 'Черновой')}${choice('repair', 'finished', 'Чистовой')}</div></fieldset>
-            </div>
-          </section>
+            </section>
 
-          <section class="ss-card-section ss-card-decision" aria-labelledby="ss-card-readiness-title">
-            <div class="ss-card-section-heading"><span>03</span><div><h3 id="ss-card-readiness-title">Решение специалиста</h3></div></div>
-            <div class="ss-card-decision-result" data-ready="false">
-              <strong data-readiness-title>Требуется решение специалиста</strong>
-              <ul data-reasons aria-live="polite"></ul>
-            </div>
-          </section>
+            <section class="ss-card-section" aria-labelledby="ss-card-economy-title">
+              <div class="ss-card-section-heading"><span>02</span><h3 id="ss-card-economy-title">Экономика помещения</h3></div>
+              <div class="ss-card-section-content">
+                <label class="ss-card-row" data-tone-field="rent"><span>Аренда в месяц</span><input name="rentMonthly" type="number" min="0" step="1" inputmode="decimal" placeholder="₽"></label>
+                <div class="ss-card-row" data-tone-field="area">
+                  <span>Площадь 90–150</span>
+                  <div class="ss-card-value-combo">
+                    <label class="ss-card-visually-hidden" for="ss-card-area">Площадь, м²</label><input id="ss-card-area" class="ss-card-short" name="area" type="number" min="0" step="0.01" inputmode="decimal" placeholder="м²">
+                    <fieldset class="ss-card-option ss-card-compact-choice" data-manual-area-confirmation><legend class="ss-card-visually-hidden">Площадь соответствует диапазону</legend>${choice('areaConfirmed', 'true', 'Да')}${choice('areaConfirmed', 'false', 'Нет')}</fieldset>
+                  </div>
+                </div>
+                <label class="ss-card-row" data-manual-price data-tone-field="price"><span>Цена за 1 м²</span><input name="pricePerSqm" type="number" min="0" step="1" inputmode="decimal" placeholder="₽"></label>
+                <label class="ss-card-row" data-manual-competitive data-tone-field="average"><span>Средняя в кластере</span><input name="averageRentManual" type="number" min="0" step="1" inputmode="decimal" placeholder="₽"></label>
+                <label class="ss-card-row" data-manual-comparison data-tone-field="comparison"><span>Отклонение от средней</span><input name="comparisonPercent" type="text" inputmode="decimal" pattern="-?[0-9]+(?:\\.[0-9]+)?" placeholder="%"></label>
+              </div>
+            </section>
+
+            <section class="ss-card-section" aria-labelledby="ss-card-technical-title">
+              <div class="ss-card-section-heading"><span>03</span><h3 id="ss-card-technical-title">Технические условия</h3></div>
+              <div class="ss-card-section-content">
+                <fieldset class="ss-card-row ss-card-option"><legend>Входная группа</legend><div>${choice('separateEntrance', 'true', 'Да')}${choice('separateEntrance', 'false', 'Нет')}</div></fieldset>
+                <fieldset class="ss-card-row ss-card-option"><legend>Окна есть</legend><div>${choice('hasWindows', 'true', 'Да')}${choice('hasWindows', 'false', 'Нет')}</div></fieldset>
+                <fieldset class="ss-card-row ss-card-option" data-windows-open><legend>Окна открываются</legend><div>${choice('windowsOpen', 'true', 'Да')}${choice('windowsOpen', 'false', 'Нет')}</div></fieldset>
+                <div class="ss-card-row" data-tone-field="ceiling">
+                  <span>Высота потолков</span>
+                  <div class="ss-card-value-combo">
+                    <label class="ss-card-visually-hidden" for="ss-card-ceiling">Высота потолков, м</label><input id="ss-card-ceiling" class="ss-card-short" name="ceilingHeight" type="number" min="0" step="0.01" inputmode="decimal" placeholder="м">
+                    <fieldset class="ss-card-option ss-card-compact-choice"><legend class="ss-card-visually-hidden">Высота соответствует нормативу</legend>${choice('ceilingHeightConfirmed', 'true', 'Да')}${choice('ceilingHeightConfirmed', 'false', 'Нет')}</fieldset>
+                  </div>
+                </div>
+                <label class="ss-card-row ss-card-repair"><span>Ремонт</span><select name="repair"><option value="">Не указано</option><option value="none">Бетон</option><option value="rough">Черновой</option><option value="finished">Чистовой</option></select></label>
+              </div>
+            </section>
+          </div>
         </div>
 
         <footer class="ss-card-footer">
@@ -384,9 +388,8 @@
           <div class="ss-card-footer-main">
             <button class="ss-card-button ss-card-button-ghost" type="button" data-action="close">Отмена</button>
             <button class="ss-card-button ss-card-button-secondary" type="button" data-action="save">Сохранить</button>
-            <button class="ss-card-button ss-card-button-primary" type="button" data-action="take-to-work" aria-describedby="ss-card-take-help" disabled>Добавить в «Помещение в работе»</button>
+            <button class="ss-card-button ss-card-button-primary" type="button" data-action="take-to-work">Добавить в «Помещение в работе»</button>
           </div>
-          <span class="ss-card-visually-hidden" id="ss-card-take-help" data-take-help>Заполните карточку и выполните условия отбора.</span>
         </footer>
       </form>
     </dialog>`;
@@ -498,7 +501,7 @@
       windowsOpen: readRadio('hasWindows') === 'true' ? boolOrNull(readRadio('windowsOpen')) : null,
       ceilingHeight: numberOrNull(input('ceilingHeight') && input('ceilingHeight').value),
       ceilingHeightConfirmed: boolOrNull(readRadio('ceilingHeightConfirmed')),
-      repair: readRadio('repair')
+      repair: input('repair') && input('repair').value
     }));
   }
 
@@ -568,54 +571,30 @@
     setToneField('cluster-rank', state.draft.competitive.rank == null ? 'warning' : state.draft.competitive.isTop35 ? 'success' : 'danger');
   }
 
-  function renderReadiness(evaluation) {
-    const title = state.dialog.querySelector('[data-readiness-title]');
-    const list = state.dialog.querySelector('[data-reasons]');
+  function renderTakeAction() {
     const takeButton = state.dialog.querySelector('[data-action="take-to-work"]');
-    const checks = evaluation.checks || {};
-    const rows = [
-      ['Кластер свободен', Boolean(checks.clusterInside && checks.clusterFree)],
-      ['ТОП-35', Boolean(checks.clusterTop35)],
-      ['Обязательные параметры заполнены', Boolean(checks.requiredComplete)]
-    ];
-    title.textContent = evaluation.canTakeToWork ? 'Можно добавить в работу' : 'Требуется решение специалиста';
-    title.closest('.ss-card-decision-result').dataset.ready = evaluation.canTakeToWork ? 'true' : 'false';
-    list.innerHTML = rows.map(([label, passed]) => `<li data-tone="${passed ? 'success' : 'danger'}"><span>${escapeHtml(label)}</span><strong>${passed ? 'Да' : 'Нет'}</strong></li>`).join('');
-    takeButton.disabled = !evaluation.canTakeToWork || Boolean(state.busy);
+    takeButton.disabled = Boolean(state.busy);
     takeButton.setAttribute('aria-disabled', String(takeButton.disabled));
-    const help = state.dialog.querySelector('[data-take-help]');
-    help.textContent = evaluation.canTakeToWork ? 'Все условия выполнены.' : 'Проверьте три условия решения специалиста.';
-  }
-
-  function renderResolution() {
-    const node = state.dialog.querySelector('[data-resolution]');
-    node.dataset.state = state.resolution;
-    node.textContent = state.resolutionMessage || '';
-    node.hidden = !node.textContent;
   }
 
   function render() {
     if (!state.dialog || !state.draft) return;
     state.evaluation = evaluate(state.draft);
-    const sourceLabel = state.dialog.querySelector('[data-source-label]');
-    sourceLabel.textContent = state.draft.source === 'parsed' ? 'Получено из парсинга' : 'Добавлено вручную';
     const listingUrl = safeHttpUrl(state.draft.listingUrl);
     const listingLink = state.dialog.querySelector('[data-listing-field-link]');
     listingLink.hidden = !listingUrl;
     if (listingUrl) listingLink.href = listingUrl;
     else listingLink.removeAttribute('href');
     renderEconomy(state.evaluation);
-    renderReadiness(state.evaluation);
-    renderResolution();
+    renderTakeAction();
     if (state.draft.hasWindows !== true && state.draft.hasWindows !== 'yes') setControl('windowsOpen', null);
     const deleteButton = state.dialog.querySelector('[data-action="delete"]');
     deleteButton.hidden = !(state.draft.id && typeof state.callbacks.onDelete === 'function');
     state.dialog.querySelectorAll('button').forEach((button) => {
-      if (button.dataset.action === 'take-to-work') return;
       button.disabled = Boolean(state.busy);
     });
     const resolveButton = state.dialog.querySelector('[data-action="resolve-address"]');
-    resolveButton.textContent = state.busy === 'resolve' ? 'Определяем…' : 'Определить автоматически';
+    resolveButton.textContent = state.busy === 'resolve' ? 'Определяем…' : 'Определить';
   }
 
   function syncFromForm(event) {
@@ -699,7 +678,6 @@
     clearAlert();
     const callback = state.callbacks[name];
     if (typeof callback !== 'function') return;
-    if (name === 'onTakeToWork' && !state.evaluation.canTakeToWork) return;
     state.busy = name;
     render();
     try {
@@ -728,6 +706,14 @@
         state.draft.geo = { lat: null, lng: null, resolutionSource: null };
         state.draft.cluster = { id: '', name: '', status: 'not_computed', matched: null, resolutionSource: null, hasSlogiCenter: null, centerDetails: '' };
         state.draft.competitive = { rating: null, rank: null, isTop30: null, isTop35: null, resolutionSource: null, averageRentPerSqm: null, comparisonPercentOverride: null };
+        setControl('latitudeManual', null);
+        setControl('longitudeManual', null);
+        setControl('clusterNameManual', '');
+        setControl('clusterStatusManual', null);
+        setControl('hasSlogiCenterManual', null);
+        setControl('clusterRankManual', null);
+        setControl('averageRentManual', null);
+        setControl('comparisonPercent', null);
         state.resolution = 'idle';
         state.resolutionMessage = '';
         render();

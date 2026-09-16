@@ -77,9 +77,20 @@ function defaultPhase0(){
 }
 function sourceLabel(source){return source==='cian'?'ЦИАН':'Ручной ввод'}
 
+function canonicalSpaceCard(project){
+  const model=window.SlogiSearchSpaceCard,phase=project&&project.phase0||{},stored=phase.spaceCard&&typeof phase.spaceCard==='object'?phase.spaceCard:{},storedCluster=stored.cluster&&typeof stored.cluster==='object'?stored.cluster:{},storedCompetitive=stored.competitive&&typeof stored.competitive==='object'?stored.competitive:{},geo=projectGeo(project),clusterId=String(project&&project.clusterId||''),clusterName=String(project&&project.clusterName||''),hasCluster=Boolean(clusterId||clusterName),snapshot=phase.clusterSnapshot&&typeof phase.clusterSnapshot==='object'?phase.clusterSnapshot:null;
+  const sameCluster=hasCluster&&(!storedCluster.id||storedCluster.id===clusterId)&&(!storedCluster.name||storedCluster.name===clusterName);
+  const cluster=Object.assign({},storedCluster,{id:clusterId,name:clusterName,status:hasCluster?(sameCluster&&['inside','address'].includes(storedCluster.status)?storedCluster.status:'inside'):(storedCluster.status==='outside'?'outside':'not_computed'),matched:hasCluster,resolutionSource:storedCluster.resolutionSource||(geo?'automatic':null)});
+  const competitive=Object.assign({},storedCompetitive);
+  if(snapshot){const rating=nullableNumber(snapshot.rating),average=nullableNumber(snapshot.averageRentPerSqm);if(rating!=null){competitive.rating=rating;competitive.rank=Math.trunc(rating);competitive.isTop30=rating>=1&&rating<=30;competitive.isTop35=rating>=1&&rating<=35}if(average!=null)competitive.averageRentPerSqm=average;if(rating!=null||average!=null)competitive.resolutionSource='automatic'}
+  const input=Object.assign({},stored,{id:String(project&&project.id||stored.id||''),source:phase.source||stored.source||'manual',listingUrl:phase.listingUrl||stored.listingUrl||'',address:String(project&&project.address||''),geo:{lat:geo&&geo.lat,lng:geo&&geo.lng,resolutionSource:stored.geo&&stored.geo.resolutionSource||(geo?'automatic':null)},cluster,competitive,rentMonthly:phase.rent&&phase.rent.amount,area:project&&project.area,ceilingHeight:project&&project.ceilingHeight,hasWindows:phase.windowsCount==null?stored.hasWindows:Number(phase.windowsCount)>0});
+  return model&&typeof model.normalize==='function'?model.normalize(input):input;
+}
+
 class ProjectRepository{
   listAll(){return P.readLocations().filter(x=>x&&x.id&&!x.deletedAt)}
   listPhase0(){return this.listAll().filter(x=>x.phase0&&typeof x.phase0==='object')}
+  listInWork(){return this.listPhase0().filter(x=>x.phase0.spaceCard&&x.phase0.spaceCard.work&&x.phase0.spaceCard.work.status==='in_work')}
   get(id){return this.listAll().find(x=>String(x.id)===String(id))||null}
   findByListing(source,externalId,listingUrl){
     const sourceKey=norm(source),idKey=String(externalId||'').trim(),urlKey=normalizeUrl(listingUrl);
@@ -90,7 +101,7 @@ class ProjectRepository{
     const all=P.readLocations(),id=project.id||P.uid('project');
     if(all.some(x=>String(x&&x.id)===String(id)))throw new Phase0Error('Объект с таким ID уже существует.','DUPLICATE_ID');
     const phase0=Object.assign(defaultPhase0(),clone(project.phase0||{}),{revision:1,createdAt:project.phase0&&project.phase0.createdAt||now(),updatedAt:now()});
-    const created=Object.assign({},clone(project),{id,phase0,createdAt:project.createdAt||now(),updatedAt:now()});
+    const created=Object.assign({},clone(project),{id,phase0,createdAt:project.createdAt||now(),updatedAt:now()});created.phase0.spaceCard=canonicalSpaceCard(created);
     all.unshift(created);this.write(all,'phase0-project-create');return clone(created);
   }
   update(id,shared,phase0,expectedRevision){
@@ -99,7 +110,7 @@ class ProjectRepository{
     const current=all[index],currentRevision=Number(current.phase0&&current.phase0.revision)||0;
     if(expectedRevision!=null&&Number(expectedRevision)!==currentRevision)throw new RevisionConflictError(clone(current));
     const nextPhase=Object.assign(defaultPhase0(),clone(current.phase0||{}),clone(phase0||{}),{revision:currentRevision+1,updatedAt:now()});
-    const next=Object.assign({},current,clone(shared||{}),{phase0:nextPhase,updatedAt:now()});
+    const next=Object.assign({},current,clone(shared||{}),{phase0:nextPhase,updatedAt:now()});next.phase0.spaceCard=canonicalSpaceCard(next);
     all[index]=next;this.write(all,'phase0-project-update');return clone(next);
   }
   mutate(id,mutator,expectedRevision,reason='phase0-project-update'){
@@ -108,7 +119,7 @@ class ProjectRepository{
     const current=clone(all[index]),currentRevision=Number(current.phase0&&current.phase0.revision)||0;
     if(expectedRevision!=null&&Number(expectedRevision)!==currentRevision)throw new RevisionConflictError(clone(current));
     const next=mutator(current)||current;
-    next.phase0=Object.assign(defaultPhase0(),next.phase0||{},{revision:currentRevision+1,updatedAt:now()});next.updatedAt=now();
+    next.phase0=Object.assign(defaultPhase0(),next.phase0||{},{revision:currentRevision+1,updatedAt:now()});next.phase0.spaceCard=canonicalSpaceCard(next);next.updatedAt=now();
     all[index]=next;this.write(all,reason);return clone(next);
   }
   persistAutomaticGeocodes(updates){
@@ -127,7 +138,7 @@ class ProjectRepository{
       if(status==='inside'&&(!clusterId||!clusterName)){result.skipped.push({projectId:id,reason:'incomplete_cluster'});return}
       const stamp=now(),next=clone(current),nextCard=clone(card),previousCluster=nextCard.cluster&&typeof nextCard.cluster==='object'?nextCard.cluster:{};
       next.geo=geo;next.clusterId=clusterId;next.clusterName=clusterName;
-      next.phase0=Object.assign(defaultPhase0(),phase,{spaceCard:Object.assign({},nextCard,{id:nextCard.id||next.id,source:'cian',address:String(next.address||''),geo:{lat:geo.lat,lng:geo.lng,resolutionSource:'automatic'},cluster:Object.assign({},previousCluster,{id:clusterId,name:clusterName,status,matched:status==='inside',hasSlogiCenter:status==='outside'?false:null,centerDetails:'',resolutionSource:'automatic'})}),revision:revision+1,updatedAt:stamp});
+      next.phase0=Object.assign(defaultPhase0(),phase,{spaceCard:Object.assign({},nextCard,{id:nextCard.id||next.id,source:'cian',address:String(next.address||''),geo:{lat:geo.lat,lng:geo.lng,resolutionSource:'automatic'},cluster:Object.assign({},previousCluster,{id:clusterId,name:clusterName,status,matched:status==='inside',hasSlogiCenter:status==='outside'?false:null,centerDetails:'',resolutionSource:'automatic'})}),revision:revision+1,updatedAt:stamp});next.phase0.spaceCard=canonicalSpaceCard(next);
       next.updatedAt=stamp;all[index]=next;touched=true;result.updated.push(clone(next));
     });
     if(touched)this.write(all,'phase0-background-geocode');return result;
@@ -162,7 +173,7 @@ class ProjectRepository{
       const before=project.phase0.clusterSnapshot||null;
       if(!deepEqual(before,snapshot)){
         const beforeRating=before&&nullableNumber(before.rating),afterRating=snapshot&&nullableNumber(snapshot.rating);
-        const next=clone(project);next.phase0=Object.assign(defaultPhase0(),next.phase0,{clusterSnapshot:snapshot,revision:(Number(next.phase0.revision)||0)+1,updatedAt:now()});next.updatedAt=now();all[index]=next;touched=true;
+        const next=clone(project);next.phase0=Object.assign(defaultPhase0(),next.phase0,{clusterSnapshot:snapshot,revision:(Number(next.phase0.revision)||0)+1,updatedAt:now()});next.phase0.spaceCard=canonicalSpaceCard(next);next.updatedAt=now();all[index]=next;touched=true;
         if(beforeRating!==afterRating)changes.push({projectId:next.id,beforeRating,afterRating,clusterName:next.clusterName||''});
       }
     });
@@ -635,7 +646,7 @@ class Phase0Service{
       address:String(draft.address||'').trim(),geo,clusterId:cluster?cluster.id:clusterId,clusterName:cluster?cluster.name:String(draft.clusterName||''),
       area:nullableNumber(draft.area),floor:nullableNumber(draft.floor??(existing&&existing.floor)),ceilingHeight:nullableNumber(draft.ceilingHeight),status:globalStatus,projectStatus:globalStatus,lifecyclePhase:existing&&existing.lifecyclePhase!=null?existing.lifecyclePhase:0
     };
-    return Object.assign({},existing||{},shared,{phase0});
+    const candidate=Object.assign({},existing||{},shared,{phase0});candidate.phase0.spaceCard=canonicalSpaceCard(candidate);return candidate;
   }
   validate(candidate){
     const errors={};if(!candidate.address)errors.address='Укажите адрес объекта.';
@@ -746,8 +757,7 @@ class Phase0Service{
     const context=this.takeSpaceContext(stored,located,current.id);
     const card=model.normalize(Object.assign({},stored,{cluster:context.cluster,competitive:context.competitive})),gate=model.evaluate(card);
     card.cluster.resolutionSource=context.cluster.resolutionSource;card.competitive.resolutionSource=context.competitive.resolutionSource;
-    if(!gate.canTakeToWork)throw new Phase0Error('Помещение пока нельзя взять в работу.','SPACE_WORK_BLOCKED',{gate,card});
-    const actor=this.actor(),stamp=now(),saved=this.projects.mutate(current.id,project=>{project.status='В работе';project.projectStatus='В работе';project.phase0=Object.assign(defaultPhase0(),project.phase0||{});project.phase0.status=STATUS.SUITABLE;project.phase0.spaceCard=Object.assign({},card,{work:{status:'in_work',takenAt:stamp,takenBy:actor}});return project},current.phase0&&current.phase0.revision,'space-card-take-into-work');
+    const actor=this.actor(),stamp=now(),saved=this.projects.mutate(current.id,project=>{project.status='В работе';project.projectStatus='В работе';project.clusterId=card.cluster.id||'';project.clusterName=card.cluster.name||'';project.phase0=Object.assign(defaultPhase0(),project.phase0||{});project.phase0.status=STATUS.SUITABLE;project.phase0.spaceCard=Object.assign({},card,{work:{status:'in_work',takenAt:stamp,takenBy:actor,decision:'manual',eligibilityAtDecision:{eligible:Boolean(gate.canTakeToWork),checks:clone(gate.checks||{}),reasons:clone(gate.reasons||[]),missingFields:clone(gate.missingFields||[])}}});return project},current.phase0&&current.phase0.revision,'space-card-take-into-work');
     this.audit.record(saved.id,'space-card-take-into-work','Помещение взято в работу',{clusterId:saved.clusterId,clusterName:saved.clusterName});return saved;
   }
   readiness(project){return transitionRequirements(project,this.competitive)}

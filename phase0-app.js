@@ -107,7 +107,7 @@ function renderList(){
 }
 
 function reload(){
-  state.projects=repo.listPhase0().map(project=>S.viewModel(project,competitive));
+  state.projects=repo.listInWork().map(project=>S.viewModel(project,competitive));
   if(state.selectedId&&!projectById(state.selectedId))state.selectedId='';
   populateFilters();renderKpis();renderList();
 }
@@ -353,7 +353,7 @@ function bindMain(){
 async function backfillMissingGeoAndClusters(){
   if(state.backfillRunning||!geocoder)return;state.backfillRunning=true;let changed=false;
   try{
-    const raw=repo.listPhase0();
+    const raw=repo.listInWork();
     for(const project of raw){
       const geo=S.normalizeGeo(project.geo),known=clusters.find(project.clusterId||project.clusterName);
       if(known&&(!project.clusterId||!project.clusterName)){repo.mutate(project.id,p=>{p.clusterId=known.id;p.clusterName=known.name;return p},project.phase0&&project.phase0.revision,'phase0-normalize-cluster');changed=true;continue}
@@ -361,7 +361,7 @@ async function backfillMissingGeoAndClusters(){
         const match=clusters.findByCoordinates(geo.lat,geo.lng)||(clusters.findNearestByCoordinates&&clusters.findNearestByCoordinates(geo.lat,geo.lng,6000));if(match){repo.mutate(project.id,p=>{p.clusterId=match.id;p.clusterName=match.name;return p},project.phase0&&project.phase0.revision,'phase0-auto-cluster');changed=true}
       }
     }
-    const missing=repo.listPhase0().filter(project=>project.address&&!S.normalizeGeo(project.geo));
+    const missing=repo.listInWork().filter(project=>project.address&&!S.normalizeGeo(project.geo));
     for(const project of missing){
       try{const result=await geocoder.geocode(project.address);if(!result)continue;const match=clusters.findByCoordinates(result.geo.lat,result.geo.lng)||(clusters.findNearestByCoordinates&&clusters.findNearestByCoordinates(result.geo.lat,result.geo.lng,6000));const fresh=repo.get(project.id);if(!fresh)continue;repo.mutate(project.id,p=>{p.geo=result.geo;if(match){p.clusterId=match.id;p.clusterName=match.name}return p},fresh.phase0&&fresh.phase0.revision,'phase0-auto-geocode');changed=true}catch(_){/* address remains editable manually */}
     }

@@ -132,16 +132,20 @@ test('successful mutating callbacks use a forced close while action is busy', ()
 
 test('markup is compact, accessible and uses one editable control per value', () => {
   assert.match(SOURCE, /<dialog[^>]+aria-labelledby="ss-card-title"/);
-  assert.match(SOURCE, /role="status" aria-live="polite"/);
-  assert.match(SOURCE, /aria-describedby="ss-card-take-help"/);
+  assert.match(SOURCE, /class="ss-card-identity"/);
+  assert.match(SOURCE, /class="ss-card-columns"/);
+  assert.match(SOURCE, /Кластер и рейтинг/);
+  assert.match(SOURCE, /Экономика помещения/);
+  assert.match(SOURCE, /Технические условия/);
   assert.match(SOURCE, /choice\('windowsOpen', 'true', 'Да'\)/);
   assert.match(SOURCE, /choice\('areaConfirmed', 'true', 'Да'\)/);
-  assert.match(SOURCE, /Соответствует диапазону 90–150 м²/);
+  assert.match(SOURCE, /Площадь 90–150/);
   assert.match(SOURCE, /value === 'yes' \|\| value === true/);
   assert.match(SOURCE, /value === 'no' \|\| value === false/);
-  assert.match(SOURCE, /choice\('repair', 'none', 'Бетон'\)/);
-  assert.match(SOURCE, /choice\('repair', 'rough', 'Черновой'\)/);
-  assert.match(SOURCE, /choice\('repair', 'finished', 'Чистовой'\)/);
+  assert.match(SOURCE, /<select name="repair">/);
+  assert.match(SOURCE, /<option value="none">Бетон<\/option>/);
+  assert.match(SOURCE, /<option value="rough">Черновой<\/option>/);
+  assert.match(SOURCE, /<option value="finished">Чистовой<\/option>/);
   assert.match(SOURCE, /name="listingUrl"/);
   assert.match(SOURCE, /rel="noopener noreferrer"/);
   assert.match(SOURCE, /name="latitudeManual"/);
@@ -166,8 +170,7 @@ test('markup is compact, accessible and uses one editable control per value', ()
     separateEntrance: 2,
     hasWindows: 2,
     windowsOpen: 2,
-    ceilingHeightConfirmed: 2,
-    repair: 3
+    ceilingHeightConfirmed: 2
   }).forEach(([name, expectedChoices]) => {
     assert.equal((SOURCE.match(new RegExp(`choice\\('${name}'`, 'g')) || []).length, expectedChoices, `${name} must have one radio group`);
   });
@@ -178,15 +181,22 @@ test('markup is compact, accessible and uses one editable control per value', ()
   assert.match(SOURCE, /current\.competitive\.comparisonPercentOverride/);
   assert.match(CSS, /input\[value="true"\]:checked/);
   assert.match(CSS, /input\[value="false"\]:checked/);
-  assert.match(CSS, /input:checked \+ span::before \{ content: "✓"/);
-  assert.match(CSS, /\.ss-card-field input \{[^}]*min-height: 40px/);
-  assert.match(CSS, /\.ss-card-choice span \{[^}]*min-height: 36px/);
+  assert.match(CSS, /\.ss-card-identity \{[^}]*grid-template-columns:/);
+  assert.match(CSS, /\.ss-card-columns \{[^}]*grid-template-columns: 1fr 1\.06fr 1\.08fr/);
+  assert.match(CSS, /\.ss-card-row \{[^}]*min-height: 40px/);
+  assert.match(CSS, /\.ss-card-choice span \{[^}]*min-height: 30px/);
   assert.doesNotMatch(CSS, /\.ss-card-status-card|\.ss-card-manual(?:\s|\{|\.)/);
   assert.match(CSS, /\.ss-card-center-choice \.ss-card-choice input\[value="true"\]:checked \+ span \{[^}]*var\(--ss-card-danger\)/);
-  assert.match(CSS, /\.ss-card-center-choice \.ss-card-choice input\[value="false"\]:checked \+ span \{[^}]*#376441/);
-  assert.match(CSS, /@media \(max-width: 540px\)/);
+  assert.match(CSS, /\.ss-card-center-choice \.ss-card-choice input\[value="false"\]:checked \+ span \{[^}]*#2f6941/);
+  assert.match(CSS, /@media \(max-width: 1080px\)/);
+  assert.match(CSS, /@media \(max-width: 820px\)/);
+  assert.match(CSS, /@media \(max-width: 680px\)/);
   assert.match(CSS, /:focus-visible/);
   assert.match(CSS, /@media \(forced-colors: active\)/);
+  assert.doesNotMatch(SOURCE, /Решение специалиста|data-readiness-title|data-reasons|data-take-help/);
+  assert.match(SOURCE, /data-action="take-to-work">Добавить в «Помещение в работе»<\/button>/);
+  assert.doesNotMatch(SOURCE, /data-action="take-to-work"\s+disabled/);
+  assert.doesNotMatch(SOURCE, /name === 'onTakeToWork' && !state\.evaluation\.canTakeToWork/);
 });
 
 test('input flow preserves in-progress address and calculated-field edits', () => {
@@ -195,6 +205,9 @@ test('input flow preserves in-progress address and calculated-field edits', () =
   assert.ok(addressStart >= 0 && derivedStart > addressStart);
   const addressInputBody = SOURCE.slice(addressStart, derivedStart);
   assert.match(addressInputBody, /state\.draft\.address = event\.target\.value/);
+  assert.match(addressInputBody, /setControl\('clusterNameManual', ''\)/);
+  assert.match(addressInputBody, /setControl\('clusterRankManual', null\)/);
+  assert.match(addressInputBody, /setControl\('averageRentManual', null\)/);
   assert.doesNotMatch(addressInputBody, /collectDraft|fillForm/);
   assert.match(SOURCE, /event\.target\.name === 'pricePerSqm' \|\| event\.target\.name === 'comparisonPercent'\) return/);
   assert.match(SOURCE, /document\.activeElement === control\) return/);

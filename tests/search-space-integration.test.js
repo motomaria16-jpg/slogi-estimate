@@ -12,6 +12,7 @@ const cardModel = require(path.join(ROOT, 'search-space-card.js'));
 const servicesSource = read('phase0-services.js');
 const workspaceSource = read('cian-workspace.js');
 const pageSource = read('available-spaces.html');
+const indexSource = read('index.html');
 
 function methodBody(source, name, nextName) {
   const start = source.indexOf(`  ${name}(`);
@@ -102,7 +103,7 @@ function repositoryHarness(projects) {
   let locations=JSON.parse(JSON.stringify(projects)),writes=0,pushes=0;const sharedState={settings:{}};
   const window={
     SlogiPro:{readLocations:()=>JSON.parse(JSON.stringify(locations)),writeLocations:items=>{writes++;locations=JSON.parse(JSON.stringify(items));},read:()=>sharedState,write:()=>{},actor:()=> 'integration-test',uid:prefix=>`${prefix}-test`,activity:()=>{}},
-    SlogiWorkflow:{},SLOGI_PHASE0_CONFIG:{competitiveAnalysis:{provider:'none',cacheSchemaVersion:1}},SLOGI_CLUSTERS_GEOJSON:{type:'FeatureCollection',features:[]},
+    SlogiWorkflow:{},SlogiSearchSpaceCard:cardModel,SLOGI_PHASE0_CONFIG:{competitiveAnalysis:{provider:'none',cacheSchemaVersion:1}},SLOGI_CLUSTERS_GEOJSON:{type:'FeatureCollection',features:[]},
     SlogiCloud:{schedulePush:()=>{pushes++;}}
   };
   vm.runInNewContext(servicesSource,{window,URL,AbortController,setTimeout,clearTimeout,console},{filename:'phase0-services.js'});
@@ -160,13 +161,15 @@ test('takeSpaceIntoWork revalidates the exact cluster from persisted coordinates
     'The transition gate must re-run exact polygon containment before changing status to “В работе”.');
 });
 
-test('taking into work rechecks current occupancy and competitive data before mutation', () => {
+test('taking into work rechecks current data but keeps the transition as a human decision', () => {
   const body = methodBody(servicesSource, 'takeSpaceIntoWork', 'readiness');
   const contextCall = body.indexOf('this.takeSpaceContext(');
   const evaluateCall = body.indexOf('model.evaluate(');
   const mutation = body.indexOf('this.projects.mutate(');
   assert.ok(contextCall >= 0 && evaluateCall > contextCall && mutation > evaluateCall);
-  assert.match(body, /if\s*\(\s*!gate\.canTakeToWork\s*\)\s*throw/);
+  assert.doesNotMatch(body, /if\s*\(\s*!gate\.canTakeToWork\s*\)\s*throw/);
+  assert.match(body, /decision:'manual'/);
+  assert.match(body, /eligibilityAtDecision:\{eligible:Boolean\(gate\.canTakeToWork\)/);
   const contextStart = servicesSource.indexOf('  takeSpaceContext(');
   const contextEnd = servicesSource.indexOf('\n  async resolveSpaceAddress(', contextStart);
   assert.ok(contextStart >= 0 && contextEnd > contextStart);
@@ -197,6 +200,8 @@ test('exact polygon containment overrides a conflicting manually selected cluste
     metric: { rating: 18, averageRentPerSqm: 4100 }
   });
   const saved = service.takeSpaceIntoWork('space-1');
+  assert.equal(saved.clusterId, 'auto-cluster');
+  assert.equal(saved.clusterName, 'Точный кластер');
   assert.equal(saved.phase0.spaceCard.cluster.id, 'auto-cluster');
   assert.equal(saved.phase0.spaceCard.cluster.resolutionSource, 'automatic');
   assert.equal(saved.phase0.spaceCard.competitive.rank, 18);
@@ -283,23 +288,27 @@ test('background geocoding never overwrites manual geo, cluster or competitive d
   assert.match(workspaceSource, /storedGeo\.resolutionSource==='manual'\?storedGeo/);
 });
 
-test('a currently known open center blocks a manual free-cluster assertion', () => {
+test('a currently known open center is recorded but does not block the specialist decision', () => {
   const card = manualReadyCard({ cluster: { hasSlogiCenter: false } });
   const center = { id: 'center-2', clusterId: 'cluster-1', clusterName: 'Кластер 1', centerName: 'СЛОГИ Тест', isSlogiCenterOpen: true };
   const { service } = serviceHarness({ card, otherProjects: [center] });
-  assert.throws(
-    () => service.takeSpaceIntoWork('space-1'),
-    error => error.code === 'SPACE_WORK_BLOCKED' && error.details.card.cluster.hasSlogiCenter === true && error.details.gate.reasons.includes('cluster_occupied')
-  );
+  const saved = service.takeSpaceIntoWork('space-1');
+  assert.equal(saved.phase0.spaceCard.cluster.hasSlogiCenter, true);
+  assert.equal(saved.phase0.spaceCard.work.status, 'in_work');
+  assert.equal(saved.phase0.spaceCard.work.decision, 'manual');
+  assert.equal(saved.phase0.spaceCard.work.eligibilityAtDecision.eligible, false);
+  assert.ok(saved.phase0.spaceCard.work.eligibilityAtDecision.reasons.includes('cluster_occupied'));
 });
 
-test('system competitive data overrides manual rank and average for a manual cluster', () => {
+test('system competitive data is refreshed and retained with the specialist decision', () => {
   const card = manualReadyCard({ competitive: { rank: 5, rating: 5, averageRentPerSqm: 2800 } });
   const { service } = serviceHarness({ card, metric: { rating: 41, averageRentPerSqm: 4700 } });
-  assert.throws(
-    () => service.takeSpaceIntoWork('space-1'),
-    error => error.code === 'SPACE_WORK_BLOCKED' && error.details.card.competitive.rank === 41 && error.details.card.competitive.averageRentPerSqm === 4700 && error.details.card.competitive.resolutionSource === 'automatic'
-  );
+  const saved = service.takeSpaceIntoWork('space-1');
+  assert.equal(saved.phase0.spaceCard.competitive.rank, 41);
+  assert.equal(saved.phase0.spaceCard.competitive.averageRentPerSqm, 4700);
+  assert.equal(saved.phase0.spaceCard.competitive.resolutionSource, 'automatic');
+  assert.equal(saved.phase0.spaceCard.work.eligibilityAtDecision.eligible, false);
+  assert.ok(saved.phase0.spaceCard.work.eligibilityAtDecision.reasons.includes('cluster_not_top35'));
 });
 
 test('manual competitive data fills only fields missing from a partial system profile', () => {
@@ -312,13 +321,13 @@ test('manual competitive data fills only fields missing from a partial system pr
   assert.equal(saved.phase0.spaceCard.competitive.resolutionSource, 'manual');
 });
 
-test('manual fallback is rejected unless its source and required potential fields are explicit', () => {
+test('an incomplete automatic context remains diagnostic when a specialist takes the card into work', () => {
   const card = readyCard();
   const { service } = serviceHarness({ card });
-  assert.throws(
-    () => service.takeSpaceIntoWork('space-1'),
-    error => error.code === 'SPACE_WORK_BLOCKED' && error.details.gate.reasons.includes('cluster_not_confirmed')
-  );
+  const saved = service.takeSpaceIntoWork('space-1');
+  assert.equal(saved.phase0.spaceCard.work.status, 'in_work');
+  assert.equal(saved.phase0.spaceCard.work.eligibilityAtDecision.eligible, false);
+  assert.ok(saved.phase0.spaceCard.work.eligibilityAtDecision.reasons.includes('cluster_not_confirmed'));
 });
 
 test('space-card saving and work transition never use a nearest-cluster fallback', () => {
@@ -343,6 +352,34 @@ test('the unified card is persisted and saved projects are soft-deleted', () => 
     'Unsaved parsed listings must be suppressed in the shared workspace, not only on one device.');
 });
 
+test('shared-field edits round-trip into the same canonical card and the work list only shows taken cards', () => {
+  const workingCard = readyCard({ id: 'working-1', work: { status: 'in_work', takenAt: '2026-09-16T10:00:00.000Z' } });
+  const savedOnlyCard = readyCard({ id: 'saved-1', work: {} });
+  const projects = [
+    { id: 'working-1', address: workingCard.address, area: 120, ceilingHeight: 3.2, clusterId: 'cluster-1', clusterName: 'Кластер 1', geo: { lat: 55.7, lng: 37.6 }, phase0: { revision: 2, source: 'manual', listingUrl: 'https://example.com/old', rent: { amount: 360000, period: 'month', currency: 'RUB' }, windowsCount: 2, spaceCard: workingCard } },
+    { id: 'saved-1', address: savedOnlyCard.address, area: 120, ceilingHeight: 3.2, clusterId: 'cluster-1', clusterName: 'Кластер 1', phase0: { revision: 1, source: 'manual', rent: { amount: 360000, period: 'month', currency: 'RUB' }, spaceCard: savedOnlyCard } }
+  ];
+  const h = repositoryHarness(projects);
+  const updated = h.repository.update('working-1', { address: 'Москва, Новая улица, 7', area: 135, ceilingHeight: 3.7, clusterId: 'cluster-2', clusterName: 'Кластер 2', geo: { lat: 55.8, lng: 37.7 } }, Object.assign({}, projects[0].phase0, { listingUrl: 'https://example.com/new', rent: { amount: 540000, period: 'month', currency: 'RUB' }, windowsCount: 4 }), 2);
+
+  assert.equal(updated.id, 'working-1');
+  assert.equal(updated.phase0.spaceCard.id, 'working-1');
+  assert.equal(updated.phase0.spaceCard.address, 'Москва, Новая улица, 7');
+  assert.equal(updated.phase0.spaceCard.area, 135);
+  assert.equal(updated.phase0.spaceCard.rentMonthly, 540000);
+  assert.equal(updated.phase0.spaceCard.ceilingHeight, 3.7);
+  assert.equal(updated.phase0.spaceCard.listingUrl, 'https://example.com/new');
+  assert.equal(updated.phase0.spaceCard.cluster.id, 'cluster-2');
+  assert.equal(updated.phase0.spaceCard.work.status, 'in_work');
+  assert.equal(updated.phase0.spaceCard.separateEntrance, 'yes');
+  assert.deepEqual(h.repository.listPhase0().map(item => item.id), ['working-1', 'saved-1']);
+  assert.deepEqual(h.repository.listInWork().map(item => item.id), ['working-1']);
+  assert.match(servicesSource, /listInWork\(\)\{return this\.listPhase0\(\)\.filter\([^\n]+work\.status==='in_work'/);
+  assert.match(workspaceSource, /repository\.listPhase0\(\)/, 'the search list must retain saved cards before the specialist takes them into work');
+  assert.match(read('phase0-app.js'), /state\.projects=repo\.listInWork\(\)/, 'the in-work page must filter by the canonical work status');
+  assert.ok(indexSource.indexOf('search-space-card.js') < indexSource.indexOf('phase0-services.js'));
+});
+
 test('open-center occupancy uses operational evidence, ignores deleted projects and excludes the current card', () => {
   const body = methodBody(servicesSource, 'openCentersInCluster', 'spaceContext');
   assert.match(body, /this\.projects\.listAll\(\)/);
@@ -361,7 +398,7 @@ test('editing an address invalidates stale cluster and competitive results', () 
 test('an address-only district hint is never presented as exact polygon containment', () => {
   const modalSource = read('search-space-card-modal.js');
   const start = modalSource.indexOf('  function renderEconomy(');
-  const end = modalSource.indexOf('\n  function renderReadiness(', start);
+  const end = modalSource.indexOf('\n  function renderTakeAction(', start);
   assert.ok(start >= 0 && end > start);
   const body = modalSource.slice(start, end);
   assert.match(body, /cluster\.status\s*===\s*'inside'\s*\?\s*'success'/);
