@@ -21,9 +21,11 @@ const pageTitles={
   'specification.html':['Смета объекта','Расчёт по подтверждённой спецификации'],
   'proposal.html':['Коммерческое предложение','Редактирование и выгрузка по корпоративному шаблону'],
   'available-spaces.html':['Поиск помещений','Сохранённые предложения коммерческой аренды за последние 30 суток'],
+  'in-work.html':['Помещения в работе','Просмотры, задачи и календарь по выбранным помещениям'],
 };
 const productLinks=[
   ['search','available-spaces.html','Поиск помещений','Поиск'],
+  ['in-work','in-work.html','Помещения в работе','В работе'],
   ['premises','index.html','Мои помещения','Объекты'],
   ['estimate','workspace.html?section=estimate','Смета и КП','Смета'],
   ['repair','workspace.html?section=repair','Ремонт','Ремонт']
@@ -48,6 +50,7 @@ function productSection(){
   if(['source-specification.html','specification.html','proposal.html'].includes(page))return'estimate';
   if(page==='passport.html')return stageNumber(activeProject())>=4?'repair':'estimate';
   if(page==='available-spaces.html')return'search';
+  if(page==='in-work.html')return'in-work';
   return'';
 }
 function normalizeHeader(){

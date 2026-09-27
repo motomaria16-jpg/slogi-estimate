@@ -213,7 +213,9 @@
     if(!checks.clusterFree)reasons.push(card.cluster.hasSlogiCenter===true?'cluster_occupied':'cluster_occupancy_unknown');
     if(!checks.clusterTop35)reasons.push(card.competitive.rank==null?'cluster_rank_unknown':'cluster_not_top35');
     if(missingFields.length)reasons.push('required_fields_incomplete');
-    const alreadyInWork=key(card.work&&card.work.status)==='in_work';
+    const work=card.work&&typeof card.work==='object'?card.work:{};
+    const pipelineStatus=key(work.pipeline&&work.pipeline.status||work.pipelineStatus||'');
+    const alreadyInWork=Boolean(work.takenAt)||['in_work','closed'].includes(key(work.status))||['proposal_handoff','rejected'].includes(key(work.stage))||['contact_pending','contacted','viewing_scheduled','viewing_completed','proposal_started','rejected'].includes(pipelineStatus);
     if(alreadyInWork)reasons.push('already_in_work');
     const eligible=Object.values(checks).every(Boolean)&&!alreadyInWork;
     return{eligible,canTakeToWork:eligible,checks,required,missingFields,reasons};

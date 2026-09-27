@@ -5,7 +5,7 @@ window.__slogiFigmaShell76115=true;
 
 const page=(location.pathname.split('/').pop()||'index.html').toLowerCase();
 const query=new URLSearchParams(location.search);
-const route=page==='available-spaces.html'?'search':page==='workspace.html'?(query.get('section')==='repair'?'repair-process':'kp'):['source-specification.html','specification.html','proposal.html'].includes(page)?'kp':['index.html','passport.html','all-locations.html','measure-index.html','measure-passport.html'].includes(page)?'objects':'';
+const route=page==='available-spaces.html'?'search':page==='in-work.html'?'in-work':page==='workspace.html'?(query.get('section')==='repair'?'repair-process':'kp'):['source-specification.html','specification.html','proposal.html'].includes(page)?'kp':['index.html','passport.html','all-locations.html','measure-index.html','measure-passport.html'].includes(page)?'objects':'';
 const esc=value=>String(value==null?'':value).replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
 const icon=name=>({
   home:'<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/>',
@@ -23,7 +23,7 @@ const svg=name=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
 const groups=[
   {title:'ПОИСК ПОМЕЩЕНИЯ',items:[
     {id:'search',href:'available-spaces.html',label:'Поиск помещения',icon:'search'},
-    {id:'in-work',label:'Помещение в работе',icon:'building',disabled:true},
+    {id:'in-work',href:'in-work.html',label:'Помещение в работе',icon:'building'},
     {id:'kp',href:'workspace.html?section=estimate',label:'КП',icon:'estimate'},
     {id:'approval',label:'Согласование',icon:'estimate',disabled:true}
   ]},

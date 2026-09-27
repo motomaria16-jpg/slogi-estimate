@@ -9,6 +9,7 @@ const themeName='schoolslogi-theme-v76-1-5.css';
 const approvedThemeName='figma-shell-v76-1-15.css';
 const workPages=[
   'available-spaces.html',
+  'in-work.html',
   'index.html',
   'workspace.html',
   'passport.html',
@@ -58,14 +59,14 @@ test('all work pages keep the base theme, fail-closed gate, and approved Figma l
     assert.equal(localTarget(styles.at(-1)),approvedThemeName,page+': approved Figma design is the final presentation layer');
     assert.match(html,/schoolslogi-theme-v76-1-5\.css\?v=76114/,page+': compact-theme cache key');
     assert.match(html,/figma-shell-v76-1-15\.css\?v=76116/,page+': approved-theme cache key');
-    assert.match(html,/professional-shell\.js\?v=76171/,page+': shell cache key');
-    assert.match(html,/figma-shell-v76-1-15\.js\?v=76116/,page+': approved-shell cache key');
+    assert.match(html,/professional-shell\.js\?v=76131/,page+': shell cache key');
+    assert.match(html,/figma-shell-v76-1-15\.js\?v=76131/,page+': approved-shell cache key');
   }
 });
 
-test('primary navigation has four product routes and no tools dropdown',()=>{
+test('primary navigation exposes the in-work page without changing existing product routes',()=>{
   const shell=read('professional-shell.js');
-  const expected=['available-spaces.html','index.html','workspace.html?section=estimate','workspace.html?section=repair'];
+  const expected=['available-spaces.html','in-work.html','index.html','workspace.html?section=estimate','workspace.html?section=repair'];
   for(const route of expected)assert.ok(shell.includes(route),route);
   assert.equal(shell.includes('Инструменты'),false);
   for(const target of removedPages)assert.equal(shell.includes(target),false,target);
@@ -210,10 +211,22 @@ test('left menu follows the two-stage product structure without placeholder rout
     assert.ok(position>previous,label+' is present in the requested order');
     previous=position;
   }
-  for(const route of ['available-spaces.html','workspace.html?section=estimate','workspace.html?section=repair','index.html'])assert.ok(shell.includes(route),route);
-  for(const item of ['in-work','approval','repair-documents','repair-exit'])assert.match(shell,new RegExp(`id:'${item}'[^}]*disabled:true`),item+' is disabled until its page exists');
+  for(const route of ['available-spaces.html','in-work.html','workspace.html?section=estimate','workspace.html?section=repair','index.html'])assert.ok(shell.includes(route),route);
+  assert.match(shell,/\{id:'in-work',href:'in-work\.html',label:'Помещение в работе',icon:'building'\}/);
+  for(const item of ['approval','repair-documents','repair-exit'])assert.match(shell,new RegExp(`id:'${item}'[^}]*disabled:true`),item+' is disabled until its page exists');
   assert.match(shell,/if\(item\.disabled\)return`<span class="\$\{classes\}" aria-disabled="true">/);
   for(const formerLabel of ['Главная','Мои помещения','Смета и КП','Команда','Настройки'])assert.equal(shell.includes(`label:'${formerLabel}'`),false,formerLabel);
+});
+
+test('in-work page has a stable shell route, title, and active navigation state',()=>{
+  const figmaShell=read('figma-shell-v76-1-15.js');
+  const professionalShell=read('professional-shell.js');
+  assert.match(figmaShell,/page==='in-work\.html'\?'in-work'/);
+  assert.match(figmaShell,/route===item\.id\?' active':''/);
+  assert.match(figmaShell,/route===item\.id\?'aria-current="page"':''/);
+  assert.match(professionalShell,/'in-work\.html':\['Помещения в работе','Просмотры, задачи и календарь по выбранным помещениям'\]/);
+  assert.match(professionalShell,/if\(page==='in-work\.html'\)return'in-work'/);
+  assert.match(professionalShell,/\['in-work','in-work\.html','Помещения в работе','В работе'\]/);
 });
 
 test('v76.1.15 approved shell audit covers every active page on desktop, tablet and mobile',()=>{
