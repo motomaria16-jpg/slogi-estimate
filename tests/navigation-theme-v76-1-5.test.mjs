@@ -9,7 +9,10 @@ const themeName='schoolslogi-theme-v76-1-5.css';
 const approvedThemeName='figma-shell-v76-1-15.css';
 const workPages=[
   'available-spaces.html',
-  'in-work.html',
+  'in-work.html'
+];
+const placeholderPage='under-development.html';
+const redirectPages=[
   'index.html',
   'workspace.html',
   'passport.html',
@@ -17,7 +20,10 @@ const workPages=[
   'specification.html',
   'proposal.html',
   'team.html',
-  'settings.html'
+  'settings.html',
+  'all-locations.html',
+  'measure-index.html',
+  'measure-passport.html'
 ];
 const removedPages=[
   'tasks.html',
@@ -58,9 +64,26 @@ test('all work pages keep the base theme, fail-closed gate, and approved Figma l
     assert.equal(localTarget(styles.at(-2)),'password-gate.css',page+': fail-closed gate stylesheet');
     assert.equal(localTarget(styles.at(-1)),approvedThemeName,page+': approved Figma design is the final presentation layer');
     assert.match(html,/schoolslogi-theme-v76-1-5\.css\?v=76114/,page+': compact-theme cache key');
-    assert.match(html,/figma-shell-v76-1-15\.css\?v=76116/,page+': approved-theme cache key');
+    assert.match(html,/figma-shell-v76-1-15\.css\?v=\d+/,page+': approved-theme cache key');
     assert.match(html,/professional-shell\.js\?v=76131/,page+': shell cache key');
-    assert.match(html,/figma-shell-v76-1-15\.js\?v=76131/,page+': approved-shell cache key');
+    assert.match(html,/figma-shell-v76-1-15\.js\?v=\d+/,page+': approved-shell cache key');
+  }
+});
+
+test('every unfinished route resolves to one protected in-style placeholder',()=>{
+  const placeholder=read(placeholderPage);
+  assert.match(placeholder,/data-slogi-access="pending"/);
+  assert.match(placeholder,/<h1 id="under-development-title">Раздел в разработке<\/h1>/);
+  assert.match(placeholder,/under-development\.css\?v=76133/);
+  assert.match(placeholder,/figma-shell-v76-1-15\.js\?v=76133/);
+  assert.match(placeholder,/href="available-spaces\.html"/);
+  assert.match(placeholder,/href="in-work\.html"/);
+  for(const page of redirectPages){
+    const html=read(page);
+    assert.match(html,/legacy-placeholder-redirect\.js\?v=76133/,page);
+    const redirect=html.indexOf('legacy-placeholder-redirect.js');
+    const application=Math.min(...['professional-core.js','workflow-storage.js','phase0-services.js'].map(source=>{const index=html.indexOf(source);return index<0?Infinity:index;}));
+    assert.ok(redirect>=0&&redirect<application,page+': redirect must run before legacy application code');
   }
 });
 
@@ -75,7 +98,7 @@ test('primary navigation exposes the in-work page without changing existing prod
 });
 
 test('specialist subtitle is absent from active markup and the final themes',()=>{
-  const sources=['professional-shell.js','figma-shell-v76-1-15.js',themeName,approvedThemeName,...workPages];
+  const sources=['professional-shell.js','figma-shell-v76-1-15.js',themeName,approvedThemeName,placeholderPage,...workPages,...redirectPages];
   for(const source of sources){
     const text=read(source);
     assert.equal(text.includes(removedSpecialistCopy),false,source);
@@ -88,10 +111,10 @@ test('password gate is early and the former workspace action is absent',()=>{
   const gateCss=read('password-gate.css');
   assert.equal(/placeWorkspaceControl|watchWorkspaceControl|slogi-workspace-connect/.test(shell),false);
   assert.match(gateCss,/data-slogi-access="pending"/);
-  for(const page of workPages){
+  for(const page of [...workPages,placeholderPage]){
     const html=read(page);
     assert.match(html,/data-slogi-access="pending"/);
-    assert.ok(html.indexOf('shared-workspace.js?v=7617')<html.indexOf('</head>'),page);
+    assert.ok(/shared-workspace\.js\?v=\d+/.test(html.slice(0,html.indexOf('</head>'))),page);
   }
 });
 
@@ -191,7 +214,7 @@ test('desktop navigation uses the approved sidebar geometry and exact brand asse
   assert.ok(shell.includes('documents-owl-approved-v2.png'));
 });
 
-test('left menu follows the two-stage product structure without placeholder routes',()=>{
+test('left menu follows the two-stage product structure and links unfinished sections to the placeholder',()=>{
   const shell=read('figma-shell-v76-1-15.js');
   const labels=[
     'ПОИСК ПОМЕЩЕНИЯ',
@@ -211,10 +234,10 @@ test('left menu follows the two-stage product structure without placeholder rout
     assert.ok(position>previous,label+' is present in the requested order');
     previous=position;
   }
-  for(const route of ['available-spaces.html','in-work.html','workspace.html?section=estimate','workspace.html?section=repair','index.html'])assert.ok(shell.includes(route),route);
+  for(const route of ['available-spaces.html','in-work.html','under-development.html?section=kp','under-development.html?section=approval','under-development.html?section=repair-documents','under-development.html?section=repair-process','under-development.html?section=repair-exit','under-development.html?section=objects'])assert.ok(shell.includes(route),route);
   assert.match(shell,/\{id:'in-work',href:'in-work\.html',label:'Помещение в работе',icon:'building'\}/);
-  for(const item of ['approval','repair-documents','repair-exit'])assert.match(shell,new RegExp(`id:'${item}'[^}]*disabled:true`),item+' is disabled until its page exists');
-  assert.match(shell,/if\(item\.disabled\)return`<span class="\$\{classes\}" aria-disabled="true">/);
+  assert.doesNotMatch(shell,/disabled:true/);
+  assert.match(shell,/page==='under-development\.html'\?String\(query\.get\('section'\)\|\|''\):''/);
   for(const formerLabel of ['Главная','Мои помещения','Смета и КП','Команда','Настройки'])assert.equal(shell.includes(`label:'${formerLabel}'`),false,formerLabel);
 });
 

@@ -40,7 +40,9 @@ test('active list and map use ProjectRepository.listInWork and MapService',()=>{
   assert.match(app,/new S\.MapService\(/);
   assert.match(app,/state\.map\.setProjects\(state\.visible\)/);
   assert.match(services,/phase\.rent&&phase\.rent\.amount!=null/);
-  assert.match(app,/data-project-id=/);
+  assert.match(app,/premisesCard\.render\(/);
+  assert.match(app,/'data-project-id':project\.id/);
+  assert.match(app,/resolveSpaceAddress\(draft\.address,project\.id\)/,'cluster refresh must exclude the same canonical project from occupancy checks');
 });
 
 test('calendar operations are isolated behind SlogiWorkCalendar service adapter',()=>{

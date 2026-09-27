@@ -374,8 +374,9 @@ test('shared-field edits round-trip into the same canonical card and the work li
   assert.equal(updated.phase0.spaceCard.separateEntrance, 'yes');
   assert.deepEqual(h.repository.listPhase0().map(item => item.id), ['working-1', 'saved-1']);
   assert.deepEqual(h.repository.listInWork().map(item => item.id), ['working-1']);
-  assert.match(servicesSource, /listInWork\(\)\{return this\.listPhase0\(\)\.filter\([^\n]+work\.status==='in_work'/);
-  assert.match(workspaceSource, /repository\.listPhase0\(\)/, 'the search list must retain saved cards before the specialist takes them into work');
+  assert.match(servicesSource, /listInWork\(\)\{return this\.listPhase0\(\)\.filter\(isActiveWorkProject\)/);
+  assert.match(servicesSource, /listSearchCandidates\(\)\{return this\.listPhase0\(\)\.filter\(isSearchCandidateProject\)/);
+  assert.match(workspaceSource, /repository\.listSearchCandidates\(\)/, 'the search list must use the canonical pre-work selector');
   assert.match(read('phase0-app.js'), /state\.projects=repo\.listInWork\(\)/, 'the in-work page must filter by the canonical work status');
   assert.ok(indexSource.indexOf('search-space-card.js') < indexSource.indexOf('phase0-services.js'));
 });

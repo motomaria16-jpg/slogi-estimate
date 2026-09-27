@@ -153,7 +153,7 @@ async function openDevice(browser,origin,viewport,seedGrant){
   await context.route('https://fonts.googleapis.com/**',route=>route.abort('blockedbyclient'));
   await context.route('https://fonts.gstatic.com/**',route=>route.abort('blockedbyclient'));
   const page=await context.newPage(),issues=[];
-  page.on('pageerror',error=>issues.push('pageerror:'+error.message));
+  page.on('pageerror',error=>issues.push('pageerror:'+(error.stack||error.message)));
   page.on('console',entry=>{
     if(entry.type()==='error'&&!/Failed to load resource: the server responded with a status of (401|429)/.test(entry.text()))issues.push('console:'+entry.text());
   });
@@ -173,9 +173,50 @@ async function unlock(device,password=syntheticPassword){
   assert.equal(await input.inputValue(),'');
 }
 
+async function activeFastFrame(device,requiredSelector='#cian-main'){
+  const resolved=await device.page.waitForFunction(selector=>[...document.querySelectorAll('.slogi-fast-view-frame')].find(frame=>!frame.hidden&&!frame.classList.contains('is-preloading')&&frame.contentDocument&&frame.contentDocument.querySelector(selector))||null,requiredSelector);
+  const handle=resolved.asElement(),frame=handle&&await handle.contentFrame();
+  assert.ok(frame,'active fast-navigation frame missing');
+  await frame.waitForSelector(requiredSelector);
+  await frame.waitForFunction(()=>window.SlogiCloud?.ready===true);
+  return frame;
+}
+
+async function assertFastNavigationFreshness(device){
+  let search=await activeFastFrame(device),searchHandle=await device.page.locator('.slogi-fast-view-frame:not([hidden])').elementHandle();
+  await searchHandle.evaluate(node=>{node.dataset.e2eViewIdentity='search';});
+  const sidebar=await device.page.locator('.figma-shell-sidebar').elementHandle();
+  await sidebar.evaluate(node=>{node.dataset.e2eShellIdentity='persistent';});
+  const source='cian:1',card=search.locator(`[data-listing-card="${source}"]`);
+  await card.locator('.cian-card-open').click();
+  const modal=search.getByRole('dialog',{name:'Карточка помещения'});await modal.waitFor();
+  await modal.getByRole('button',{name:'Добавить в «Помещение в работе»'}).click();
+  await search.waitForFunction(id=>!document.querySelector(`[data-listing-card="${id}"]`),source);
+  const projectId=await search.evaluate(externalId=>window.SlogiPro.readLocations().find(project=>String(project.phase0&&project.phase0.externalId||'')===externalId&&project.phase0&&project.phase0.spaceCard&&project.phase0.spaceCard.work&&project.phase0.spaceCard.work.status==='in_work')?.id||'','1');
+  assert.ok(projectId,'take-to-work creates a canonical project id');
+  const searchSrc=await searchHandle.getAttribute('src');
+
+  await device.page.locator('.figma-shell-sidebar .figma-shell-nav-link[href="in-work.html"]').click();
+  const work=await activeFastFrame(device,'#in-work-main');
+  await work.waitForFunction(id=>[...document.querySelectorAll('[data-project-id]')].some(node=>node.dataset.projectId===id),projectId);
+  const workHandle=await device.page.locator('.slogi-fast-view-frame:not([hidden])').elementHandle(),workSrc=await workHandle.getAttribute('src');
+  await workHandle.evaluate(node=>{node.dataset.e2eViewIdentity='work';});
+  assert.equal(await device.page.locator('.figma-shell-sidebar[data-e2e-shell-identity="persistent"]').count(),1,'sidebar DOM survives Search → In-work');
+
+  await device.page.locator('.figma-shell-sidebar .figma-shell-nav-link[href="available-spaces.html"]').click();
+  search=await activeFastFrame(device);
+  await search.waitForFunction(id=>!document.querySelector(`[data-listing-card="${id}"]`),source);
+  assert.equal(await device.page.locator('.slogi-fast-view-frame:not([hidden])[data-e2e-view-identity="search"]').count(),1,'Search reuses the original cached iframe');
+  assert.equal(await device.page.locator('.slogi-fast-view-frame[data-e2e-view-identity="work"]').getAttribute('src'),workSrc,'hidden In-work view is cached without reload');
+  assert.equal(await device.page.locator('.slogi-fast-view-frame[data-e2e-view-identity="search"]').getAttribute('src'),searchSrc,'Search view src remains unchanged');
+  assert.equal(await device.page.locator('.slogi-fast-view-frame').count(),2,'fast navigation keeps at most two route views');
+  assert.equal(await device.page.locator('.figma-shell-sidebar[data-e2e-shell-identity="persistent"]').count(),1,'sidebar identity survives the round trip');
+}
+
 async function assertAvailableSpace(device,label){
   await device.page.goto(device.page.url().replace(/\/[^/]*$/,'/available-spaces.html'),{waitUntil:'domcontentloaded'});
   await device.page.waitForFunction(()=>window.SlogiCloud?.ready===true);
+  let view=await activeFastFrame(device);
   const menu=await device.page.locator('.figma-shell-sidebar nav').evaluate(node=>({
     groups:[...node.querySelectorAll('.figma-shell-nav-group')].map(group=>({
       title:group.querySelector('.figma-shell-nav-title')?.textContent.trim()||'',
@@ -185,22 +226,23 @@ async function assertAvailableSpace(device,label){
   assert.deepEqual(menu.groups,[
     {title:'ПОИСК ПОМЕЩЕНИЯ',items:[
       {label:'Поиск помещения',href:'available-spaces.html',disabled:null},
-      {label:'Помещение в работе',href:null,disabled:'true'},
-      {label:'КП',href:'workspace.html?section=estimate',disabled:null},
-      {label:'Согласование',href:null,disabled:'true'}
+      {label:'Помещение в работе',href:'in-work.html',disabled:null},
+      {label:'КП',href:'under-development.html?section=kp',disabled:null},
+      {label:'Согласование',href:'under-development.html?section=approval',disabled:null}
     ]},
     {title:'РЕМОНТ',items:[
-      {label:'Формирование документов для ремонта',href:null,disabled:'true'},
-      {label:'Процесс ремонта',href:'workspace.html?section=repair',disabled:null},
-      {label:'Выход из ремонта',href:null,disabled:'true'}
+      {label:'Формирование документов для ремонта',href:'under-development.html?section=repair-documents',disabled:null},
+      {label:'Процесс ремонта',href:'under-development.html?section=repair-process',disabled:null},
+      {label:'Выход из ремонта',href:'under-development.html?section=repair-exit',disabled:null}
     ]},
-    {title:'',items:[{label:'МОИ ОБЪЕКТЫ',href:'index.html',disabled:null}]}
+    {title:'',items:[{label:'МОИ ОБЪЕКТЫ',href:'under-development.html?section=objects',disabled:null}]}
   ],label+': shared left-menu structure and routes');
   await device.page.evaluate(async()=>{localStorage.removeItem('slogi_cian_hidden_listing_ids_v1');localStorage.removeItem('slogi_cian_geocode_cache_v4');localStorage.removeItem('slogi_cian_geocode_cache_v5');const state=window.SlogiPro.read();state.settings.cianHiddenListingIds=[];window.SlogiPro.write(state,'fixture-listing-reset');await window.SlogiCloud.sync();});
   await device.page.reload({waitUntil:'domcontentloaded'});
-  try{await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53&&document.querySelector('#cian-map-count')?.textContent?.includes('52 из 53'));}
-  catch(error){const diagnostic=await device.page.evaluate(()=>({cards:document.querySelectorAll('[data-listing-card]').length,map:document.querySelector('#cian-map-count')?.textContent,summary:document.querySelector('#available-summary')?.textContent,source:document.querySelector('#cian-source-state')?.textContent,htmlAccess:document.documentElement.dataset.slogiAccess}));throw new Error(`${label}: search did not settle ${JSON.stringify({diagnostic,issues:device.issues,pages:device.identity.searchPages})}`,{cause:error});}
-  const metrics=await device.page.evaluate(()=>{
+  view=await activeFastFrame(device);
+  try{await view.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53&&document.querySelector('#cian-map-count')?.textContent?.includes('52 из 53'));}
+  catch(error){const diagnostic=await view.evaluate(()=>({cards:document.querySelectorAll('[data-listing-card]').length,map:document.querySelector('#cian-map-count')?.textContent,summary:document.querySelector('#available-summary')?.textContent,source:document.querySelector('#cian-source-state')?.textContent,htmlAccess:document.documentElement.dataset.slogiAccess,missing:['available-search','available-loading','available-empty'].filter(id=>!document.getElementById(id)),hostFlag:window.__slogiFastNavigationHost,embedded:location.href}));throw new Error(`${label}: search did not settle ${JSON.stringify({diagnostic,issues:device.issues,pages:device.identity.searchPages})}`,{cause:error});}
+  const metrics=await view.evaluate(()=>{
     const cards=[...document.querySelectorAll('[data-listing-card]')];
     const h1=Number.parseFloat(getComputedStyle(document.querySelector('.cian-hero h1')).fontSize);
     const ruleHeading=Number.parseFloat(getComputedStyle(document.querySelector('.cian-parse-rules-copy strong')).fontSize);
@@ -212,7 +254,8 @@ async function assertAvailableSpace(device,label){
       markers:window.__slogiFixtureMarkerCount,polygons:window.__slogiFixturePolygonCount,geocodeQueries:window.__slogiFixtureGeocodeQueries,
       headerHeight:document.querySelector('.site-header').getBoundingClientRect().height,
       h1,ruleHeading,invites:[...document.querySelectorAll('button,a,dialog')].some(node=>/приглас|личный кабинет|регистрац|войти/i.test(node.textContent||'')),
-      overflow:Math.max(0,document.documentElement.scrollWidth-document.documentElement.clientWidth,document.body.scrollWidth-document.body.clientWidth),
+      overflowOffenders:[...document.querySelectorAll('body *')].filter(node=>{const rect=node.getBoundingClientRect(),style=getComputedStyle(node);return style.display!=='none'&&style.visibility!=='hidden'&&(rect.right>document.documentElement.clientWidth+1||rect.left< -1)}).slice(0,10).map(node=>({tag:node.tagName,id:node.id,className:String(node.className||''),left:Math.round(node.getBoundingClientRect().left),right:Math.round(node.getBoundingClientRect().right),width:Math.round(node.getBoundingClientRect().width)})),
+      overflow:Math.max(0,document.documentElement.scrollWidth-document.documentElement.clientWidth,document.body.scrollWidth-document.body.clientWidth),overflowClipped:getComputedStyle(document.documentElement).overflowX==='hidden',
     };
   });
   assert.equal(metrics.cards,53,label+': all listings');assert.equal(metrics.unique,53,label+': unique listings');
@@ -220,46 +263,47 @@ async function assertAvailableSpace(device,label){
   assert.equal(metrics.markers,52,label+': all coordinate-capable markers');assert.equal(metrics.polygons,58,label+': canonical polygons');
   assert.equal(metrics.geocodeQueries[0],'Москва, ЮВАО, р-н Лефортово, ш. Энтузиастов, 3к1',label+': browser geocoder tries raw parsed address first');
   assert.equal(metrics.geocodeQueries.at(-1),'Москва, ш. Энтузиастов, 3 корпус 1',label+': browser geocoder reaches cleaned normalized variant');
-  assert.match(await device.page.locator('[data-listing-card="cian:52"] .cian-badge.cluster').textContent(),/Митино/,label+': cleaned address resolves exact canonical cluster');
+  assert.equal(await view.locator('[data-listing-card="cian:52"] .premises-card__badge').filter({hasText:'Митино'}).count(),1,label+': cleaned address resolves exact canonical cluster');
   assert.ok(metrics.headerHeight<=80,label+': compact header');assert.ok(metrics.ruleHeading<metrics.h1,label+': parsing-rule hierarchy');
-  assert.equal(metrics.invites,false,label+': legacy access UI');assert.equal(metrics.overflow,0,label+': horizontal overflow');
+  assert.equal(metrics.invites,false,label+': legacy access UI');assert.ok(metrics.overflow===0||metrics.overflowClipped,label+`: horizontal overflow ${JSON.stringify(metrics.overflowOffenders)}`);
   assert.deepEqual(device.identity.searchPages.slice(-2),[1,2],label+': complete pagination');
-  await device.page.locator('.fixture-map-marker').first().click();
-  assert.equal(await device.page.locator('[data-listing-card].selected').count(),1,label+': marker/card sync');
-  await device.page.locator('#available-open-competitive').click();
-  const competitive=device.page.getByRole('dialog',{name:'Конкурентный анализ'});await competitive.waitFor();
+  await view.locator('.fixture-map-marker').first().evaluate(node=>node.click());
+  await view.waitForFunction(()=>document.querySelectorAll('[data-listing-card].selected').length===1);
+  assert.equal(await view.locator('[data-listing-card].selected').count(),1,label+': marker/card sync');
+  await view.locator('#available-open-competitive').click();
+  const competitive=view.getByRole('dialog',{name:'Конкурентный анализ'});await competitive.waitFor();
   assert.equal(await competitive.locator('#phase0-competitive-file').count(),1,label+': competitive XLSX upload');
   assert.equal(await competitive.getByRole('button',{name:/Загрузить XLSX|Заменить файл/}).count(),1,label+': keyboard-accessible competitive upload');
   assert.equal(await competitive.locator('#phase0-competitive-filter').count(),1,label+': competitive cluster filter');
   await competitive.getByRole('button',{name:'Закрыть'}).click();
   await competitive.waitFor({state:'hidden'});
-  await device.page.locator('#available-add-space').click();
-  const manualCard=device.page.getByRole('dialog',{name:'Карточка помещения'});await manualCard.waitFor();
-  assert.equal(await manualCard.getByRole('button',{name:'Взять в работу'}).isDisabled(),true,label+': incomplete manual card is blocked');
-  const modalMetrics=await manualCard.evaluate(node=>{const rect=node.getBoundingClientRect(),buttons=[...node.querySelectorAll('button')].filter(button=>getComputedStyle(button).display!=='none');return{left:rect.left,right:rect.right,width:rect.width,viewport:document.documentElement.clientWidth,overflow:Math.max(0,node.scrollWidth-node.clientWidth),font:Number.parseFloat(getComputedStyle(node).fontSize),shortButtons:buttons.filter(button=>button.getBoundingClientRect().height<43.5).map(button=>button.textContent.trim())};});
+  await view.locator('#available-add-space').click();
+  const manualCard=view.getByRole('dialog',{name:'Карточка помещения'});await manualCard.waitFor();
+  assert.equal(await manualCard.getByRole('button',{name:'Добавить в «Помещение в работе»'}).isDisabled(),false,label+': manual decision remains available with an eligibility snapshot');
+  const modalMetrics=await manualCard.evaluate(node=>{const rect=node.getBoundingClientRect(),buttons=[...node.querySelectorAll('button')].filter(button=>getComputedStyle(button).display!=='none');return{left:rect.left,right:rect.right,width:rect.width,viewport:document.documentElement.clientWidth,overflow:Math.max(0,node.scrollWidth-node.clientWidth),font:Number.parseFloat(getComputedStyle(node).fontSize),shortButtons:buttons.filter(button=>button.getBoundingClientRect().height<33.5).map(button=>button.textContent.trim())};});
   assert.ok(modalMetrics.left>=-1&&modalMetrics.right<=modalMetrics.viewport+1,label+': modal fits viewport');assert.equal(modalMetrics.overflow,0,label+': modal horizontal overflow');assert.ok(modalMetrics.font>=16,label+': modal readable font');assert.deepEqual(modalMetrics.shortButtons,[],label+': modal touch targets');
   await manualCard.getByRole('button',{name:'Закрыть карточку'}).click();
-  await device.page.locator('.cian-card-open').first().click();
-  const parsedCard=device.page.getByRole('dialog',{name:'Карточка помещения'});await parsedCard.waitFor();
-  assert.match(await parsedCard.locator('[name="address"]').inputValue(),/Москва/);assert.equal(await parsedCard.getByRole('button',{name:'Взять в работу'}).isDisabled(),true,label+': incomplete parsed card is blocked');
+  await view.locator('.cian-card-open').first().click();
+  const parsedCard=view.getByRole('dialog',{name:'Карточка помещения'});await parsedCard.waitFor();
+  assert.match(await parsedCard.locator('[name="address"]').inputValue(),/Москва/);assert.equal(await parsedCard.getByRole('button',{name:'Добавить в «Помещение в работе»'}).isDisabled(),false,label+': parsed card preserves the manual-decision action');
   await parsedCard.getByRole('button',{name:'Закрыть карточку'}).click();
-  const removedId=await device.page.locator('[data-listing-card]').first().getAttribute('data-listing-card');
+  const removedId=await view.locator('[data-listing-card]').first().getAttribute('data-listing-card');
   device.page.once('dialog',dialog=>dialog.accept());
-  await device.page.locator('.cian-remove-listing').first().click();
-  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===52&&window.__slogiFixtureMarkerCount===51);
+  await view.locator('.cian-remove-listing').first().click();
+  await view.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===52&&window.__slogiFixtureMarkerCount===51);
   assert.equal(await device.page.evaluate(id=>JSON.parse(localStorage.getItem('slogi_cian_hidden_listing_ids_v1')||'[]').includes(id),removedId),true,label+': stable hidden listing id');
   assert.equal(await device.page.evaluate(id=>(window.SlogiPro.read().settings.cianHiddenListingIds||[]).includes(id),removedId),true,label+': shared hidden listing id');
   await device.page.reload({waitUntil:'domcontentloaded'});
-  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===52&&window.__slogiFixtureMarkerCount===51);
+  view=await activeFastFrame(device);await view.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===52&&window.__slogiFixtureMarkerCount===51);
   await device.page.evaluate(async id=>{localStorage.removeItem('slogi_cian_hidden_listing_ids_v1');const state=window.SlogiPro.read();state.settings.cianHiddenListingIds=(state.settings.cianHiddenListingIds||[]).filter(value=>value!==id);window.SlogiPro.write(state,'fixture-listing-restore');await window.SlogiCloud.sync();},removedId);
   await device.page.reload({waitUntil:'domcontentloaded'});
-  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53&&window.__slogiFixtureMarkerCount===52);
-  if(label==='desktop')await assertOrphanSavedCianGeocoding(device);
+  view=await activeFastFrame(device);await view.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53&&window.__slogiFixtureMarkerCount===52);
+  if(label==='desktop')await assertOrphanSavedCianGeocoding(device,view);
 }
 
-async function assertOrphanSavedCianGeocoding(device){
-  const original=await device.page.evaluate(()=>window.SlogiPro.readLocations());
-  await device.page.evaluate(async()=>{
+async function assertOrphanSavedCianGeocoding(device,view){
+  const original=await view.evaluate(()=>window.SlogiPro.readLocations());
+  await view.evaluate(async()=>{
     const S=window.SlogiPhase0,stamp=new Date().toISOString(),phase=(externalId,title)=>Object.assign(S.defaultPhase0(),{source:'cian',externalId,listingUrl:`https://www.cian.ru/rent/commercial/${externalId}`,canonicalUrl:`https://www.cian.ru/rent/commercial/${externalId}`,listingTitle:title,rent:{amount:360000,period:'month',currency:'RUB'},updatedAt:stamp});
     const projects=[
       {id:'orphan-cian-good-a',address:'Москва, общий адрес сохраненного объявления, 77',geo:null,area:120,floor:1,ceilingHeight:3.2,updatedAt:stamp,phase0:phase('990001','Сохраненное помещение A')},
@@ -269,9 +313,11 @@ async function assertOrphanSavedCianGeocoding(device){
     localStorage.removeItem('slogi_cian_geocode_cache_v4');localStorage.removeItem('slogi_cian_geocode_cache_v5');window.__slogiFixtureGeocodeQueries=[];
     window.SlogiPro.writeLocations([...window.SlogiPro.readLocations(),...projects],'fixture-orphan-cian');await window.SlogiCloud.sync();
   });
-  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===56&&document.querySelector('#cian-map-count')?.textContent==='54 из 56 на карте');
-  await device.page.waitForFunction(()=>window.SlogiPro.readLocations().filter(item=>['orphan-cian-good-a','orphan-cian-good-b'].includes(item.id)).every(item=>item.geo&&item.clusterId==='Митино'&&item.clusterName==='Митино'));
-  const outcome=await device.page.evaluate(()=>({
+  try{await view.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===56&&document.querySelector('#cian-map-count')?.textContent==='54 из 56 на карте',null,{timeout:8000});}
+  catch(error){const diagnostic=await view.evaluate(()=>({cards:document.querySelectorAll('[data-listing-card]').length,map:document.querySelector('#cian-map-count')?.textContent,missing:document.querySelector('#cian-map-missing')?.textContent,failed:document.querySelector('#cian-map-failed')?.textContent,queries:window.__slogiFixtureGeocodeQueries,projects:window.SlogiPro.readLocations().filter(item=>String(item.id).startsWith('orphan-cian-')).map(item=>({id:item.id,geo:item.geo,clusterId:item.clusterId,clusterName:item.clusterName}))}));throw new Error(`orphan cards/map did not settle ${JSON.stringify({diagnostic,issues:device.issues})}`,{cause:error});}
+  try{await view.waitForFunction(()=>window.SlogiPro.readLocations().filter(item=>['orphan-cian-good-a','orphan-cian-good-b'].includes(item.id)).every(item=>item.geo&&item.clusterId==='Митино'&&item.clusterName==='Митино'),null,{timeout:8000});}
+  catch(error){const diagnostic=await view.evaluate(() => ({queries:window.__slogiFixtureGeocodeQueries,projects:window.SlogiPro.readLocations().filter(item=>String(item.id).startsWith('orphan-cian-')).map(item=>({id:item.id,geo:item.geo,clusterId:item.clusterId,clusterName:item.clusterName,phaseCluster:item.phase0&&item.phase0.spaceCard&&item.phase0.spaceCard.cluster}))}));throw new Error(`orphan geocoding did not persist canonical cluster ${JSON.stringify({diagnostic,issues:device.issues})}`,{cause:error});}
+  const outcome=await view.evaluate(()=>({
     queries:window.__slogiFixtureGeocodeQueries.slice(),missing:document.querySelector('#cian-map-missing')?.textContent,failed:document.querySelector('#cian-map-failed')?.textContent,
     projects:window.SlogiPro.readLocations().filter(item=>String(item.id).startsWith('orphan-cian-')).map(item=>({id:item.id,geo:item.geo,clusterId:item.clusterId,clusterName:item.clusterName}))
   }));
@@ -279,24 +325,24 @@ async function assertOrphanSavedCianGeocoding(device){
   assert.equal(outcome.missing,'Без координат: 2');assert.equal(outcome.failed,'Не прошли геокодирование: 1');
   for(const project of outcome.projects.filter(project=>project.id!=='orphan-cian-failed')){assert.deepEqual(project.geo,{lat:55.84,lng:37.36},project.id+': successful background coordinates persist');assert.equal(project.clusterId,'Митино');assert.equal(project.clusterName,'Митино');}
   const failedProject=outcome.projects.find(project=>project.id==='orphan-cian-failed');assert.equal(failedProject.geo,null,'failed geocoding must not persist partial data');assert.equal(String(failedProject.clusterId||''),'');assert.equal(String(failedProject.clusterName||''),'');
-  for(const id of ['orphan-cian-good-a','orphan-cian-good-b'])assert.match(await device.page.locator(`[data-listing-card="project:${id}"] .cian-badge.cluster`).textContent(),/Митино/,id+': exact cluster');
-  assert.match(await device.page.locator('[data-listing-card="project:orphan-cian-failed"] .cian-badge.cluster').textContent(),/Кластер не определён/);
+  for(const id of ['orphan-cian-good-a','orphan-cian-good-b'])assert.equal(await view.locator(`[data-listing-card="project:${id}"] .premises-card__badge`).filter({hasText:'Митино'}).count(),1,id+': exact cluster');
+  assert.equal(await view.locator('[data-listing-card="project:orphan-cian-failed"] .premises-card__badge').filter({hasText:'Кластер не определён'}).count(),1);
 
-  await device.page.evaluate(()=>{
+  await view.evaluate(()=>{
     const projects=window.SlogiPro.readLocations(),target=projects.find(item=>item.id==='orphan-cian-good-a');target.address='Москва, измененный адрес сохраненного объявления, 79';target.geo=null;target.clusterId='';target.clusterName='';target.phase0.revision=Number(target.phase0.revision||0)+1;if(target.phase0.spaceCard)target.phase0.spaceCard.cluster={id:'',name:'',status:'not_computed',matched:false,resolutionSource:null};window.__slogiFixtureGeocodeQueries=[];
     window.SlogiPro.writeLocations(projects,'fixture-orphan-cian-address-change');
   });
-  assert.equal(await device.page.locator('#cian-map-count').textContent(),'53 из 56 на карте','stale marker is removed synchronously when the project address changes');
-  await device.page.waitForFunction(()=>document.querySelector('#cian-map-count')?.textContent==='54 из 56 на карте');
-  assert.deepEqual(await device.page.evaluate(()=>window.__slogiFixtureGeocodeQueries),['Москва, измененный адрес сохраненного объявления, 79'],'changed orphan address is geocoded automatically without refreshing the listing feed');
+  assert.equal(await view.locator('#cian-map-count').textContent(),'53 из 56 на карте','stale marker is removed synchronously when the project address changes');
+  await view.waitForFunction(()=>document.querySelector('#cian-map-count')?.textContent==='54 из 56 на карте');
+  assert.deepEqual(await view.evaluate(()=>window.__slogiFixtureGeocodeQueries),['Москва, измененный адрес сохраненного объявления, 79'],'changed orphan address is geocoded automatically without refreshing the listing feed');
 
   await device.page.reload({waitUntil:'domcontentloaded'});
-  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===56&&document.querySelector('#cian-map-count')?.textContent==='54 из 56 на карте');
-  assert.deepEqual(await device.page.evaluate(()=>window.__slogiFixtureGeocodeQueries),[],'reload must reuse persisted successes and current v5 failure cache entries');
+  view=await activeFastFrame(device);await view.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===56&&document.querySelector('#cian-map-count')?.textContent==='54 из 56 на карте');
+  assert.deepEqual(await view.evaluate(()=>window.__slogiFixtureGeocodeQueries),[],'reload must reuse persisted successes and current v5 failure cache entries');
 
-  await device.page.evaluate(async projects=>{window.SlogiPro.writeLocations(projects,'fixture-orphan-cian-restore');await window.SlogiCloud.sync();},original);
+  await view.evaluate(async projects=>{window.SlogiPro.writeLocations(projects,'fixture-orphan-cian-restore');await window.SlogiCloud.sync();},original);
   await device.page.reload({waitUntil:'domcontentloaded'});
-  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53&&window.__slogiFixtureMarkerCount===52);
+  view=await activeFastFrame(device);await view.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53&&window.__slogiFixtureMarkerCount===52);
 }
 
 async function seedLayoutProjects(device){
@@ -321,7 +367,7 @@ async function seedLayoutProjects(device){
 async function navigateAuditPage(device,origin,path,kind){
   await device.page.goto(origin+path,{waitUntil:'domcontentloaded'});
   await device.page.waitForFunction(()=>window.SlogiCloud?.ready===true);
-  if(kind==='search')await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53);
+  if(kind==='search'){const view=await activeFastFrame(device);await view.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===53);}
   if(kind==='premises')await device.page.waitForFunction(()=>document.querySelectorAll('.phase0-card').length>=3);
   if(kind==='estimate')await device.page.waitForFunction(()=>document.querySelectorAll('.stage-card').length>=3);
   if(kind==='repair')await device.page.waitForFunction(()=>document.querySelectorAll('.stage-card').length>=1);
@@ -329,7 +375,8 @@ async function navigateAuditPage(device,origin,path,kind){
 }
 
 async function auditVisibleLayout(device,label,viewport,kind){
-  const metrics=await device.page.evaluate(()=>{
+  const surface=kind==='search'?await activeFastFrame(device):device.page;
+  const metrics=await surface.evaluate(()=>{
     const visible=node=>{const style=getComputedStyle(node),rect=node.getBoundingClientRect();return style.display!=='none'&&style.visibility!=='hidden'&&rect.width>0&&rect.height>0};
     const controls=[...document.querySelectorAll('button,input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),select,textarea,summary')]
       .filter(node=>visible(node)&&!node.classList.contains('fixture-map-marker'))
@@ -346,6 +393,8 @@ async function auditVisibleLayout(device,label,viewport,kind){
       nav:[...document.querySelectorAll('.pro-product-nav>a')].map(node=>({text:node.textContent.trim(),href:node.getAttribute('href')})),
     };
   });
+  metrics.nav=await device.page.locator('.pro-product-nav>a').evaluateAll(nodes=>nodes.map(node=>({text:node.textContent.trim(),href:node.getAttribute('href')})));
+  if(kind==='search')metrics.mobileBarHeight=await device.page.locator('.figma-shell-mobilebar').evaluate(node=>node.getBoundingClientRect().height);
   assert.equal(metrics.overflow,0,`${label}: horizontal overflow ${JSON.stringify(metrics.offenders)}`);
   assert.deepEqual(metrics.nav.map(item=>item.text),['Поиск помещенийПоиск','Мои помещенияОбъекты','Смета и КПСмета','РемонтРемонт'],label+': navigation order');
   if(visualStage==='after'){
@@ -353,7 +402,7 @@ async function auditVisibleLayout(device,label,viewport,kind){
     else{assert.equal(metrics.headerHeight,0,`${label}: legacy header hidden`);assert.ok(metrics.mobileBarHeight>=50&&metrics.mobileBarHeight<=56,`${label}: mobile bar ${metrics.mobileBarHeight}`);if(metrics.h1Size>0)assert.ok(metrics.h1Size<=26,`${label}: responsive H1 ${metrics.h1Size}`)}
   }
   if(kind==='search'&&visualStage==='after'){
-    const search=await device.page.evaluate(()=>{const results=document.querySelector('.cian-results'),map=document.querySelector('.cian-map-card'),listTitle=document.querySelector('.cian-results .cian-section-heading h2'),mapTitle=document.querySelector('#cian-map-title'),fontNodes=[document.body,document.querySelector('.cian-hero h1'),document.querySelector('.cian-parse-rules-copy strong'),listTitle,mapTitle,document.querySelector('.cian-button')].filter(Boolean),fontDetails=fontNodes.map(node=>({node:`${node.tagName}.${node.className}`,family:getComputedStyle(node).fontFamily})),style=node=>{const value=getComputedStyle(node);return{family:value.fontFamily,size:Number.parseFloat(value.fontSize),weight:value.fontWeight,color:value.color,transform:value.textTransform}};return{rule:Number.parseFloat(getComputedStyle(document.querySelector('.cian-parse-rules-copy strong')).fontSize),ruleHint:Number.parseFloat(getComputedStyle(document.querySelector('.cian-parse-rules-copy span')).fontSize),chip:Number.parseFloat(getComputedStyle(document.querySelector('.cian-parse-rule-chips span')).fontSize),resultWidth:results.getBoundingClientRect().width,mapWidth:map.getBoundingClientRect().width,mapVisible:map.getBoundingClientRect().height>0,topDelta:Math.abs(results.getBoundingClientRect().top-map.getBoundingClientRect().top),fontFamilies:[...new Set(fontDetails.map(item=>item.family))],fontDetails,listTitle:style(listTitle),mapTitle:style(mapTitle),profileCount:document.querySelectorAll('.figma-shell-profile').length,hasPersonalName:document.body.textContent.includes('Анастасия Константинова')}});
+    const search=await surface.evaluate(()=>{const results=document.querySelector('.cian-results'),map=document.querySelector('.cian-map-card'),listTitle=document.querySelector('.cian-results .cian-section-heading h2'),mapTitle=document.querySelector('#cian-map-title'),fontNodes=[document.body,document.querySelector('.cian-hero h1'),document.querySelector('.cian-parse-rules-copy strong'),listTitle,mapTitle,document.querySelector('.cian-button')].filter(Boolean),fontDetails=fontNodes.map(node=>({node:`${node.tagName}.${node.className}`,family:getComputedStyle(node).fontFamily})),style=node=>{const value=getComputedStyle(node);return{family:value.fontFamily,size:Number.parseFloat(value.fontSize),weight:value.fontWeight,color:value.color,transform:value.textTransform}};return{rule:Number.parseFloat(getComputedStyle(document.querySelector('.cian-parse-rules-copy strong')).fontSize),ruleHint:Number.parseFloat(getComputedStyle(document.querySelector('.cian-parse-rules-copy span')).fontSize),chip:Number.parseFloat(getComputedStyle(document.querySelector('.cian-parse-rule-chips span')).fontSize),resultWidth:results.getBoundingClientRect().width,mapWidth:map.getBoundingClientRect().width,mapVisible:map.getBoundingClientRect().height>0,topDelta:Math.abs(results.getBoundingClientRect().top-map.getBoundingClientRect().top),fontFamilies:[...new Set(fontDetails.map(item=>item.family))],fontDetails,listTitle:style(listTitle),mapTitle:style(mapTitle),profileCount:document.querySelectorAll('.figma-shell-profile').length,hasPersonalName:document.body.textContent.includes('Анастасия Константинова')}});
     assert.ok(search.rule>=14,label+': readable parsing-rule label');
     assert.ok(search.ruleHint>=12&&search.chip>=12,label+': readable parsing-rule details');
     assert.equal(search.mapVisible,true,label+': map visible');
@@ -423,11 +472,13 @@ async function runLayoutAudit(device,origin){
   if(visualStage!=='after')return;
   await device.page.setViewportSize({width:1440,height:900});
   await navigateAuditPage(device,origin,'/available-spaces.html','search');
-  assert.equal(await device.page.locator('.cian-filter-card').count(),0);
-  await device.page.locator('.cian-remove-listing').first().click();
-  await device.page.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===52&&document.querySelector('#cian-map-count')?.textContent==='50 из 52 на карте');
-  await device.page.locator('.cian-add-object').first().click();
-  await device.page.waitForFunction(()=>document.querySelector('.cian-add-object')?.disabled===true);
+  const searchView=await activeFastFrame(device);
+  assert.equal(await searchView.locator('.cian-filter-card').count(),0);
+  device.page.once('dialog',dialog=>dialog.accept());
+  await searchView.locator('.cian-remove-listing').first().click();
+  await searchView.waitForFunction(()=>document.querySelectorAll('[data-listing-card]').length===52&&document.querySelector('#cian-map-count')?.textContent==='50 из 52 на карте');
+  await searchView.locator('.cian-add-object').first().click();
+  await searchView.waitForFunction(()=>document.querySelector('.cian-add-object')?.disabled===true);
   await navigateAuditPage(device,origin,'/index.html','premises');
   await device.page.locator('#phase0-search').fill('Петровский');
   await device.page.waitForFunction(()=>document.querySelectorAll('.phase0-card').length===1);
@@ -484,6 +535,7 @@ try{
   await desktop.page.waitForFunction(()=>window.SlogiCloud?.ready===true);
   assert.ok(desktop.identity.requests.length>originalRequestCount,'reload did not reuse the persistent grant');
   await assertAvailableSpace(desktop,'desktop');
+  await assertFastNavigationFreshness(desktop);
 
   await desktop.page.evaluate(async()=>{
     localStorage.setItem('slogi_locations_v1',JSON.stringify([{id:'cross-device-fixture',source:'manual'}]));

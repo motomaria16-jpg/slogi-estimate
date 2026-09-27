@@ -1,5 +1,6 @@
 (function(){
   'use strict';
+  if(window.__slogiFastNavigationHost)return;
 
   const cfg=(window.SLOGI_PHASE0_CONFIG&&window.SLOGI_PHASE0_CONFIG.listingSearch)||{};
   const supabaseCfg=(window.SLOGI_PHASE0_CONFIG&&window.SLOGI_PHASE0_CONFIG.supabase)||{};
@@ -7,11 +8,13 @@
   const mapData=window.SlogiCianMapData;
   const spaceCardModel=window.SlogiSearchSpaceCard;
   const spaceCardModal=window.SlogiSearchSpaceCardModal;
+  const premisesCard=window.SlogiPremisesListCard;
   const competitivePanel=window.SlogiCompetitiveAnalysisPanel;
   if(!feed)throw new Error('cian_listing_feed_unavailable');
   if(!mapData)throw new Error('cian_map_data_unavailable');
   if(!spaceCardModel)throw new Error('search_space_card_unavailable');
   if(!spaceCardModal)throw new Error('search_space_card_modal_unavailable');
+  if(!premisesCard)throw new Error('premises_list_card_unavailable');
   if(!competitivePanel)throw new Error('competitive_analysis_panel_unavailable');
   const MAX_FRESH_DAYS=30;
   const PROJECT_GEOCODE_DEBOUNCE_MS=250;
@@ -75,8 +78,10 @@
     if(!window.SlogiPro)return;const state=window.SlogiPro.read(),settings=state.settings||(state.settings={}),values=new Set(Array.isArray(settings.cianHiddenListingIds)?settings.cianHiddenListingIds.map(String):[]);values.add(id);settings.cianHiddenListingIds=[...values].slice(-1000);window.SlogiPro.write(state,'cian-listing-suppress');
   }
   function spaceKey(item){return item&&item._projectId?'project:'+String(item._projectId):freshnessId(item);}
-  function storedProjects(){const repository=projectRepository();return repository&&typeof repository.listPhase0==='function'?repository.listPhase0():[];}
-  function collectGeocodeTargets(){return mapData.collectProjectGeocodeTargets(all,storedProjects(),{findProject:existingProject,runtime:projectGeocodeRuntime,clusterService:clusterService()});}
+  function isSearchCandidateProject(project){const lifecycle=window.SlogiPhase0&&window.SlogiPhase0.spaceLifecycle;return lifecycle&&typeof lifecycle.isSearchCandidateProject==='function'?lifecycle.isSearchCandidateProject(project):true;}
+  function storedProjects(){const repository=projectRepository();if(!repository)return[];return typeof repository.listSearchCandidates==='function'?repository.listSearchCandidates():typeof repository.listPhase0==='function'?repository.listPhase0().filter(isSearchCandidateProject):[];}
+  function searchableFeedListings(){return all.filter(listing=>{const project=existingProject(listing);return!project||isSearchCandidateProject(project);});}
+  function collectGeocodeTargets(){return mapData.collectProjectGeocodeTargets(searchableFeedListings(),storedProjects(),{findProject:existingProject,runtime:projectGeocodeRuntime,clusterService:clusterService()});}
   function runtimeListingForProject(project,listing){
     const savedState=mapData.mergeProjectListingGeo(project,null,clusterService());
     if(mapData.coordinates(savedState)){projectGeocodeRuntime.delete(project);return listing||null;}
@@ -109,7 +114,7 @@
   }
   function displayedListings(){
     const projects=storedProjects(),used=new Set(),items=[],sharedHidden=sharedHiddenListingIds();
-    all.forEach(listing=>{const project=existingProject(listing);if(project){used.add(String(project.id));items.push(projectToItem(project,listing));return;}if(!hiddenListingIds.has(freshnessId(listing))&&!sharedHidden.has(freshnessId(listing))){listing._card=cardForListing(listing);items.push(listing);}});
+    all.forEach(listing=>{const project=existingProject(listing);if(project){used.add(String(project.id));if(isSearchCandidateProject(project))items.push(projectToItem(project,listing));return;}if(!hiddenListingIds.has(freshnessId(listing))&&!sharedHidden.has(freshnessId(listing))){listing._card=cardForListing(listing);items.push(listing);}});
     projects.forEach(project=>{if(!used.has(String(project.id)))items.push(projectToItem(project));});
     return items;
   }
@@ -142,8 +147,13 @@
     const id=esc(spaceKey(item)),cardData=item._card||cardForListing(item),gate=spaceCardModel.evaluate(cardData),inWork=cardData.work&&cardData.work.status==='in_work';
     const title=esc(item.title||item.address||'Коммерческое помещение');
     const dateLabel=item.freshnessKind==='published'?'Опубликовано':'Обновлено',sourceLabel=cardData.source==='manual'?'Вручную':'ЦИАН',rank=cardData.competitive.rank;
-    const blocked=workBlockTitle(gate),projectId=item._projectId||'';
-    return`<article class="cian-listing-card ${selectedListingId===spaceKey(item)?'selected':''}" data-listing-card="${id}"><button class="cian-card-open" type="button" data-listing-id="${id}" aria-label="Открыть карточку ${title}"><div class="cian-card-main"><div class="cian-card-top"><span class="cian-badge">${sourceLabel}</span><span class="cian-badge cluster">${esc(clusterLabel(item))}</span>${rank!=null?`<span class="cian-badge ${cardData.competitive.isTop35?'ready':'blocked'}">${esc(rank+' место')}</span>`:''}${item.freshnessAt?`<span class="cian-badge fresh">${dateLabel} ${esc(formatDate(item.freshnessAt))}</span>`:''}</div><h3>${title}</h3><p class="cian-address">${esc(item.address||'Адрес не указан')}</p><div class="cian-card-metrics"><span>${esc(area(item.area))}</span><span>${item.floor==null?'Этаж не указан':esc('Этаж '+item.floor+(item.totalFloors?' из '+item.totalFloors:''))}</span><span>${item.ceilingHeight==null?'Высота не указана':esc('Потолки '+item.ceilingHeight+' м')}</span></div></div><div class="cian-card-price"><strong>${esc(money(item.rentMonthly))}</strong><span>${item.pricePerSquareMeter==null?'Цена за м² не рассчитана':esc(money(item.pricePerSquareMeter)+' / м²')}</span></div></button><div class="cian-card-actions"><button class="cian-button cian-take-work" type="button" data-take-space="${id}" ${gate.canTakeToWork?'':'disabled'} title="${esc(gate.canTakeToWork?'Все условия выполнены':blocked)}">${inWork?'В работе':'Взять в работу'}</button><button class="cian-button secondary cian-remove-listing" type="button" data-remove-space="${id}" aria-label="Удалить ${title}">Удалить</button>${projectId?`<a href="index.html?location=${encodeURIComponent(projectId)}">Открыть в «Моих помещениях»</a>`:''}</div></article>`;
+    const blocked=workBlockTitle(gate);
+    return premisesCard.render({
+      selected:selectedListingId===spaceKey(item),articleClass:'cian-listing-card',articleAttributes:{'data-listing-card':id},openClass:'cian-card-open',openAttributes:{'data-listing-id':id},title:item.title||item.address||'Коммерческое помещение',address:item.address,
+      badges:[{text:sourceLabel},{text:clusterLabel(item)},{text:rank!=null?rank+' место':'',tone:cardData.competitive.isTop35?'ready':'danger'},{text:item.freshnessAt?dateLabel+' '+formatDate(item.freshnessAt):'',tone:'fresh'}],
+      area:item.area,floor:item.floor,totalFloors:item.totalFloors,ceilingHeight:item.ceilingHeight,rentMonthly:item.rentMonthly,pricePerSqm:item.pricePerSquareMeter,actionsClass:'cian-card-actions',
+      actionsHtml:`<button class="cian-button cian-take-work" type="button" data-take-space="${id}" ${gate.canTakeToWork?'':'disabled'} title="${esc(gate.canTakeToWork?'Все условия выполнены':blocked)}">${inWork?'В работе':'Взять в работу'}</button><button class="cian-button secondary cian-remove-listing" type="button" data-remove-space="${id}" aria-label="Удалить ${title}">Удалить</button>`
+    });
   }
   function workBlockTitle(gate){
     const labels={cluster_outside:'помещение вне кластеров',cluster_not_confirmed:'кластер не определён',cluster_occupied:'в кластере уже есть центр Слоги',cluster_occupancy_unknown:'занятость кластера не определена',cluster_rank_unknown:'нет рейтинга кластера',cluster_not_top30:'кластер ниже ТОП-35',cluster_not_top35:'кластер ниже ТОП-35',required_fields_incomplete:'заполнены не все параметры',already_in_work:'помещение уже в работе'};
@@ -242,7 +252,7 @@
     if(activeLoadController)activeLoadController.abort();
     if(projectGeocodeController)projectGeocodeController.abort();clearTimeout(projectGeocodeTimer);projectGeocodeTimer=null;projectGeocodeGeneration++;
     const controller=new AbortController();activeLoadController=controller;
-    loading=true;nodes.button.disabled=true;nodes.loading.hidden=false;nodes.empty.hidden=true;nodes.summary.textContent='Загружаем предложения…';
+    loading=true;nodes.button.disabled=true;nodes.loading.hidden=false;nodes.empty.hidden=true;
     try{
       const endpoint=String(cfg.endpoint||'');if(!endpoint)throw new Error('listing_search_unavailable');
       const token=await window.SlogiCloud.getAccessToken();
@@ -274,7 +284,6 @@
       if(error&&error.name==='AbortError')return;
       if(generation!==loadGeneration)return;
       all=[];loadPartial=false;serverTotal=null;loadedPages=0;listingSnapshotTime=NaN;sourceHealth={status:'error',errorCode:String(error&&error.message||'listing_search_failed')};render();
-      nodes.summary.textContent='Предложения временно недоступны.';
       nodes.source.textContent=error&&error.name==='AbortError'?'Чтение заняло слишком много времени.':'Не удалось загрузить предложения.';
       nodes.badge.textContent='Недоступно';nodes.badge.dataset.state='error';
       nodes.empty.hidden=false;nodes.empty.querySelector('h3').textContent='Не удалось загрузить предложения';nodes.empty.querySelector('p').textContent='Повторите чтение позже. Внешний сбор объявлений с этой страницы не запускается.';
@@ -401,6 +410,6 @@
     window.addEventListener('storage',event=>{if(event.key===HIDDEN_LISTINGS_KEY){hiddenListingIds=loadHiddenListingIds();render();}});
     window.addEventListener('pagehide',()=>{activeLoadController&&activeLoadController.abort();projectGeocodeController&&projectGeocodeController.abort();clearTimeout(projectGeocodeTimer);markerById.forEach(marker=>marker&&marker.events&&typeof marker.events.removeAll==='function'&&marker.events.removeAll());},{once:true});
   }
-  function init(){if(initialized)return;initialized=true;competitivePanel.init({trigger:'#available-open-competitive',onUpdated:()=>render(),toast});bind();initMap();loadListings();window.addEventListener('slogi:locations-updated',()=>{collectGeocodeTargets();render();if(!persistingProjectGeocodes)scheduleProjectGeocoding();});}
+  function init(){if(initialized)return;initialized=true;competitivePanel.init({trigger:'#available-open-competitive',onUpdated:()=>render(),toast});bind();initMap();loadListings();window.addEventListener('slogi:locations-updated',()=>{collectGeocodeTargets();render();if(!persistingProjectGeocodes)scheduleProjectGeocoding();});window.addEventListener('slogi:view-visibility',event=>{if(event.detail&&event.detail.active){render();requestAnimationFrame(()=>map&&map.container&&map.container.fitToViewport())}});}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

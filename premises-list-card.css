@@ -1,0 +1,40 @@
+:root{
+  --premises-card-ink:#29434a;
+  --premises-card-muted:#748487;
+  --premises-card-line:#e7ded2;
+  --premises-card-gold:#f1d897;
+  --premises-card-gold-soft:#fff5d8;
+  --premises-card-surface:#fff;
+  --premises-card-chip:#f5f1eb;
+}
+.premises-card{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 148px;width:100%;min-height:0;overflow:hidden;border:0;border-bottom:1px solid var(--premises-card-line);border-radius:0;background:var(--premises-card-surface);color:var(--premises-card-ink);box-shadow:none;transition:background .16s ease,box-shadow .16s ease}
+.premises-card:hover,.premises-card.selected{background:var(--premises-card-gold-soft);box-shadow:inset 3px 0 var(--premises-card-gold)}
+.premises-card__open{display:grid;grid-template-columns:minmax(0,1fr) 125px;gap:9px;min-width:0;width:100%;padding:10px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
+.premises-card__open:hover{background:transparent}
+.premises-card__main{min-width:0}
+.premises-card__badges{display:flex;align-items:center;gap:6px;min-height:25px;margin-bottom:7px;flex-wrap:wrap}
+.premises-card__badge{display:inline-flex;align-items:center;min-height:25px;padding:4px 8px;border-radius:999px;background:#eef3ef;color:#45635f;font-size:11px;font-weight:500;line-height:1.2}
+.premises-card__badge.is-status{background:#eff2f1;color:#687b7e}
+.premises-card__badge.is-ready{background:#e7f3ed;color:#39715f}
+.premises-card__badge.is-warning,.premises-card__badge.is-fresh{background:var(--premises-card-gold-soft);color:#7c652c}
+.premises-card__badge.is-danger{background:#faebe7;color:#9a5148}
+.premises-card h3{margin:0 0 5px;color:var(--premises-card-ink);font-size:15px;font-weight:500;line-height:1.35}
+.premises-card__address{margin:0;color:var(--premises-card-muted);font-size:12px;line-height:1.45}
+.premises-card__metrics{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.premises-card__metrics span{display:inline-flex;align-items:center;min-height:27px;padding:5px 8px;border-radius:7px;background:var(--premises-card-chip);color:#506469;font-size:11px;font-weight:400}
+.premises-card__price{align-self:center;min-width:145px;padding-left:10px;text-align:right}
+.premises-card__price strong,.premises-card__price span{display:block}
+.premises-card__price strong{color:#285b58;font-size:16px;font-weight:500;line-height:1.25}
+.premises-card__price span{margin-top:4px;color:var(--premises-card-muted);font-size:11px}
+.premises-card__context{grid-column:1;padding:0 12px 11px;color:var(--premises-card-muted);font-size:11px}
+.premises-card__actions{grid-column:2;grid-row:1 / span 2;display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:7px;padding:12px;border-left:1px solid var(--premises-card-line);background:rgba(255,255,255,.72)}
+.premises-card__actions:empty{display:none}
+.premises-card__actions button,.premises-card__actions a{min-width:0!important;min-height:38px!important;width:100%;justify-content:center;white-space:normal}
+@media(max-width:800px){
+  .premises-card{grid-template-columns:1fr}
+  .premises-card__open{grid-template-columns:1fr}
+  .premises-card__price{padding-left:0;text-align:left}
+  .premises-card__context{grid-column:1}
+  .premises-card__actions{grid-column:1;grid-row:auto;border-top:1px solid var(--premises-card-line);border-left:0}
+}
+@media(prefers-reduced-motion:reduce){.premises-card{transition:none}}

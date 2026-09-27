@@ -610,3 +610,28 @@ body.figma-shell-v76115 #pro-app{padding-top:0!important;padding-bottom:34px!imp
   body.figma-shell-v76115>.site-header{display:none!important}
   body.figma-shell-v76115>main,body.figma-shell-v76115>#pro-app{width:100%!important;margin:0!important;padding:0!important}
 }
+
+/* Persistent shell: bounded same-origin views isolate page CSS and runtime listeners. */
+.slogi-fast-view-host{position:fixed;z-index:1190;inset:0 0 0 220px;overflow:hidden;background:var(--figma-canvas)}
+.slogi-fast-view-frame{display:block;width:100%;height:100%;border:0;background:var(--figma-canvas)}
+.slogi-fast-view-frame.is-preloading{position:absolute;inset:0;visibility:hidden;pointer-events:none}
+.slogi-fast-view-frame[hidden]{display:none}
+.slogi-fast-view-status{display:grid;min-height:100%;place-items:center;color:var(--figma-muted);font-size:13px}
+body.slogi-fast-navigation-host>.site-header,
+body.slogi-fast-navigation-host>main,
+body.slogi-fast-navigation-host>#available-toast,
+body.slogi-fast-navigation-host>.in-work-overlay,
+body.slogi-fast-navigation-host>.in-work-toast{display:none!important}
+html[data-slogi-fast-view="embedded"],body.slogi-fast-view-embedded{max-width:100%;overflow-x:hidden}
+body.slogi-fast-view-embedded.figma-shell-v76115>.site-header,
+body.slogi-fast-view-embedded.figma-shell-v76115.slogi-search-page>.site-header{width:calc(100% - 24px)!important;margin-right:12px!important;margin-left:12px!important}
+body.slogi-fast-view-embedded.figma-shell-v76115>main,
+body.slogi-fast-view-embedded.figma-shell-v76115>main.objects-main,
+body.slogi-fast-view-embedded.figma-shell-v76115>#pro-app{width:calc(100% - 24px)!important;margin-right:12px!important;margin-left:12px!important}
+@media(max-width:900px){
+  .slogi-fast-view-host{inset:70px 0 0}
+  body.slogi-fast-view-embedded.figma-shell-v76115>main,
+  body.slogi-fast-view-embedded.figma-shell-v76115>main.objects-main,
+  body.slogi-fast-view-embedded.figma-shell-v76115>#pro-app{width:calc(100% - 20px)!important;margin-right:10px!important;margin-left:10px!important}
+}
+@media print{.slogi-fast-view-host{position:static;width:100%;height:auto}.slogi-fast-view-frame{height:100vh}}

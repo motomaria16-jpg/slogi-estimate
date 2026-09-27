@@ -1,11 +1,14 @@
 (function(){
 'use strict';
+const embeddedView=window.parent!==window&&new URLSearchParams(location.search).get('__slogi_view')==='1';
+if(embeddedView){document.documentElement.setAttribute('data-slogi-fast-view','embedded');document.body.classList.add('figma-shell-v76115','slogi-fast-view-embedded');return;}
 if(window.__slogiFigmaShell76115)return;
 window.__slogiFigmaShell76115=true;
 
 const page=(location.pathname.split('/').pop()||'index.html').toLowerCase();
 const query=new URLSearchParams(location.search);
-const route=page==='available-spaces.html'?'search':page==='in-work.html'?'in-work':page==='workspace.html'?(query.get('section')==='repair'?'repair-process':'kp'):['source-specification.html','specification.html','proposal.html'].includes(page)?'kp':['index.html','passport.html','all-locations.html','measure-index.html','measure-passport.html'].includes(page)?'objects':'';
+const placeholderRoute=page==='under-development.html'?String(query.get('section')||''):'';
+const route=page==='available-spaces.html'?'search':page==='in-work.html'?'in-work':placeholderRoute;
 const esc=value=>String(value==null?'':value).replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
 const icon=name=>({
   home:'<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/>',
@@ -24,16 +27,16 @@ const groups=[
   {title:'ПОИСК ПОМЕЩЕНИЯ',items:[
     {id:'search',href:'available-spaces.html',label:'Поиск помещения',icon:'search'},
     {id:'in-work',href:'in-work.html',label:'Помещение в работе',icon:'building'},
-    {id:'kp',href:'workspace.html?section=estimate',label:'КП',icon:'estimate'},
-    {id:'approval',label:'Согласование',icon:'estimate',disabled:true}
+    {id:'kp',href:'under-development.html?section=kp',label:'КП',icon:'estimate'},
+    {id:'approval',href:'under-development.html?section=approval',label:'Согласование',icon:'estimate'}
   ]},
   {title:'РЕМОНТ',items:[
-    {id:'repair-documents',label:'Формирование документов для ремонта',icon:'estimate',disabled:true},
-    {id:'repair-process',href:'workspace.html?section=repair',label:'Процесс ремонта',icon:'repair'},
-    {id:'repair-exit',label:'Выход из ремонта',icon:'repair',disabled:true}
+    {id:'repair-documents',href:'under-development.html?section=repair-documents',label:'Формирование документов для ремонта',icon:'estimate'},
+    {id:'repair-process',href:'under-development.html?section=repair-process',label:'Процесс ремонта',icon:'repair'},
+    {id:'repair-exit',href:'under-development.html?section=repair-exit',label:'Выход из ремонта',icon:'repair'}
   ]},
   {items:[
-    {id:'objects',href:'index.html',label:'МОИ ОБЪЕКТЫ',icon:'building',topLevel:true}
+    {id:'objects',href:'under-development.html?section=objects',label:'МОИ ОБЪЕКТЫ',icon:'building',topLevel:true}
   ]}
 ];
 const navItemHtml=item=>{
@@ -43,11 +46,11 @@ const navItemHtml=item=>{
   return`<a class="${classes}" href="${item.href}" ${route===item.id?'aria-current="page"':''}>${body}</a>`;
 };
 const navHtml=groups.map(group=>`<div class="figma-shell-nav-group">${group.title?`<div class="figma-shell-nav-title">${esc(group.title)}</div>`:''}${group.items.map(navItemHtml).join('')}</div>`).join('');
-const helpHtml=`<div class="figma-shell-help"><img src="documents-owl-approved-v2.png" alt="Фирменная сова СЛОГИ"><div><strong>Нужна<br>помощь?</strong><span>Мы на связи!</span><a href="team.html" aria-label="Перейти к контактам команды">Связаться</a></div></div>`;
+const helpHtml=`<div class="figma-shell-help"><img src="documents-owl-approved-v2.png" alt="Фирменная сова СЛОГИ"><div><strong>Нужна<br>помощь?</strong><span>Мы на связи!</span><a href="under-development.html?section=team" aria-label="Перейти к контактам команды">Связаться</a></div></div>`;
 const sidebar=document.createElement('aside');
 sidebar.className='figma-shell-sidebar';
 sidebar.setAttribute('aria-label','Основная навигация');
-sidebar.innerHTML=`<a class="figma-shell-brand" href="index.html" aria-label="СЛОГИ — главная"><img src="proposal-logo.png" alt="СЛОГИ — школа развития речи"></a><nav>${navHtml}</nav><div class="figma-shell-spacer"></div>${helpHtml}`;
+sidebar.innerHTML=`<a class="figma-shell-brand" href="under-development.html?section=objects" aria-label="СЛОГИ — главная"><img src="proposal-logo.png" alt="СЛОГИ — школа развития речи"></a><nav>${navHtml}</nav><div class="figma-shell-spacer"></div>${helpHtml}`;
 
 const mobileBar=document.createElement('div');
 mobileBar.className='figma-shell-mobilebar';
@@ -55,7 +58,7 @@ mobileBar.innerHTML=`<button class="figma-shell-menu-button" type="button" aria-
 const overlay=document.createElement('div');
 overlay.className='figma-shell-overlay';
 overlay.hidden=true;
-overlay.innerHTML=`<aside class="figma-shell-drawer" aria-label="Мобильная навигация"><div class="figma-shell-drawer-head"><a class="figma-shell-brand" href="index.html"><img src="proposal-logo.png" alt="СЛОГИ — школа развития речи"></a><button class="figma-shell-close-button" type="button" aria-label="Закрыть меню">${svg('close')}</button></div><nav>${navHtml}</nav><div class="figma-shell-spacer"></div>${helpHtml}</aside>`;
+overlay.innerHTML=`<aside class="figma-shell-drawer" aria-label="Мобильная навигация"><div class="figma-shell-drawer-head"><a class="figma-shell-brand" href="under-development.html?section=objects"><img src="proposal-logo.png" alt="СЛОГИ — школа развития речи"></a><button class="figma-shell-close-button" type="button" aria-label="Закрыть меню">${svg('close')}</button></div><nav>${navHtml}</nav><div class="figma-shell-spacer"></div>${helpHtml}</aside>`;
 
 const currentHeader=document.querySelector('.site-header');
 document.body.insertBefore(sidebar,currentHeader||document.body.firstChild);

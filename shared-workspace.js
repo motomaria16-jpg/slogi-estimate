@@ -3,6 +3,19 @@
 
   document.documentElement.setAttribute('data-slogi-access','pending');
 
+  const embeddedFastView=/(?:^|&)__slogi_view=1(?:&|$)/.test(String(window.location&&window.location.search||'').replace(/^\?/,''))&&window.parent!==window;
+  if(embeddedFastView){
+    try{
+      const parentWindow=window.parent,parentGranted=parentWindow.location.origin===window.location.origin&&parentWindow.document.documentElement.getAttribute('data-slogi-access')==='granted';
+      if(parentGranted&&parentWindow.SlogiCloud&&parentWindow.SlogiCloud.ready===true){
+        window.SlogiCloud=parentWindow.SlogiCloud;
+        window.fetch=parentWindow.fetch.bind(parentWindow);
+        document.documentElement.setAttribute('data-slogi-access','granted');
+      }
+    }catch(_error){}
+    return;
+  }
+
   const LOCATIONS_KEY='slogi_locations_v1';
   const WORKFLOW_KEY='slogi_professional_state_v2';
   const BUCKET='slogi-files';

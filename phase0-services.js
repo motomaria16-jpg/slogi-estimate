@@ -87,10 +87,34 @@ function canonicalSpaceCard(project){
   return model&&typeof model.normalize==='function'?model.normalize(input):input;
 }
 
+const WORK_EXIT_STAGES=new Set(['proposal_handoff','rejected']);
+const WORK_EXIT_PIPELINES=new Set(['proposal_started','rejected']);
+function projectWork(project){
+  const card=project&&project.phase0&&project.phase0.spaceCard;
+  return card&&card.work&&typeof card.work==='object'?card.work:{};
+}
+function projectPipelineStatus(project){
+  const work=projectWork(project),pipeline=work.pipeline&&typeof work.pipeline==='object'?work.pipeline:{};
+  return String(pipeline.status||work.pipelineStatus||'');
+}
+function isActiveWorkProject(project){
+  const work=projectWork(project);
+  return work.status==='in_work'&&!WORK_EXIT_STAGES.has(String(work.stage||''))&&!WORK_EXIT_PIPELINES.has(projectPipelineStatus(project));
+}
+function hasLeftSearch(project){
+  const work=projectWork(project),legacyInWork=Number(project&&project.lifecyclePhase)>=1||project&&project.status==='В работе'||project&&project.projectStatus==='В работе'||Boolean(project&&project.actualOpeningDate);
+  return Boolean(work.takenAt||['in_work','closed'].includes(String(work.status||''))||WORK_EXIT_STAGES.has(String(work.stage||''))||WORK_EXIT_PIPELINES.has(projectPipelineStatus(project))||legacyInWork);
+}
+function isSearchCandidateProject(project){
+  return Boolean(project&&project.id!=null&&!project.deletedAt&&project.phase0&&typeof project.phase0==='object'&&!hasLeftSearch(project));
+}
+const spaceLifecycle={projectWork,projectPipelineStatus,isActiveWorkProject,hasLeftSearch,isSearchCandidateProject};
+
 class ProjectRepository{
   listAll(){return P.readLocations().filter(x=>x&&x.id&&!x.deletedAt)}
   listPhase0(){return this.listAll().filter(x=>x.phase0&&typeof x.phase0==='object')}
-  listInWork(){return this.listPhase0().filter(x=>{const work=x.phase0.spaceCard&&x.phase0.spaceCard.work||{},pipeline=work.pipeline&&work.pipeline.status||work.pipelineStatus||'';return work.status==='in_work'&&!['proposal_handoff','rejected'].includes(work.stage)&&!['proposal_started','rejected'].includes(pipeline)})}
+  listSearchCandidates(){return this.listPhase0().filter(isSearchCandidateProject)}
+  listInWork(){return this.listPhase0().filter(isActiveWorkProject)}
   get(id){return this.listAll().find(x=>String(x.id)===String(id))||null}
   findByListing(source,externalId,listingUrl){
     const sourceKey=norm(source),idKey=String(externalId||'').trim(),urlKey=normalizeUrl(listingUrl);
@@ -867,6 +891,6 @@ window.SlogiPhase0={
   STATUS,STATUSES,MEASUREMENT_STATUSES,CRITERIA_KEYS,CRITERIA_LABELS,
   ProjectRepository,Phase0Service,ListingImportService,CianListingProvider,ClusterService,CompetitiveAnalysisRepository,MapService,GeocodingService,FileService,AuditService,
   projectRepository,competitiveRepository,clusterService,auditService,fileService,listingImportService,geocodingService,phase0Service,
-  defaultPhase0,normalizeGeo,nullableNumber,rentPerSqm,deviationPercent,metricForProject,viewModel,transitionRequirements,sourceLabel,detectListingSource,safeHttpUrl,normalizeRentPeriod,canonicalListingFetchUrl,esc,norm,round,clone
+  defaultPhase0,normalizeGeo,nullableNumber,rentPerSqm,deviationPercent,metricForProject,viewModel,transitionRequirements,sourceLabel,detectListingSource,safeHttpUrl,normalizeRentPeriod,canonicalListingFetchUrl,spaceLifecycle,esc,norm,round,clone
 };
 })();

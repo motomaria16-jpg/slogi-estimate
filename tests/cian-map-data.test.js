@@ -242,12 +242,15 @@ test('search layout keeps compact hero, map controls in heading and card actions
   const html=fs.readFileSync(path.join(ROOT,'available-spaces.html'),'utf8'),source=fs.readFileSync(path.join(ROOT,'cian-workspace.js'),'utf8'),css=fs.readFileSync(path.join(ROOT,'cian-workspace.css'),'utf8');
   assert.match(html,/class="cian-hero-content"[^>]*><h1 id="available-title">Поиск помещений<\/h1><div class="cian-hero-meta"/);
   assert.doesNotMatch(html,/Подходящие предложения коммерческой аренды|Список подходящих помещений|id="available-count"|id="available-summary"/);
+  assert.doesNotMatch(source,/nodes\.summary/,'removed summary markup must not be accessed at runtime');
   assert.match(html,/class="cian-hero-actions"><button[^>]+>Конкурентный анализ<\/button><button[^>]+>Добавить помещение<\/button><button[^>]+>Обновить<\/button><\/div>/);
   assert.match(css,/body\.available-spaces-page \.cian-hero-actions\{display:flex;flex-wrap:nowrap/);
   assert.match(html,/class="cian-map-heading-actions">[\s\S]*id="cian-map-count"[\s\S]*id="cian-clusters-toggle"/);
   assert.doesNotMatch(html,/class="cian-map-toolbar"/);
   assert.doesNotMatch(source,/>Карточка помещения<\/button>/);
-  assert.match(source,/<button class="cian-card-open"[^>]*data-listing-id=/);
+  assert.match(source,/premisesCard\.render\(/);
+  assert.match(source,/openClass:'cian-card-open',openAttributes:\{'data-listing-id':id\}/);
+  assert.match(fs.readFileSync(path.join(ROOT,'premises-list-card.js'),'utf8'),/class="premises-card__open/);
   assert.match(css,/\.cian-card-actions\{display:grid!important;grid-template-columns:minmax\(0,1fr\)!important/);
 });
 
@@ -256,7 +259,7 @@ test('search page has no user filters, sends the fixed gate and removes saved-ba
   assert.doesNotMatch(html,/cian-filter-card|available-(?:cluster|area|min|max|rent|sqm|date|sort|reset)/);
   assert.doesNotMatch(html+source,/сохран[её]нн/i);
   assert.match(source,/areaMin:FIXED_CRITERIA\.areaMin,areaMax:FIXED_CRITERIA\.areaMax,floor:FIXED_CRITERIA\.floor,premiseTypes:\[\.\.\.FIXED_CRITERIA\.premiseTypes\]/);
-  assert.match(source,/applyFixedGate\(loaded\.items\)/);assert.match(source,/collectProjectGeocodeTargets\(all,storedProjects\(\)/);assert.match(source,/geocodeMissingListings\(geocodeTargets,/);
+  assert.match(source,/applyFixedGate\(loaded\.items\)/);assert.match(source,/collectProjectGeocodeTargets\(searchableFeedListings\(\),storedProjects\(\)/);assert.match(source,/geocodeMissingListings\(geocodeTargets,/);
   assert.match(source,/data-remove-space/);assert.match(source,/SlogiSearchSpaceCardModal/);
 });
 
