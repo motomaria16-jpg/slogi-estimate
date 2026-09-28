@@ -252,6 +252,12 @@ test('in-work page has a stable shell route, title, and active navigation state'
   assert.match(professionalShell,/\['in-work','in-work\.html','Помещения в работе','В работе'\]/);
 });
 
+test('search keeps the same desktop list-and-map split as in-work and its focused heading has no box',()=>{
+  const css=read('figma-shell-v76-1-15.css');
+  assert.match(css,/@media \(min-width:1261px\) and \(max-width:1320px\)\{[\s\S]*body\.available-spaces-page\.figma-shell-v76115 \.cian-workspace\{grid-template-columns:minmax\(0,1\.33fr\) minmax\(370px,\.88fr\)!important\}/);
+  assert.match(css,/body\.available-spaces-page\.figma-shell-v76115 \.cian-hero h1:focus-visible\{outline:none!important;box-shadow:none!important\}/);
+});
+
 test('v76.1.15 approved shell audit covers every active page on desktop, tablet and mobile',()=>{
   const directory=resolve(root,'docs','design-v76-1-15-figma-shell','after');
   const slugs=['search','my-premises','estimate-and-proposal','repair','passport','source-specification','specification','proposal','team','settings','add-object'];

@@ -326,6 +326,8 @@ body.figma-shell-v76115 .pro-page-head h1{
   line-height:1.12!important;
   letter-spacing:-.025em!important;
 }
+body.available-spaces-page.figma-shell-v76115 .cian-hero h1:focus,
+body.available-spaces-page.figma-shell-v76115 .cian-hero h1:focus-visible{outline:none!important;box-shadow:none!important}
 body.figma-shell-v76115 .cian-hero p,
 body.figma-shell-v76115 .phase0-page-heading p,
 body.figma-shell-v76115 .stage-toolbar p,
@@ -510,6 +512,11 @@ body.figma-shell-v76115 #pro-app{padding-top:0!important;padding-bottom:34px!imp
   body.figma-shell-v76115 .workflow-grid,
   body.figma-shell-v76115 .proposal-workspace{grid-template-columns:1fr!important}
   body.figma-shell-v76115 .workflow-sidebar{position:static!important}
+}
+
+/* Match the in-work desktop split at the same breakpoint. */
+@media (min-width:1261px) and (max-width:1320px){
+  body.available-spaces-page.figma-shell-v76115 .cian-workspace{grid-template-columns:minmax(0,1.33fr) minmax(370px,.88fr)!important}
 }
 
 @media(max-width:900px){
