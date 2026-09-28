@@ -101,9 +101,14 @@
 
   function createBoundedViewCache(options={}){
     const maximum=Math.max(1,Math.min(2,Number(options.max)||2)),entries=new Map();let sequence=0;
+    function disposeEntry(entry){
+      if(!entry)return;
+      if(entry.value){if(typeof options.dispose==='function')options.dispose(entry.value);return;}
+      entry.promise.then(value=>options.dispose&&options.dispose(value)).catch(()=>{});
+    }
     function remove(key){
       const entry=entries.get(key);if(!entry)return;
-      entries.delete(key);if(entry.value&&typeof options.dispose==='function')options.dispose(entry.value);else entry.promise.then(value=>options.dispose&&options.dispose(value)).catch(()=>{});
+      entries.delete(key);disposeEntry(entry);
     }
     function trim(protectedKey){
       while(entries.size>maximum){
@@ -114,9 +119,16 @@
     function get(key,href){
       const existing=entries.get(key);
       if(existing&&existing.href===href){existing.used=++sequence;return existing.promise;}
-      if(existing)remove(key);
       const entry={key,href,used:++sequence,value:null,promise:null};
-      entry.promise=Promise.resolve().then(()=>options.load(key,href)).then(value=>{entry.value=value;return value;}).catch(error=>{if(entries.get(key)===entry)entries.delete(key);throw error;});
+      entry.promise=Promise.resolve().then(()=>options.load(key,href)).then(value=>{
+        entry.value=value;
+        if(entries.get(key)===entry){disposeEntry(existing);return value;}
+        if(typeof options.dispose==='function')options.dispose(value);
+        return value;
+      }).catch(error=>{
+        if(entries.get(key)===entry){if(existing){existing.used=++sequence;entries.set(key,existing);}else entries.delete(key);}
+        throw error;
+      });
       entries.set(key,entry);trim(key);return entry.promise;
     }
     return{get,has:key=>entries.has(key),size:()=>entries.size,keys:()=>Array.from(entries.keys()),remove,clear:()=>Array.from(entries.keys()).forEach(remove)};
@@ -148,11 +160,14 @@
       if(!doc.body||doc.body.classList.contains('slogi-fast-navigation-host'))return;
       doc.body.classList.add('slogi-fast-navigation-host');
       const shell=doc.querySelector('.figma-shell-sidebar');
-      if(!shell){win.location.replace(initial);return;}
+      if(!shell){disableFastNavigation(win);win.location.replace(initial);return;}
 
       const host=doc.createElement('div');host.className='slogi-fast-view-host';host.setAttribute('aria-live','polite');
-      const status=doc.createElement('div');status.className='slogi-fast-view-status';status.setAttribute('role','status');status.textContent='Загружаем раздел…';host.appendChild(status);doc.body.appendChild(host);
-      let activeFrame=null;
+      const status=doc.createElement('div');status.className='slogi-fast-view-status';status.setAttribute('role','status');
+      const statusMessage=doc.createElement('span');statusMessage.textContent='Загружаем раздел…';
+      const fallbackLink=doc.createElement('a');fallbackLink.hidden=true;fallbackLink.textContent='Открыть раздел обычным способом';
+      status.appendChild(statusMessage);status.appendChild(fallbackLink);host.appendChild(status);doc.body.appendChild(host);
+      let activeFrame=null,fallbackVisible=false;
 
       function createFrame(_route,href){
         return new Promise((resolve,reject)=>{
@@ -202,7 +217,7 @@
         const previous=activeFrame;activeFrame=view;activeFrame.frame.hidden=false;activeFrame.frame.setAttribute('aria-hidden','false');
         if(previous&&previous!==activeFrame){signalView(previous,false);previous.frame.hidden=true;previous.frame.setAttribute('aria-hidden','true');}
         signalView(activeFrame,true);
-        status.hidden=true;doc.body.classList.add('slogi-fast-navigation-active');
+        fallbackVisible=false;fallbackLink.hidden=true;status.hidden=true;doc.body.classList.add('slogi-fast-navigation-active');
         try{
           const frameDoc=activeFrame.frame.contentDocument,title=frameDoc&&frameDoc.title;
           if(title)doc.title=title;
@@ -216,8 +231,15 @@
       const coordinator=createNavigationCoordinator({
         initialUrl:initial,loadView,showView,setActive,
         pushState:href=>win.history.pushState(Object.assign({},win.history.state||{},{slogiFastNavigation:true}),'',href),
-        hardNavigate:href=>{disableFastNavigation(win);win.location.replace(href);},
-        setBusy:busy=>{host.setAttribute('aria-busy',String(busy));if(busy){status.hidden=false;status.textContent='Загружаем раздел…';}}
+        hardNavigate:href=>{
+          disableFastNavigation(win);fallbackVisible=true;statusMessage.textContent='Раздел не удалось загрузить.';fallbackLink.href=href;fallbackLink.hidden=false;status.hidden=false;
+          try{win.location.replace(href);}catch(_error){}
+        },
+        setBusy:busy=>{
+          host.setAttribute('aria-busy',String(busy));
+          if(busy&&!activeFrame&&!fallbackVisible){statusMessage.textContent='Загружаем раздел…';fallbackLink.hidden=true;status.hidden=false;}
+          if(!busy&&!fallbackVisible)status.hidden=true;
+        }
       });
 
       doc.addEventListener('click',event=>{
@@ -237,7 +259,6 @@
       });
     };
     const startAfterGrant=()=>{
-      if(fallbackActive(win))return;
       let readinessTimer=null;
       const observer=new win.MutationObserver(assess);
       const cleanup=()=>{observer.disconnect();if(readinessTimer)win.clearInterval(readinessTimer);win.removeEventListener('slogi:shared-workspace-ready',assess);};
@@ -258,6 +279,7 @@
     if(embedded&&win.parent===win){url.searchParams.delete(VIEW_PARAM);win.location.replace(url.href);return;}
     if(embedded){bootEmbedded(win);return;}
     if(!routeName(url))return;
+    if(fallbackActive(win))return;
     bootHost(win);
   }
 

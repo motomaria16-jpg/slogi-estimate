@@ -18,9 +18,9 @@ const functionEndpoint=(configured,name)=>String(configured||(defaultSupabaseUrl
 
 window.SLOGI_PHASE0_CONFIG={
   fastNavigation:{
-    // В production используем надежную прямую загрузку страниц. Быстрый
-    // iframe-переход можно включить только явным runtime-переопределением.
-    enabled:existingFastNavigation.enabled===true
+    // Search и «Помещения в работе» используют одну постоянную оболочку.
+    // Runtime может явно отключить ускоренную навигацию для диагностики.
+    enabled:existingFastNavigation.enabled!==false
   },
   listingImport:{
     endpoint:functionEndpoint(existingListing.endpoint,'import-listing'),

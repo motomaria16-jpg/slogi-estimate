@@ -7,7 +7,8 @@
   --premises-card-surface:#fff;
   --premises-card-chip:#f5f1eb;
 }
-.premises-card{position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(184px,210px);width:100%;min-height:0;overflow:hidden;border:0;border-bottom:1px solid var(--premises-card-line);border-radius:0;background:var(--premises-card-surface);color:var(--premises-card-ink);box-shadow:none;transition:background .16s ease,box-shadow .16s ease}
+.premises-card{position:relative;display:grid;grid-template-columns:minmax(0,1fr);width:100%;min-height:0;overflow:hidden;border:0;border-bottom:1px solid var(--premises-card-line);border-radius:0;background:var(--premises-card-surface);color:var(--premises-card-ink);box-shadow:none;transition:background .16s ease,box-shadow .16s ease}
+html body .premises-card.cian-listing-card{grid-template-columns:minmax(0,1fr)!important;gap:0!important;padding:0!important}
 .premises-card:hover,.premises-card.selected{background:var(--premises-card-gold-soft);box-shadow:inset 3px 0 var(--premises-card-gold)}
 .premises-card__open{display:grid;grid-template-columns:minmax(0,1fr) minmax(112px,128px);gap:12px;min-width:0;width:100%;padding:11px 12px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
 .premises-card__open:hover{background:transparent}
@@ -27,16 +28,24 @@
 .premises-card__price strong{color:#285b58;font-size:16px;font-weight:500;line-height:1.25}
 .premises-card__price span{margin-top:4px;color:var(--premises-card-muted);font-size:11px}
 .premises-card__context{grid-column:1;padding:0 12px 10px;color:var(--premises-card-muted);font-size:11px;line-height:1.4}
-.premises-card__actions{grid-column:2;grid-row:1 / span 2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:center;gap:6px;padding:10px;border-left:1px solid var(--premises-card-line);background:rgba(255,255,255,.72)}
+.premises-card__actions{grid-column:1;grid-row:auto;display:flex;align-items:center;justify-content:flex-end;flex-direction:row;flex-wrap:wrap;gap:6px;padding:8px 12px 10px;border-top:1px solid var(--premises-card-line);background:rgba(255,255,255,.72)}
+html body .premises-card>.premises-card__actions.cian-card-actions{grid-column:1!important;grid-row:auto!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;flex-direction:row!important;flex-wrap:wrap!important;gap:6px!important;padding:8px 12px 10px!important;border-top:1px solid var(--premises-card-line)!important;border-left:0!important;background:rgba(255,255,255,.72)!important}
 .premises-card__actions:empty{display:none}
-.premises-card__actions button,.premises-card__actions a{min-width:0!important;min-height:32px!important;height:auto!important;width:auto!important;padding:6px 8px!important;justify-content:center;white-space:normal;font-size:12px!important;line-height:1.2!important}
-.premises-card__actions>:only-child{grid-column:1/-1}
-.premises-card__actions>.premises-card__action-wide{grid-column:1/-1}
+html body .premises-card>.premises-card__actions.cian-card-actions:empty{display:none!important}
+.premises-card__actions button,.premises-card__actions a{flex:0 0 auto!important;min-width:0!important;min-height:34px!important;height:auto!important;width:auto!important;padding:6px 11px!important;justify-content:center;white-space:nowrap;font-size:12px!important;line-height:1.2!important}
+html body .premises-card>.premises-card__actions .cian-button{flex:0 0 auto!important;min-height:34px!important;width:auto!important;padding:6px 11px!important;font-size:12px!important}
+.premises-card__open:focus-visible,.premises-card__actions button:focus-visible,.premises-card__actions a:focus-visible{position:relative;z-index:1;outline:3px solid rgba(57,105,112,.26);outline-offset:-2px}
 @media(max-width:800px){
-  .premises-card{grid-template-columns:1fr}
   .premises-card__open{grid-template-columns:1fr}
-  .premises-card__price{padding-left:0;text-align:left}
-  .premises-card__context{grid-column:1}
-  .premises-card__actions{grid-column:1;grid-row:auto;padding:8px 10px 10px;border-top:1px solid var(--premises-card-line);border-left:0}
+  .premises-card__price{display:flex;align-items:baseline;gap:8px;padding-left:0;text-align:left}
+  .premises-card__price span{margin-top:0}
+  html body .premises-card>.premises-card__actions.cian-card-actions{justify-content:flex-start!important;padding:8px 10px 10px!important}
+}
+@media(max-width:520px){
+  .premises-card__open{padding:10px}
+  .premises-card__badges{min-height:0;margin-bottom:6px}
+  .premises-card__metrics{margin-top:7px}
+  .premises-card__context{padding:0 10px 9px}
+  .premises-card__actions button,.premises-card__actions a{white-space:normal}
 }
 @media(prefers-reduced-motion:reduce){.premises-card{transition:none}}

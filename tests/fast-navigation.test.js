@@ -65,6 +65,20 @@ test('fast navigation waits for the shared workspace and has a bounded full-page
   assert.equal(navigation.fallbackActive(win),true,'a failed embedded load must stop the reload loop');
 });
 
+test('a fallback reload boots the ordinary page instead of suppressing its application',()=>{
+  const values=new Map([[navigation.FALLBACK_KEY,String(Date.now()+60000)]]),attributes=[];
+  const win={
+    SLOGI_PHASE0_CONFIG:{fastNavigation:{enabled:true}},
+    location:{href:BASE},parent:null,
+    document:{documentElement:{setAttribute:(...args)=>attributes.push(args)}},
+    sessionStorage:{getItem:key=>values.get(key)||null,removeItem:key=>values.delete(key)}
+  };
+  win.parent=win;
+  navigation.boot(win);
+  assert.equal(win.__slogiFastNavigationHost,undefined,'ordinary app guards must remain inactive during fallback');
+  assert.deepEqual(attributes,[],'fallback must not turn the document into a navigation host');
+});
+
 test('embedded workspace bridge recovers when the parent becomes ready after child parsing',()=>{
   let childAccess='',parentAccess='pending',readyListener=null,intervalCallback=null;
   const cloud={ready:false};
@@ -117,6 +131,29 @@ test('bounded cache preloads at most two route views and reuses exact frame iden
   assert.notEqual(replaced,work);assert.deepEqual(disposed,[2]);assert.equal(cache.size(),2);
 });
 
+test('a changed deep link keeps the previous route view alive until its replacement is ready',async()=>{
+  let releaseReplacement;const disposed=[];
+  const cache=navigation.createBoundedViewCache({
+    load:async(_key,href)=>href.includes('calendar')?new Promise(resolve=>{releaseReplacement=()=>resolve({href,frame:{id:'new'}});}):{href,frame:{id:'old'}},
+    dispose:view=>disposed.push(view.frame.id)
+  });
+  const previous=await cache.get('in-work.html','https://slogi.example/app/in-work.html');
+  const replacement=cache.get('in-work.html','https://slogi.example/app/in-work.html?mode=calendar');
+  await Promise.resolve();
+  assert.deepEqual(disposed,[],'the visible route must not be disposed while the replacement is loading');
+  releaseReplacement();await replacement;
+  assert.deepEqual(disposed,['old']);assert.equal(previous.frame.id,'old');
+});
+
+test('a failed replacement restores the already rendered route view',async()=>{
+  const disposed=[];
+  const cache=navigation.createBoundedViewCache({load:async(_key,href)=>{if(href.includes('calendar'))throw new Error('offline');return{href,frame:{id:'old'}};},dispose:view=>disposed.push(view.frame.id)});
+  const previous=await cache.get('in-work.html','https://slogi.example/app/in-work.html');
+  await assert.rejects(cache.get('in-work.html','https://slogi.example/app/in-work.html?mode=calendar'),/offline/);
+  assert.equal(await cache.get('in-work.html','https://slogi.example/app/in-work.html'),previous);
+  assert.deepEqual(disposed,[]);
+});
+
 test('coordinator uses top history for forward/back while the sidebar object is preserved',async()=>{
   const sidebar={id:'persistent-sidebar'},shell={sidebar},history=[],shown=[],active=[];
   const cache=navigation.createBoundedViewCache({load:async(key,href)=>({key,href,frame:{key}})});
@@ -152,8 +189,9 @@ test('view load failure falls back to a clean full-document URL',async()=>{
 
 test('host wiring keeps the fail-closed gate first, isolates runtimes, and pauses hidden reminders',()=>{
   for(const page of ['available-spaces.html','in-work.html']){
-    const html=read(page),shared=html.indexOf('shared-workspace.js?v=76134'),fast=html.indexOf('fast-navigation.js?v=76135'),headEnd=html.indexOf('</head>');
+    const html=read(page),shared=html.indexOf('shared-workspace.js?v=76134'),fast=html.indexOf('fast-navigation.js?v='),headEnd=html.indexOf('</head>');
     assert.match(html,/data-slogi-access="pending"/);assert.ok(shared>=0&&shared<fast&&fast<headEnd,page);
+    assert.match(html,/phase0-config\.js\?v=76138/);assert.match(html,/fast-navigation\.js\?v=76138/);
     const styles=[...html.matchAll(/href="([^"]+\.css\?[^\"]+)"/g)].map(match=>match[1]);
     assert.match(styles.at(-1),/^figma-shell-v76-1-15\.css\?v=\d+$/);
   }
@@ -163,9 +201,13 @@ test('host wiring keeps the fail-closed gate first, isolates runtimes, and pause
   assert.match(inWork,/if\(window\.__slogiFastNavigationHost\)return/);
   assert.match(inWork,/slogi:view-visibility/);assert.match(inWork,/clearInterval\(reminderTimer\)/);assert.match(inWork,/if\(appInitialized\)reload\(\)/,'a cached in-work view must refresh local storage on resume');
   const source=read('fast-navigation.js');
-  assert.match(read('phase0-config.js'),/fastNavigation:\{[\s\S]*enabled:existingFastNavigation\.enabled===true/,'production must fail safe to direct page navigation');
+  assert.match(read('phase0-config.js'),/fastNavigation:\{[\s\S]*enabled:existingFastNavigation\.enabled!==false/,'persistent navigation must be enabled by default with an explicit runtime opt-out');
   assert.match(source,/fastNavigation\.enabled===true/,'persistent iframe navigation must require an explicit runtime flag');
   assert.match(source,/requestIdleCallback/);assert.match(source,/max:2/);assert.doesNotMatch(source,/previous\.remove\(\)/);
+  assert.match(source,/if\(fallbackActive\(win\)\)return;\s*bootHost\(win\)/,'a fallback reload must run the ordinary page app instead of setting the host flag again');
+  assert.match(source,/if\(busy&&!activeFrame&&!fallbackVisible\)/,'the current frame must stay visible while the next one loads');
+  assert.match(source,/Открыть раздел обычным способом/,'failed iframe navigation needs a keyboard-accessible full-page fallback');
+  assert.match(source,/if\(!shell\)\{disableFastNavigation\(win\);win\.location\.replace\(initial\);return;\}/,'a missing shell must enter bounded fallback instead of a reload loop');
   assert.match(source,/data-slogi-access'\)==='granted'/,'view loading must wait for the existing fail-closed gate');
   assert.match(source,/accessObserver\.observe\(frameDoc\.documentElement/,'embedded pending access must be observed before a view is cached');
   const workspace=read('shared-workspace.js');

@@ -10,22 +10,35 @@ const base={title:'Торговое помещение',address:'Москва, �
 
 test('общий renderer сохраняет одинаковые базовые данные в поиске и работе',()=>{
   const search=card.render({...base,articleClass:'cian-listing-card',actionsHtml:'<button>Взять в работу</button>'});
-  const work=card.render({...base,articleClass:'in-work-card',contextHtml:'<span>Просмотр назначен</span>',actionsHtml:'<button>Этап работы</button>'});
+  const work=card.render({...base,articleClass:'in-work-card cian-listing-card',contextHtml:'<span>Просмотр назначен</span>',actionsHtml:'<button>Назначить просмотр</button><button>Отказ</button>'});
   for(const value of ['Торговое помещение','Москва, ул. Примерная, 1','120 м²','Этаж 1 из 5','Потолки 4,2 м','360 000 ₽','3 000 ₽ / м²','ЦИАН','Лефортово','12 место']){
     assert.ok(search.includes(value),`search: ${value}`);
     assert.ok(work.includes(value),`work: ${value}`);
   }
+  const informationBlock=html=>html.match(/<button class="premises-card__open[\s\S]*?<\/button>/)?.[0];
+  assert.equal(informationBlock(search),informationBlock(work),'информационный блок не должен зависеть от страницы');
 });
 
-test('зона действий компактна, подписана и не меняет кликабельную базовую карточку',()=>{
-  const html=card.render({...base,actionsLabel:'Действия в работе',actionsHtml:'<button class="premises-card__action-wide">Назначить просмотр</button><button>Этап работы</button><button>Отказ</button>'});
+test('действия находятся после информационного блока в общей нижней панели',()=>{
+  const html=card.render({...base,actionsLabel:'Действия в работе',actionsHtml:'<button>Назначить просмотр</button><button>Отказ</button>'});
   assert.match(html,/class="premises-card__open cian-card-open"/);
   assert.match(html,/role="group" aria-label="Действия в работе"/);
-  assert.match(html,/premises-card__action-wide/);
+  assert.ok(html.indexOf('premises-card__actions')>html.indexOf('</button>'));
   const css=fs.readFileSync(new URL('../premises-list-card.css',import.meta.url),'utf8');
-  assert.match(css,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
-  assert.match(css,/min-height:32px!important/);
-  assert.doesNotMatch(css,/\.premises-card__actions button[^}]+width:100%/);
+  assert.match(css,/\.premises-card\.cian-listing-card\{grid-template-columns:minmax\(0,1fr\)!important/);
+  assert.match(css,/\.premises-card>\.premises-card__actions\.cian-card-actions\{grid-column:1!important;grid-row:auto!important;display:flex!important/);
+  assert.match(css,/\.premises-card>\.premises-card__actions\.cian-card-actions:empty\{display:none!important\}/);
+  assert.match(css,/min-height:34px!important/);
+});
+
+test('общий стиль не возвращает боковую колонку действий и большие кнопки',()=>{
+  const css=fs.readFileSync(new URL('../premises-list-card.css',import.meta.url),'utf8');
+  assert.doesNotMatch(css,/\.premises-card\{[^}]*grid-template-columns:minmax\(0,1fr\)\s+minmax/);
+  assert.doesNotMatch(css,/\.premises-card__actions\{[^}]*grid-column:2/);
+  assert.doesNotMatch(css,/\.premises-card__actions\{[^}]*grid-row:1\s*\/\s*span/);
+  assert.doesNotMatch(css,/\.premises-card__actions\{[^}]*border-left/);
+  assert.match(css,/@media\(max-width:800px\)/);
+  assert.match(css,/@media\(max-width:520px\)/);
 });
 
 test('список поиска не содержит ссылку на «Мои помещения»',()=>{

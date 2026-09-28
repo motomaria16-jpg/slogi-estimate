@@ -35,6 +35,26 @@ test('list, map and calendar expose keyboard and ARIA navigation contracts',()=>
   assert.match(app,/event\.key!=='Tab'/);
 });
 
+test('in-work header is concise and adds a canonical room directly to work',()=>{
+  assert.match(html,/id="in-work-add-space"[^>]*>Добавить помещение<\/button>/);
+  assert.doesNotMatch(html,/Просмотры, контакты и материалы по выбранным помещениям/);
+  assert.doesNotMatch(html,/Только активные помещения/);
+  const manual=app.slice(app.indexOf('function manualSpaceDraft'),app.indexOf('function currentProject'));
+  assert.match(manual,/spaceCardModel\.normalize\(/);
+  assert.match(manual,/S\.phase0Service\.save\(manualSpaceDraft\(card\),\{projectId:''\}\)/);
+  assert.match(manual,/S\.phase0Service\.takeSpaceIntoWork\(saved\.id\)/);
+  assert.match(manual,/context:'in-work'/);
+  assert.doesNotMatch(manual,/repo\.create|projectRepository\.create|clone\(/);
+  assert.match(app,/byId\('in-work-add-space'\)\.addEventListener\('click'/);
+});
+
+test('shared list receives only visit and refusal actions in the required order',()=>{
+  const card=app.slice(app.indexOf('function cardHtml'),app.indexOf('function renderList'));
+  assert.match(card,/data-action="\$\{scheduled\?'reschedule':'schedule'\}"[^>]*>Назначить просмотр<\/button>[\s\S]*data-action="reject">Отказ<\/button>/);
+  assert.doesNotMatch(card,/Этап работы|open-workflow|Сформировать КП|start-proposal/);
+  assert.doesNotMatch(app,/Этап работы|open-workflow/);
+});
+
 test('active list and map use ProjectRepository.listInWork and MapService',()=>{
   assert.match(app,/repo\.listInWork\(\)/);
   assert.match(app,/new S\.MapService\(/);

@@ -141,6 +141,7 @@ body.available-spaces-page .cian-hero-content{display:flex;align-items:center;ga
 body.available-spaces-page .cian-hero-meta{flex:0 0 auto}
 body.available-spaces-page .cian-hero-actions{display:flex;flex-wrap:nowrap;max-width:100%;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
 body.available-spaces-page .cian-hero-actions::-webkit-scrollbar{display:none}
-body.available-spaces-page .cian-results>.cian-list-table-head{border-top:0}
+body.available-spaces-page.figma-shell-v76115 .cian-hero-actions .cian-button{min-height:34px!important;padding:6px 13px!important;border-radius:8px!important;font-family:"Ubuntu Sans",Arial,sans-serif!important;font-size:12px!important;font-weight:500!important;line-height:1.2!important}
+body.available-spaces-page .cian-results>.cian-list{margin-top:0!important}
 @media(max-width:800px){body.available-spaces-page .cian-hero-content{justify-content:space-between;width:100%}}
 @media(max-width:520px){body.available-spaces-page .cian-hero-actions{display:flex;width:100%;grid-template-columns:none}body.available-spaces-page .cian-hero-actions .cian-button{width:auto!important;flex:0 0 auto}}

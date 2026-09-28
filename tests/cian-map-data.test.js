@@ -245,6 +245,9 @@ test('search layout keeps compact hero, map controls in heading and card actions
   assert.doesNotMatch(source,/nodes\.summary/,'removed summary markup must not be accessed at runtime');
   assert.match(html,/class="cian-hero-actions"><button[^>]+>Конкурентный анализ<\/button><button[^>]+>Добавить помещение<\/button><button[^>]+>Обновить<\/button><\/div>/);
   assert.match(css,/body\.available-spaces-page \.cian-hero-actions\{display:flex;flex-wrap:nowrap/);
+  assert.match(css,/body\.available-spaces-page\.figma-shell-v76115 \.cian-hero-actions \.cian-button\{min-height:34px!important;padding:6px 13px!important;border-radius:8px!important;[^}]*font-size:12px!important;font-weight:500!important/);
+  assert.doesNotMatch(html,/Применяются автоматически|class="cian-list-table-head"|>Объект<|>Аренда<|>Действия</);
+  assert.match(css,/body\.available-spaces-page \.cian-results>\.cian-list\{margin-top:0!important\}/);
   assert.match(html,/class="cian-map-heading-actions">[\s\S]*id="cian-map-count"[\s\S]*id="cian-clusters-toggle"/);
   assert.doesNotMatch(html,/class="cian-map-toolbar"/);
   assert.doesNotMatch(source,/>Карточка помещения<\/button>/);

@@ -11,15 +11,15 @@
   <link href="layout-v76-1-1.css?v=7611" rel="stylesheet"/>
   <link href="objects-visual-standard.css?v=33" rel="stylesheet"/>
   <link href="phase0.css?v=68" rel="stylesheet"/>
-  <link href="in-work.css?v=76136" rel="stylesheet"/>
+  <link href="in-work.css?v=76138" rel="stylesheet"/>
   <link href="search-space-card-modal.css?v=76136" rel="stylesheet"/>
-  <link href="premises-list-card.css?v=76136" rel="stylesheet"/>
+  <link href="premises-list-card.css?v=76138" rel="stylesheet"/>
   <link href="schoolslogi-theme-v76-1-5.css?v=76114" rel="stylesheet"/>
   <link href="password-gate.css?v=7617" rel="stylesheet"/>
   <link href="figma-shell-v76-1-15.css?v=76136" rel="stylesheet"/>
-  <script src="phase0-config.js?v=76135"></script>
+  <script src="phase0-config.js?v=76138"></script>
   <script src="shared-workspace.js?v=76134"></script>
-  <script src="fast-navigation.js?v=76135"></script>
+  <script src="fast-navigation.js?v=76138"></script>
 </head>
 <body class="slogi-search-page in-work-page">
 <header class="site-header"><div class="top"><div class="brand"><a class="logo-link" href="index.html" aria-label="СЛОГИ — главная"><div class="logo-word" aria-hidden="true"><span>С</span><span>Л</span><span>О</span><span>Г</span><span>И</span></div></a></div></div></header>
@@ -28,11 +28,13 @@
   <section class="in-work-hero" aria-labelledby="in-work-title">
     <div>
       <div class="in-work-title-line"><h1 id="in-work-title">Помещения в работе</h1><span class="in-work-count" id="in-work-count">0 объектов</span></div>
-      <p>Просмотры, контакты и материалы по выбранным помещениям</p>
     </div>
-    <div class="in-work-mode-switch" role="tablist" aria-label="Режим страницы">
-      <button id="in-work-list-tab" role="tab" type="button" aria-selected="true" aria-controls="in-work-list-panel" data-mode="list">Список и карта</button>
-      <button id="in-work-calendar-tab" role="tab" type="button" aria-selected="false" aria-controls="in-work-calendar-panel" data-mode="calendar" tabindex="-1">Календарь</button>
+    <div class="in-work-hero-actions">
+      <button class="in-work-btn" id="in-work-add-space" type="button">Добавить помещение</button>
+      <div class="in-work-mode-switch" role="tablist" aria-label="Режим страницы">
+        <button id="in-work-list-tab" role="tab" type="button" aria-selected="true" aria-controls="in-work-list-panel" data-mode="list">Список и карта</button>
+        <button id="in-work-calendar-tab" role="tab" type="button" aria-selected="false" aria-controls="in-work-calendar-panel" data-mode="calendar" tabindex="-1">Календарь</button>
+      </div>
     </div>
   </section>
 
@@ -61,7 +63,7 @@
       </section>
 
       <aside class="in-work-map-card" aria-labelledby="in-work-map-title">
-        <div class="in-work-section-head"><div><h2 id="in-work-map-title">Карта</h2><p>Только активные помещения</p></div><span class="in-work-map-count" id="in-work-map-count">0 точек</span></div>
+        <div class="in-work-section-head"><h2 id="in-work-map-title">Карта</h2><span class="in-work-map-count" id="in-work-map-count">0 точек</span></div>
         <div class="in-work-map-stage">
           <div class="in-work-map" id="in-work-map" tabindex="0" aria-label="Карта помещений в работе"></div>
           <div class="in-work-map-loading" id="in-work-map-loading" role="status"><strong>Загружаем карту…</strong><span>Список помещений остаётся доступен.</span></div>
@@ -108,7 +110,7 @@
 <script src="phase0-services.js?v=76136"></script>
 <script src="work-calendar.js?v=76131"></script>
 <script src="search-space-card-modal.js?v=76136"></script>
-<script src="in-work-app.js?v=76136"></script>
+<script src="in-work-app.js?v=76138"></script>
 <script src="figma-shell-v76-1-15.js?v=76133"></script>
 </body>
 </html>
