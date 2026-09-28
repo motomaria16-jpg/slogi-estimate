@@ -8,7 +8,25 @@
   'use strict';
 
   const VIEW_PARAM='__slogi_view';
+  const FALLBACK_KEY='slogi_fast_navigation_fallback_until_v1';
   const FAST_ROUTES=Object.freeze(['available-spaces.html','in-work.html']);
+
+  function workspaceReady(win){
+    try{return win.document.documentElement.getAttribute('data-slogi-access')==='granted'&&Boolean(win.SlogiCloud&&win.SlogiCloud.ready===true);}catch(_error){return false;}
+  }
+
+  function fallbackActive(win){
+    try{
+      const until=Number(win.sessionStorage.getItem(FALLBACK_KEY)||0);
+      if(until>Date.now())return true;
+      win.sessionStorage.removeItem(FALLBACK_KEY);
+    }catch(_error){}
+    return false;
+  }
+
+  function disableFastNavigation(win,duration=10*60*1000){
+    try{win.sessionStorage.setItem(FALLBACK_KEY,String(Date.now()+Math.max(30000,Number(duration)||0)));}catch(_error){}
+  }
 
   function routeName(value){
     try{
@@ -158,7 +176,7 @@
               assess();
             }catch(error){finish(reject,error);}
           };
-          const timer=win.setTimeout(()=>finish(reject,new Error('view_load_timeout')),15000);
+          const timer=win.setTimeout(()=>finish(reject,new Error('view_load_timeout')),8000);
           frame.addEventListener('load',onLoad);frame.addEventListener('error',onError);frame.src=iframeUrl(href,initial);host.appendChild(frame);
         });
       }
@@ -198,7 +216,7 @@
       const coordinator=createNavigationCoordinator({
         initialUrl:initial,loadView,showView,setActive,
         pushState:href=>win.history.pushState(Object.assign({},win.history.state||{},{slogiFastNavigation:true}),'',href),
-        hardNavigate:href=>win.location.replace(href),
+        hardNavigate:href=>{disableFastNavigation(win);win.location.replace(href);},
         setBusy:busy=>{host.setAttribute('aria-busy',String(busy));if(busy){status.hidden=false;status.textContent='Загружаем раздел…';}}
       });
 
@@ -219,9 +237,15 @@
       });
     };
     const startAfterGrant=()=>{
-      if(doc.documentElement.getAttribute('data-slogi-access')==='granted'){start();return;}
-      const observer=new win.MutationObserver(()=>{if(doc.documentElement.getAttribute('data-slogi-access')==='granted'){observer.disconnect();start();}});
+      if(fallbackActive(win))return;
+      let readinessTimer=null;
+      const observer=new win.MutationObserver(assess);
+      const cleanup=()=>{observer.disconnect();if(readinessTimer)win.clearInterval(readinessTimer);win.removeEventListener('slogi:shared-workspace-ready',assess);};
+      function assess(){if(workspaceReady(win)){cleanup();start();}}
       observer.observe(doc.documentElement,{attributes:true,attributeFilter:['data-slogi-access']});
+      win.addEventListener('slogi:shared-workspace-ready',assess);
+      readinessTimer=win.setInterval(assess,100);
+      assess();
     };
     if(doc.readyState==='loading')doc.addEventListener('DOMContentLoaded',startAfterGrant,{once:true});else startAfterGrant();
   }
@@ -236,5 +260,5 @@
     bootHost(win);
   }
 
-  return{VIEW_PARAM,FAST_ROUTES,routeName,cleanUrl,isFastUrl,iframeUrl,clickTarget,viewContractReady,createNavigationCoordinator,createBoundedViewCache,boot};
+  return{VIEW_PARAM,FALLBACK_KEY,FAST_ROUTES,routeName,cleanUrl,isFastUrl,iframeUrl,clickTarget,viewContractReady,workspaceReady,fallbackActive,disableFastNavigation,createNavigationCoordinator,createBoundedViewCache,boot};
 });

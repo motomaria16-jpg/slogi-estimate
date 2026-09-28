@@ -3,16 +3,40 @@
 
   document.documentElement.setAttribute('data-slogi-access','pending');
 
-  const embeddedFastView=/(?:^|&)__slogi_view=1(?:&|$)/.test(String(window.location&&window.location.search||'').replace(/^\?/,''))&&window.parent!==window;
+  let embeddedFastView=false;
+  try{embeddedFastView=new URL(window.location.href).searchParams.get('__slogi_view')==='1'&&window.parent!==window;}catch(_error){}
   if(embeddedFastView){
-    try{
-      const parentWindow=window.parent,parentGranted=parentWindow.location.origin===window.location.origin&&parentWindow.document.documentElement.getAttribute('data-slogi-access')==='granted';
-      if(parentGranted&&parentWindow.SlogiCloud&&parentWindow.SlogiCloud.ready===true){
+    const parentWindow=window.parent;
+    let accessObserver=null,readinessTimer=null,connected=false;
+    const disconnect=()=>{
+      if(accessObserver)accessObserver.disconnect();
+      if(readinessTimer)window.clearInterval(readinessTimer);
+      try{parentWindow.removeEventListener('slogi:shared-workspace-ready',connect);}catch(_error){}
+      accessObserver=null;readinessTimer=null;
+    };
+    const connect=()=>{
+      if(connected)return true;
+      try{
+        const sameOrigin=parentWindow.location.origin===window.location.origin;
+        const parentGranted=sameOrigin&&parentWindow.document.documentElement.getAttribute('data-slogi-access')==='granted';
+        if(!parentGranted||!parentWindow.SlogiCloud||parentWindow.SlogiCloud.ready!==true)return false;
         window.SlogiCloud=parentWindow.SlogiCloud;
         window.fetch=parentWindow.fetch.bind(parentWindow);
+        connected=true;disconnect();
         document.documentElement.setAttribute('data-slogi-access','granted');
-      }
-    }catch(_error){}
+        window.dispatchEvent(new CustomEvent('slogi:shared-workspace-ready'));
+        return true;
+      }catch(_error){return false;}
+    };
+    if(!connect()){
+      try{
+        accessObserver=new MutationObserver(connect);
+        accessObserver.observe(parentWindow.document.documentElement,{attributes:true,attributeFilter:['data-slogi-access']});
+        parentWindow.addEventListener('slogi:shared-workspace-ready',connect);
+        readinessTimer=window.setInterval(connect,100);
+        window.addEventListener('pagehide',disconnect,{once:true});
+      }catch(_error){}
+    }
     return;
   }
 
