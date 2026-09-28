@@ -133,25 +133,34 @@ test('successful mutating callbacks use a forced close while action is busy', ()
 test('workflow extension is opt-in and restricted to the in-work card context', () => {
   assert.match(SOURCE, /state\.context === 'in-work' && typeof state\.callbacks\.renderWorkflow === 'function'/);
   assert.match(SOURCE, /data-workflow-section[^>]+hidden/);
-  assert.match(SOURCE, /Сопровождение помещения/);
+  assert.match(SOURCE, /data-card-tab="workflow">Сопровождение/);
+  assert.match(SOURCE, /data-card-tab="history">История/);
   assert.match(SOURCE, /onWorkflowAction/);
   assert.match(SOURCE, /onWorkflowFile/);
   assert.match(SOURCE, /new window\.FormData\(state\.form\)/);
   assert.match(SOURCE, /event\.target\.closest\('\[data-workflow-section\]'\)/);
   assert.match(SOURCE, /takeButton\.hidden = state\.context === 'in-work'/);
-  assert.match(CSS, /\.ss-card-workflow-content \{ display: grid/);
+  assert.match(SOURCE, /rendered\.historyHtml/);
+  assert.match(SOURCE, /state\.workflowView\.sidebarHtml/);
+  assert.match(CSS, /\.ss-card-workflow-content, \.ss-card-history-content \{ display: grid/);
 });
 
 test('markup is compact, accessible and uses one editable control per value', () => {
   assert.match(SOURCE, /<dialog[^>]+aria-labelledby="ss-card-title"/);
   assert.match(SOURCE, /class="ss-card-identity"/);
   assert.match(SOURCE, /class="ss-card-columns"/);
+  assert.match(SOURCE, /role="tablist"/);
+  for (const tab of ['object','selection','workflow','history']) {
+    assert.match(SOURCE, new RegExp(`role="tab"[^>]+data-card-tab="${tab}"`));
+    assert.match(SOURCE, new RegExp(`role="tabpanel"[^>]+data-card-panel="${tab}"`));
+  }
+  assert.match(SOURCE, /\['ArrowLeft', 'ArrowRight', 'Home', 'End'\]/);
   assert.match(SOURCE, /Кластер и рейтинг/);
-  assert.match(SOURCE, /Экономика помещения/);
+  assert.match(SOURCE, />Экономика</);
   assert.match(SOURCE, /Технические условия/);
   assert.match(SOURCE, /choice\('windowsOpen', 'true', 'Да'\)/);
   assert.match(SOURCE, /choice\('areaConfirmed', 'true', 'Да'\)/);
-  assert.match(SOURCE, /Площадь 90–150/);
+  assert.match(SOURCE, /Площадь соответствует диапазону 90–150 м²/);
   assert.match(SOURCE, /value === 'yes' \|\| value === true/);
   assert.match(SOURCE, /value === 'no' \|\| value === false/);
   assert.match(SOURCE, /<select name="repair">/);
@@ -163,7 +172,9 @@ test('markup is compact, accessible and uses one editable control per value', ()
   assert.match(SOURCE, /name="latitudeManual"/);
   assert.match(SOURCE, /name="longitudeManual"/);
   assert.match(SOURCE, /name="clusterNameManual"/);
+  assert.match(SOURCE, /name="centerDetailsManual"/);
   assert.match(SOURCE, /name="clusterRankManual"/);
+  assert.match(SOURCE, /name="clusterRatingManual"/);
   assert.match(SOURCE, /name="averageRentManual"/);
   assert.match(SOURCE, /name="pricePerSqm"/);
   assert.match(SOURCE, /name="comparisonPercent"/);
@@ -171,8 +182,8 @@ test('markup is compact, accessible and uses one editable control per value', ()
   assert.doesNotMatch(SOURCE, /подходит|не подходит/i);
   assert.doesNotMatch(SOURCE, /Вопросы собственнику/i);
   assert.doesNotMatch(SOURCE, /Ручные данные|data-manual-location|ss-card-status-card|data-status="(?:cluster|center|ranking)"/);
-  assert.doesNotMatch(SOURCE, /data-header-(?:address|area|rent)|data-listing-link/);
-  ['address','listingUrl','latitudeManual','longitudeManual','clusterNameManual','clusterRankManual','rentMonthly','area','pricePerSqm','averageRentManual','comparisonPercent','ceilingHeight'].forEach((name) => {
+  assert.match(SOURCE, /data-header-address/);
+  ['address','listingUrl','latitudeManual','longitudeManual','clusterNameManual','centerDetailsManual','clusterRankManual','clusterRatingManual','rentMonthly','area','pricePerSqm','averageRentManual','comparisonPercent','ceilingHeight'].forEach((name) => {
     assert.equal((SOURCE.match(new RegExp(`name="${name}"`, 'g')) || []).length, 1, `${name} must have one form control`);
   });
   Object.entries({
@@ -194,9 +205,10 @@ test('markup is compact, accessible and uses one editable control per value', ()
   assert.match(CSS, /input\[value="true"\]:checked/);
   assert.match(CSS, /input\[value="false"\]:checked/);
   assert.match(CSS, /\.ss-card-identity \{[^}]*grid-template-columns:/);
-  assert.match(CSS, /\.ss-card-columns \{[^}]*grid-template-columns: 1fr 1\.06fr 1\.08fr/);
-  assert.match(CSS, /\.ss-card-row \{[^}]*min-height: 40px/);
-  assert.match(CSS, /\.ss-card-choice span \{[^}]*min-height: 30px/);
+  assert.match(CSS, /\.ss-card-layout \{[^}]*grid-template-columns: minmax\(0,1fr\) 278px/);
+  assert.match(CSS, /\.ss-card-columns \{[^}]*grid-template-columns: 1fr/);
+  assert.match(CSS, /\.ss-card-row \{[^}]*min-height: 32px/);
+  assert.match(CSS, /\.ss-card-choice span \{[^}]*min-height: 26px/);
   assert.doesNotMatch(CSS, /\.ss-card-status-card|\.ss-card-manual(?:\s|\{|\.)/);
   assert.match(CSS, /\.ss-card-center-choice \.ss-card-choice input\[value="true"\]:checked \+ span \{[^}]*var\(--ss-card-danger\)/);
   assert.match(CSS, /\.ss-card-center-choice \.ss-card-choice input\[value="false"\]:checked \+ span \{[^}]*#2f6941/);
@@ -206,7 +218,8 @@ test('markup is compact, accessible and uses one editable control per value', ()
   assert.match(CSS, /:focus-visible/);
   assert.match(CSS, /@media \(forced-colors: active\)/);
   assert.doesNotMatch(SOURCE, /Решение специалиста|data-readiness-title|data-reasons|data-take-help/);
-  assert.match(SOURCE, /data-action="take-to-work">Добавить в «Помещение в работе»<\/button>/);
+  assert.match(SOURCE, /'take-to-work'/);
+  assert.match(SOURCE, /Добавить в «Помещение в работе»/);
   assert.doesNotMatch(SOURCE, /data-action="take-to-work"\s+disabled/);
   assert.doesNotMatch(SOURCE, /name === 'onTakeToWork' && !state\.evaluation\.canTakeToWork/);
 });

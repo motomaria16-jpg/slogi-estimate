@@ -17,6 +17,8 @@
     evaluation: null,
     callbacks: {},
     context: '',
+    activeTab: 'object',
+    workflowView: null,
     opener: null,
     busy: '',
     resolution: 'idle',
@@ -315,78 +317,113 @@
     return `<dialog class="ss-card-dialog" id="${ROOT_ID}" aria-labelledby="ss-card-title" aria-describedby="ss-card-subtitle">
       <form class="ss-card-form" method="dialog" novalidate>
         <header class="ss-card-header">
-          <h2 id="ss-card-title">Карточка помещения</h2>
-          <p class="ss-card-visually-hidden" id="ss-card-subtitle">Единая карточка помещения</p>
+          <div class="ss-card-header-copy">
+            <h2 id="ss-card-title">Карточка помещения</h2>
+            <div class="ss-card-header-meta">
+              <span class="ss-card-header-address" data-header-address>Адрес не указан</span>
+              <span class="ss-card-header-badge" data-source-badge></span>
+              <span class="ss-card-header-badge ss-card-header-badge-status" data-header-status hidden></span>
+            </div>
+          </div>
+          <p class="ss-card-visually-hidden" id="ss-card-subtitle">Единая карточка помещения: объект, отбор, сопровождение и история</p>
+          <a class="ss-card-header-link" data-listing-field-link target="_blank" rel="noopener noreferrer" hidden>Открыть объявление</a>
           <button class="ss-card-close" type="button" data-action="close" aria-label="Закрыть карточку">×</button>
         </header>
 
+        <nav class="ss-card-tabs" role="tablist" aria-label="Разделы карточки помещения">
+          <button type="button" role="tab" id="ss-card-tab-object" aria-controls="ss-card-panel-object" aria-selected="true" tabindex="0" data-card-tab="object">Объект</button>
+          <button type="button" role="tab" id="ss-card-tab-selection" aria-controls="ss-card-panel-selection" aria-selected="false" tabindex="-1" data-card-tab="selection">Отбор</button>
+          <button type="button" role="tab" id="ss-card-tab-workflow" aria-controls="ss-card-panel-workflow" aria-selected="false" aria-disabled="true" tabindex="-1" data-card-tab="workflow">Сопровождение</button>
+          <button type="button" role="tab" id="ss-card-tab-history" aria-controls="ss-card-panel-history" aria-selected="false" aria-disabled="true" tabindex="-1" data-card-tab="history">История</button>
+        </nav>
+
         <div class="ss-card-body">
           <div class="ss-card-alert" data-alert role="alert" hidden></div>
+          <div class="ss-card-layout">
+            <div class="ss-card-main">
+              <section class="ss-card-tab-panel" id="ss-card-panel-object" role="tabpanel" aria-labelledby="ss-card-tab-object" data-card-panel="object">
+                <section class="ss-card-identity" aria-label="Адрес, объявление и координаты">
+                  <label class="ss-card-inline-field ss-card-address" data-tone-field="address"><span>Адрес</span><input name="address" type="text" autocomplete="street-address" placeholder="Город, улица, дом" required></label>
+                  <button class="ss-card-button ss-card-button-secondary ss-card-compact-action" type="button" data-action="resolve-address">Определить</button>
+                  <label class="ss-card-inline-field ss-card-listing" data-tone-field="listing-url"><span>Объявление</span><input name="listingUrl" type="url" inputmode="url" autocomplete="url" placeholder="https://…"></label>
+                  <div class="ss-card-inline-field ss-card-coordinates" data-manual-coordinates>
+                    <span>Координаты <small class="ss-card-origin" data-origin="coordinates"></small></span>
+                    <div class="ss-card-coordinate-inputs">
+                      <label class="ss-card-visually-hidden" for="ss-card-latitude">Широта</label><input id="ss-card-latitude" name="latitudeManual" type="number" min="-90" max="90" step="0.000001" inputmode="decimal" placeholder="55.7558" aria-label="Широта">
+                      <label class="ss-card-visually-hidden" for="ss-card-longitude">Долгота</label><input id="ss-card-longitude" name="longitudeManual" type="number" min="-180" max="180" step="0.000001" inputmode="decimal" placeholder="37.6176" aria-label="Долгота">
+                    </div>
+                  </div>
+                </section>
 
-          <section class="ss-card-identity" aria-label="Адрес и объявление">
-            <label class="ss-card-inline-field ss-card-address" data-tone-field="address"><span>Адрес</span><input name="address" type="text" autocomplete="street-address" placeholder="Город, улица, дом" required></label>
-            <button class="ss-card-button ss-card-button-secondary ss-card-compact-action" type="button" data-action="resolve-address">Определить</button>
-            <label class="ss-card-inline-field ss-card-listing" data-tone-field="listing-url"><span>Объявление</span><input name="listingUrl" type="url" inputmode="url" autocomplete="url" placeholder="https://…"></label>
-            <a class="ss-card-button ss-card-button-secondary ss-card-compact-action" data-listing-field-link target="_blank" rel="noopener noreferrer" hidden>Открыть</a>
-            <div class="ss-card-inline-field ss-card-coordinates" data-manual-coordinates>
-              <span>Координаты</span>
-              <div class="ss-card-coordinate-inputs">
-                <label class="ss-card-visually-hidden" for="ss-card-latitude">Широта</label><input id="ss-card-latitude" name="latitudeManual" type="number" min="-90" max="90" step="0.000001" inputmode="decimal" placeholder="55.7558" aria-label="Широта">
-                <label class="ss-card-visually-hidden" for="ss-card-longitude">Долгота</label><input id="ss-card-longitude" name="longitudeManual" type="number" min="-180" max="180" step="0.000001" inputmode="decimal" placeholder="37.6176" aria-label="Долгота">
-              </div>
+                <div class="ss-card-columns">
+                  <section class="ss-card-section" aria-labelledby="ss-card-cluster-title">
+                    <div class="ss-card-section-heading"><span aria-hidden="true">▥</span><h3 id="ss-card-cluster-title">Кластер и рейтинг</h3></div>
+                    <div class="ss-card-section-content">
+                      <label class="ss-card-row" data-manual-cluster data-tone-field="cluster-name"><span>Название кластера <small class="ss-card-origin" data-origin="cluster"></small></span><input name="clusterNameManual" type="text" placeholder="Название"></label>
+                      <fieldset class="ss-card-row ss-card-option" data-manual-cluster data-tone-field="cluster-status"><legend>Входит в кластер</legend><div>${choice('clusterStatusManual', 'inside', 'Да')}${choice('clusterStatusManual', 'outside', 'Нет')}</div></fieldset>
+                      <fieldset class="ss-card-row ss-card-option ss-card-center-choice" data-manual-cluster data-tone-field="cluster-center"><legend>Объект СЛОГИ</legend><div>${choice('hasSlogiCenterManual', 'true', 'Да')}${choice('hasSlogiCenterManual', 'false', 'Нет')}</div></fieldset>
+                      <label class="ss-card-row" data-center-details data-manual-cluster><span>Сведения об объекте</span><input name="centerDetailsManual" type="text" placeholder="Адрес или комментарий"></label>
+                      <label class="ss-card-row" data-manual-competitive data-tone-field="cluster-rank"><span>Место в ТОП-35 <small class="ss-card-origin" data-origin="competitive"></small></span><input class="ss-card-short" name="clusterRankManual" type="number" min="1" step="1" inputmode="numeric" placeholder="1–35"></label>
+                      <label class="ss-card-row" data-manual-competitive><span>Рейтинг кластера</span><input class="ss-card-short" name="clusterRatingManual" type="number" step="0.01" inputmode="decimal" placeholder="—"></label>
+                    </div>
+                  </section>
+
+                  <section class="ss-card-section" aria-labelledby="ss-card-economy-title">
+                    <div class="ss-card-section-heading"><span aria-hidden="true">≋</span><h3 id="ss-card-economy-title">Экономика</h3></div>
+                    <div class="ss-card-section-content">
+                      <label class="ss-card-row" data-tone-field="rent"><span>Аренда</span><input name="rentMonthly" type="number" min="0" step="1" inputmode="decimal" placeholder="₽/мес."></label>
+                      <div class="ss-card-row" data-tone-field="area">
+                        <span>Площадь</span>
+                        <div class="ss-card-value-combo">
+                          <label class="ss-card-visually-hidden" for="ss-card-area">Площадь, м²</label><input id="ss-card-area" class="ss-card-short" name="area" type="number" min="0" step="0.01" inputmode="decimal" placeholder="м²">
+                          <fieldset class="ss-card-option ss-card-compact-choice" data-manual-area-confirmation><legend class="ss-card-visually-hidden">Площадь соответствует диапазону 90–150 м²</legend>${choice('areaConfirmed', 'true', 'Да')}${choice('areaConfirmed', 'false', 'Нет')}</fieldset>
+                        </div>
+                      </div>
+                      <label class="ss-card-row" data-manual-price data-tone-field="price"><span>Цена за 1 м²</span><input name="pricePerSqm" type="number" min="0" step="1" inputmode="decimal" placeholder="₽"></label>
+                      <label class="ss-card-row" data-manual-competitive data-tone-field="average"><span>Средняя в кластере</span><input name="averageRentManual" type="number" min="0" step="1" inputmode="decimal" placeholder="₽"></label>
+                      <label class="ss-card-row" data-manual-comparison data-tone-field="comparison"><span>Отклонение</span><input name="comparisonPercent" type="text" inputmode="decimal" pattern="-?[0-9]+(?:\\.[0-9]+)?" placeholder="%"></label>
+                    </div>
+                  </section>
+
+                  <section class="ss-card-section" aria-labelledby="ss-card-technical-title">
+                    <div class="ss-card-section-heading"><span aria-hidden="true">⚙</span><h3 id="ss-card-technical-title">Технические условия</h3></div>
+                    <div class="ss-card-section-content">
+                      <fieldset class="ss-card-row ss-card-option"><legend>Входная группа</legend><div>${choice('separateEntrance', 'true', 'Да')}${choice('separateEntrance', 'false', 'Нет')}</div></fieldset>
+                      <fieldset class="ss-card-row ss-card-option"><legend>Окна</legend><div>${choice('hasWindows', 'true', 'Да')}${choice('hasWindows', 'false', 'Нет')}</div></fieldset>
+                      <fieldset class="ss-card-row ss-card-option" data-windows-open><legend>Открываются</legend><div>${choice('windowsOpen', 'true', 'Да')}${choice('windowsOpen', 'false', 'Нет')}</div></fieldset>
+                      <div class="ss-card-row" data-tone-field="ceiling">
+                        <span>Потолки</span>
+                        <div class="ss-card-value-combo">
+                          <label class="ss-card-visually-hidden" for="ss-card-ceiling">Высота потолков, м</label><input id="ss-card-ceiling" class="ss-card-short" name="ceilingHeight" type="number" min="0" step="0.01" inputmode="decimal" placeholder="м">
+                          <fieldset class="ss-card-option ss-card-compact-choice"><legend class="ss-card-visually-hidden">Высота соответствует нормативу</legend>${choice('ceilingHeightConfirmed', 'true', 'Да')}${choice('ceilingHeightConfirmed', 'false', 'Нет')}</fieldset>
+                        </div>
+                      </div>
+                      <label class="ss-card-row ss-card-repair"><span>Ремонт</span><select name="repair"><option value="">Не указано</option><option value="none">Бетон</option><option value="rough">Черновой</option><option value="finished">Чистовой</option></select></label>
+                    </div>
+                  </section>
+                </div>
+              </section>
+
+              <section class="ss-card-tab-panel" id="ss-card-panel-selection" role="tabpanel" aria-labelledby="ss-card-tab-selection" data-card-panel="selection" hidden>
+                <section class="ss-card-section ss-card-selection-detail" aria-labelledby="ss-card-selection-title">
+                  <div class="ss-card-section-heading"><span aria-hidden="true">✓</span><h3 id="ss-card-selection-title">Результат отбора</h3></div>
+                  <div data-selection-detail></div>
+                </section>
+              </section>
+
+              <section class="ss-card-tab-panel" id="ss-card-panel-workflow" role="tabpanel" aria-labelledby="ss-card-tab-workflow" data-card-panel="workflow" data-workflow-section hidden>
+                <div class="ss-card-workflow-content" data-workflow-content></div>
+              </section>
+
+              <section class="ss-card-tab-panel" id="ss-card-panel-history" role="tabpanel" aria-labelledby="ss-card-tab-history" data-card-panel="history" hidden>
+                <div class="ss-card-history-content" data-history-content></div>
+              </section>
             </div>
-          </section>
 
-          <div class="ss-card-columns">
-            <section class="ss-card-section" aria-labelledby="ss-card-cluster-title">
-              <div class="ss-card-section-heading"><span>01</span><h3 id="ss-card-cluster-title">Кластер и рейтинг</h3></div>
-              <div class="ss-card-section-content">
-                <label class="ss-card-row" data-manual-cluster data-tone-field="cluster-name"><span>Название кластера</span><input name="clusterNameManual" type="text" placeholder="Название"></label>
-                <fieldset class="ss-card-row ss-card-option" data-manual-cluster data-tone-field="cluster-status"><legend>Входит в кластер</legend><div>${choice('clusterStatusManual', 'inside', 'Да')}${choice('clusterStatusManual', 'outside', 'Нет')}</div></fieldset>
-                <fieldset class="ss-card-row ss-card-option ss-card-center-choice" data-manual-cluster data-tone-field="cluster-center"><legend>Объект СЛОГИ</legend><div>${choice('hasSlogiCenterManual', 'true', 'Да')}${choice('hasSlogiCenterManual', 'false', 'Нет')}</div></fieldset>
-                <label class="ss-card-row" data-manual-competitive data-tone-field="cluster-rank"><span>Место в ТОП-35</span><input class="ss-card-short" name="clusterRankManual" type="number" min="1" step="1" inputmode="numeric" placeholder="1–35"></label>
-              </div>
-            </section>
-
-            <section class="ss-card-section" aria-labelledby="ss-card-economy-title">
-              <div class="ss-card-section-heading"><span>02</span><h3 id="ss-card-economy-title">Экономика помещения</h3></div>
-              <div class="ss-card-section-content">
-                <label class="ss-card-row" data-tone-field="rent"><span>Аренда в месяц</span><input name="rentMonthly" type="number" min="0" step="1" inputmode="decimal" placeholder="₽"></label>
-                <div class="ss-card-row" data-tone-field="area">
-                  <span>Площадь 90–150</span>
-                  <div class="ss-card-value-combo">
-                    <label class="ss-card-visually-hidden" for="ss-card-area">Площадь, м²</label><input id="ss-card-area" class="ss-card-short" name="area" type="number" min="0" step="0.01" inputmode="decimal" placeholder="м²">
-                    <fieldset class="ss-card-option ss-card-compact-choice" data-manual-area-confirmation><legend class="ss-card-visually-hidden">Площадь соответствует диапазону</legend>${choice('areaConfirmed', 'true', 'Да')}${choice('areaConfirmed', 'false', 'Нет')}</fieldset>
-                  </div>
-                </div>
-                <label class="ss-card-row" data-manual-price data-tone-field="price"><span>Цена за 1 м²</span><input name="pricePerSqm" type="number" min="0" step="1" inputmode="decimal" placeholder="₽"></label>
-                <label class="ss-card-row" data-manual-competitive data-tone-field="average"><span>Средняя в кластере</span><input name="averageRentManual" type="number" min="0" step="1" inputmode="decimal" placeholder="₽"></label>
-                <label class="ss-card-row" data-manual-comparison data-tone-field="comparison"><span>Отклонение от средней</span><input name="comparisonPercent" type="text" inputmode="decimal" pattern="-?[0-9]+(?:\\.[0-9]+)?" placeholder="%"></label>
-              </div>
-            </section>
-
-            <section class="ss-card-section" aria-labelledby="ss-card-technical-title">
-              <div class="ss-card-section-heading"><span>03</span><h3 id="ss-card-technical-title">Технические условия</h3></div>
-              <div class="ss-card-section-content">
-                <fieldset class="ss-card-row ss-card-option"><legend>Входная группа</legend><div>${choice('separateEntrance', 'true', 'Да')}${choice('separateEntrance', 'false', 'Нет')}</div></fieldset>
-                <fieldset class="ss-card-row ss-card-option"><legend>Окна есть</legend><div>${choice('hasWindows', 'true', 'Да')}${choice('hasWindows', 'false', 'Нет')}</div></fieldset>
-                <fieldset class="ss-card-row ss-card-option" data-windows-open><legend>Окна открываются</legend><div>${choice('windowsOpen', 'true', 'Да')}${choice('windowsOpen', 'false', 'Нет')}</div></fieldset>
-                <div class="ss-card-row" data-tone-field="ceiling">
-                  <span>Высота потолков</span>
-                  <div class="ss-card-value-combo">
-                    <label class="ss-card-visually-hidden" for="ss-card-ceiling">Высота потолков, м</label><input id="ss-card-ceiling" class="ss-card-short" name="ceilingHeight" type="number" min="0" step="0.01" inputmode="decimal" placeholder="м">
-                    <fieldset class="ss-card-option ss-card-compact-choice"><legend class="ss-card-visually-hidden">Высота соответствует нормативу</legend>${choice('ceilingHeightConfirmed', 'true', 'Да')}${choice('ceilingHeightConfirmed', 'false', 'Нет')}</fieldset>
-                  </div>
-                </div>
-                <label class="ss-card-row ss-card-repair"><span>Ремонт</span><select name="repair"><option value="">Не указано</option><option value="none">Бетон</option><option value="rough">Черновой</option><option value="finished">Чистовой</option></select></label>
-              </div>
-            </section>
+            <aside class="ss-card-context" aria-live="polite" aria-label="Состояние карточки">
+              <div data-context-content></div>
+            </aside>
           </div>
-
-          <section class="ss-card-section ss-card-workflow" data-workflow-section aria-labelledby="ss-card-workflow-title" hidden>
-            <div class="ss-card-section-heading"><span>04</span><h3 id="ss-card-workflow-title">Сопровождение помещения</h3><strong class="ss-card-workflow-status" data-workflow-status></strong></div>
-            <div class="ss-card-workflow-content" data-workflow-content></div>
-          </section>
         </div>
 
         <footer class="ss-card-footer">
@@ -394,7 +431,6 @@
           <div class="ss-card-footer-main">
             <button class="ss-card-button ss-card-button-ghost" type="button" data-action="close">Отмена</button>
             <button class="ss-card-button ss-card-button-secondary" type="button" data-action="save">Сохранить</button>
-            <button class="ss-card-button ss-card-button-primary" type="button" data-action="take-to-work">Добавить в «Помещение в работе»</button>
           </div>
         </footer>
       </form>
@@ -449,7 +485,9 @@
     const manualClusterName = text(input('clusterNameManual') && input('clusterNameManual').value);
     const manualClusterStatus = readRadio('clusterStatusManual');
     const manualCenter = boolOrNull(readRadio('hasSlogiCenterManual'));
+    const manualCenterDetails = text(input('centerDetailsManual') && input('centerDetailsManual').value);
     const manualRank = numberOrNull(input('clusterRankManual') && input('clusterRankManual').value);
+    const manualRating = numberOrNull(input('clusterRatingManual') && input('clusterRatingManual').value);
     const manualAverage = numberOrNull(input('averageRentManual') && input('averageRentManual').value);
     const latitude = numberOrNull(input('latitudeManual') && input('latitudeManual').value);
     const longitude = numberOrNull(input('longitudeManual') && input('longitudeManual').value);
@@ -477,9 +515,11 @@
       status: manualClusterStatus || current.cluster.status,
       matched: manualClusterStatus === 'inside' ? true : manualClusterStatus === 'outside' ? false : current.cluster.matched,
       resolutionSource: groups.cluster ? 'manual' : current.cluster.resolutionSource,
-      hasSlogiCenter: manualCenter
+      hasSlogiCenter: manualCenter,
+      centerDetails: manualCenterDetails
     });
     const competitive = Object.assign({}, current.competitive, {
+      rating: manualRating,
       rank: manualRank == null ? null : Math.trunc(manualRank),
       isTop30: manualRank == null ? null : manualRank >= 1 && manualRank <= 30,
       isTop35: manualRank == null ? null : manualRank >= 1 && manualRank <= 35,
@@ -519,7 +559,9 @@
     setControl('clusterNameManual', card.cluster.name);
     setControl('clusterStatusManual', card.cluster.status === 'inside' || card.cluster.status === 'outside' ? card.cluster.status : null);
     setControl('hasSlogiCenterManual', card.cluster.hasSlogiCenter);
+    setControl('centerDetailsManual', card.cluster.centerDetails);
     setControl('clusterRankManual', card.competitive.rank);
+    setControl('clusterRatingManual', card.competitive.rating);
     setControl('averageRentManual', card.competitive.averageRentPerSqm);
     setControl('comparisonPercent', card.competitive.deltaPercent);
     setControl('rentMonthly', card.rentMonthly);
@@ -579,25 +621,116 @@
 
   function renderTakeAction() {
     const takeButton = state.dialog.querySelector('[data-action="take-to-work"]');
+    if (!takeButton) return;
     takeButton.hidden = state.context === 'in-work';
     takeButton.disabled = Boolean(state.busy);
     takeButton.setAttribute('aria-disabled', String(takeButton.disabled));
   }
 
+  function originLabel(value) {
+    return value === 'manual' ? 'вручную' : value === 'automatic' ? 'авто' : '';
+  }
+
+  function setOrigin(name, value) {
+    const node = state.dialog.querySelector(`[data-origin="${name}"]`);
+    if (!node) return;
+    node.textContent = originLabel(value);
+    node.hidden = !node.textContent;
+  }
+
+  function workflowEnabled() {
+    return state.context === 'in-work' && typeof state.callbacks.renderWorkflow === 'function';
+  }
+
+  function tabAvailable(name) {
+    return name === 'object' || name === 'selection' || workflowEnabled();
+  }
+
+  function setActiveTab(name, focus) {
+    const requested = text(name);
+    state.activeTab = tabAvailable(requested) ? requested : 'object';
+    state.dialog.querySelectorAll('[data-card-tab]').forEach((tab) => {
+      const selected = tab.dataset.cardTab === state.activeTab;
+      const available = tabAvailable(tab.dataset.cardTab);
+      tab.setAttribute('aria-selected', String(selected));
+      tab.setAttribute('aria-disabled', String(!available));
+      tab.tabIndex = selected ? 0 : -1;
+      if (selected && focus) tab.focus();
+    });
+    state.dialog.querySelectorAll('[data-card-panel]').forEach((panel) => {
+      panel.hidden = panel.dataset.cardPanel !== state.activeTab;
+    });
+  }
+
+  function renderHeader() {
+    const address = state.dialog.querySelector('[data-header-address]');
+    const source = state.dialog.querySelector('[data-source-badge]');
+    const status = state.dialog.querySelector('[data-header-status]');
+    address.textContent = state.draft.address || 'Адрес не указан';
+    const provider = text(state.draft.sourceProvider).toLocaleUpperCase('ru-RU');
+    source.textContent = state.draft.source === 'manual' ? 'Введено вручную' : `Получено из ${provider || 'источника'}`;
+    const workflowStatus = state.workflowView && text(state.workflowView.status);
+    status.textContent = workflowStatus || '';
+    status.hidden = !status.textContent;
+    setOrigin('coordinates', state.draft.geo && state.draft.geo.resolutionSource);
+    setOrigin('cluster', state.draft.cluster && state.draft.cluster.resolutionSource);
+    setOrigin('competitive', state.draft.competitive && state.draft.competitive.resolutionSource);
+  }
+
+  function checkItems() {
+    const checks = state.evaluation && state.evaluation.checks || {};
+    return [
+      { label: 'Кластер определён', ready: Boolean(checks.clusterInside) },
+      { label: 'Кластер свободен', ready: Boolean(checks.clusterFree) },
+      { label: 'ТОП-35', ready: Boolean(checks.clusterTop35) },
+      { label: 'Технические данные заполнены', ready: Boolean(checks.requiredComplete) }
+    ];
+  }
+
+  function renderSelection() {
+    const target = state.dialog.querySelector('[data-selection-detail]');
+    const reasons = state.evaluation && state.evaluation.reasons || [];
+    const ready = state.evaluation && state.evaluation.canTakeToWork;
+    const sources = [
+      ['Координаты', state.draft.geo && state.draft.geo.resolutionSource],
+      ['Кластер', state.draft.cluster && state.draft.cluster.resolutionSource],
+      ['Конкурентный анализ', state.draft.competitive && state.draft.competitive.resolutionSource],
+      ['Соответствие площади', state.draft.areaConfirmedSource]
+    ];
+    target.innerHTML = `<div class="ss-card-selection-summary ${ready ? 'ready' : ''}"><strong>${ready ? 'Отбор пройден' : 'Требуется решение'}</strong><span>${ready ? 'Все критерии выполнены.' : `${reasons.length} ${reasons.length === 1 ? 'условие требует' : 'условия требуют'} внимания.`}</span></div>
+      ${reasons.length ? `<ul class="ss-card-reason-list">${reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join('')}</ul>` : ''}
+      <div class="ss-card-provenance" aria-label="Происхождение значений">${sources.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(originLabel(value) || 'не указано')}</strong></div>`).join('')}</div>`;
+  }
+
+  function renderContextPanel() {
+    const target = state.dialog.querySelector('[data-context-content]');
+    if (state.activeTab === 'workflow' && state.workflowView && state.workflowView.sidebarHtml) {
+      target.innerHTML = text(state.workflowView.sidebarHtml);
+      return;
+    }
+    const items = checkItems();
+    const inWork = workflowEnabled();
+    const action = inWork ? 'go-workflow' : state.context === 'in-work' ? 'save' : 'take-to-work';
+    const actionLabel = inWork ? 'Перейти к сопровождению' : state.context === 'in-work' ? 'Добавить помещение в работу' : 'Добавить в «Помещение в работе»';
+    target.innerHTML = `<section class="ss-card-context-section"><div class="ss-card-context-heading"><span aria-hidden="true">✓</span><h3>Готовность</h3></div><ul class="ss-card-check-list">${items.map((item) => `<li class="${item.ready ? 'ready' : 'pending'}"><span aria-hidden="true"></span>${escapeHtml(item.label)}</li>`).join('')}</ul></section>
+      <section class="ss-card-context-section ss-card-next"><div class="ss-card-context-heading"><span aria-hidden="true">⚑</span><h3>Следующий этап</h3></div><button class="ss-card-button ss-card-button-primary ss-card-next-button" type="button" data-action="${action}">${actionLabel} <span aria-hidden="true">→</span></button></section>`;
+  }
+
   function renderWorkflow() {
-    const section = state.dialog.querySelector('[data-workflow-section]');
     const content = state.dialog.querySelector('[data-workflow-content]');
-    const status = state.dialog.querySelector('[data-workflow-status]');
-    const enabled = state.context === 'in-work' && typeof state.callbacks.renderWorkflow === 'function';
-    section.hidden = !enabled;
+    const history = state.dialog.querySelector('[data-history-content]');
+    const enabled = workflowEnabled();
     if (!enabled) {
       content.innerHTML = '';
-      status.textContent = '';
+      history.innerHTML = '';
+      state.workflowView = null;
       return;
     }
     const rendered = state.callbacks.renderWorkflow(state.draft) || {};
+    state.workflowView = typeof rendered === 'string' ? { html: rendered } : rendered;
     content.innerHTML = typeof rendered === 'string' ? rendered : text(rendered.html);
-    status.textContent = typeof rendered === 'object' ? text(rendered.status) : '';
+    history.innerHTML = typeof rendered === 'object' ? text(rendered.historyHtml) : '';
+    if (!history.innerHTML) history.innerHTML = '<section class="in-work-panel"><h3>История</h3><p class="in-work-panel-intro">Действий пока нет.</p></section>';
     content.onclick = (event) => {
       const button = event.target.closest('[data-action]');
       if (!button) return;
@@ -609,6 +742,8 @@
       event.stopPropagation();
       runWorkflowFile(event.target);
     };
+    history.onclick = content.onclick;
+    history.onchange = content.onchange;
   }
 
   function render() {
@@ -620,9 +755,15 @@
     if (listingUrl) listingLink.href = listingUrl;
     else listingLink.removeAttribute('href');
     renderEconomy(state.evaluation);
-    renderTakeAction();
     renderWorkflow();
+    renderHeader();
+    renderSelection();
+    setActiveTab(state.activeTab);
+    renderContextPanel();
+    renderTakeAction();
     if (state.draft.hasWindows !== true && state.draft.hasWindows !== 'yes') setControl('windowsOpen', null);
+    const centerDetails = state.dialog.querySelector('[data-center-details]');
+    centerDetails.hidden = !(state.draft.cluster.hasSlogiCenter || state.draft.cluster.centerDetails);
     const deleteButton = state.dialog.querySelector('[data-action="delete"]');
     deleteButton.hidden = !(state.draft.id && typeof state.callbacks.onDelete === 'function');
     state.dialog.querySelectorAll('button').forEach((button) => {
@@ -816,6 +957,11 @@
     state.form.addEventListener('focusout', finishDeferredEdit);
     state.form.addEventListener('submit', (event) => event.preventDefault());
     state.dialog.addEventListener('click', (event) => {
+      const tab = event.target.closest('[data-card-tab]');
+      if (tab) {
+        if (tab.getAttribute('aria-disabled') !== 'true') setActiveTab(tab.dataset.cardTab, true);
+        return;
+      }
       const button = event.target.closest('[data-action]');
       if (!button) return;
       const action = button.dataset.action;
@@ -824,13 +970,25 @@
       else if (action === 'save') runCallback('onSave', EVENTS.save, true);
       else if (action === 'take-to-work') runCallback('onTakeToWork', EVENTS.takeToWork, true);
       else if (action === 'delete') runCallback('onDelete', EVENTS.delete, true);
-      else if (button.closest('[data-workflow-section]')) runWorkflowAction(button);
+      else if (action === 'go-workflow') setActiveTab('workflow', true);
+      else if (button.closest('[data-card-panel="workflow"], [data-card-panel="history"], .ss-card-context')) runWorkflowAction(button);
     });
     state.dialog.addEventListener('cancel', (event) => {
       event.preventDefault();
       if (!state.busy) close('escape');
     });
     state.dialog.addEventListener('keydown', (event) => {
+      const activeTab = event.target.closest && event.target.closest('[data-card-tab]');
+      if (activeTab && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+        const tabs = Array.from(state.dialog.querySelectorAll('[data-card-tab]')).filter((tab) => tab.getAttribute('aria-disabled') !== 'true');
+        const current = tabs.indexOf(activeTab);
+        if (current >= 0 && tabs.length) {
+          event.preventDefault();
+          const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (current + (event.key === 'ArrowLeft' ? -1 : 1) + tabs.length) % tabs.length;
+          setActiveTab(tabs[next].dataset.cardTab, true);
+        }
+        return;
+      }
       if (event.key !== 'Tab' || !state.dialog.open) return;
       const focusable = Array.from(state.dialog.querySelectorAll('button:not(:disabled), a[href], input:not(:disabled), summary, [tabindex]:not([tabindex="-1"])'))
         .filter((node) => !node.hidden && node.getClientRects().length);
@@ -862,6 +1020,8 @@
     state.callbacks = options.callbacks;
     state.context = text(options.callbacks.context);
     state.draft = normalize(options.initial);
+    state.activeTab = 'object';
+    state.workflowView = null;
     state.busy = '';
     state.resolution = 'idle';
     state.resolutionMessage = state.draft.cluster.status === 'inside'
@@ -899,6 +1059,8 @@
     state.evaluation = null;
     state.callbacks = {};
     state.context = '';
+    state.activeTab = 'object';
+    state.workflowView = null;
     document.body.classList.remove('ss-card-modal-open');
   }
 

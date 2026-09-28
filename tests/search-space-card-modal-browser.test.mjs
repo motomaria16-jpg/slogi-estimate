@@ -21,9 +21,14 @@ test('browser editing keeps address spaces and defers calculated-field replaceme
     await page.evaluate(() => {
       window.SlogiSearchSpaceCardModal.open({
         initial: {
+          id: 'space-1',
+          source: 'cian',
+          sourceProvider: 'cian',
+          listingUrl: 'https://example.com/listing',
           address: 'Москва',
-          cluster: { name: 'Лефортово', status: 'inside', hasSlogiCenter: false },
-          competitive: { rank: 12, averageRentPerSqm: 3200 },
+          geo: { lat: 55.75, lng: 37.61, resolutionSource: 'automatic' },
+          cluster: { name: 'Лефортово', status: 'inside', hasSlogiCenter: false, centerDetails: 'Свободен', resolutionSource: 'automatic' },
+          competitive: { rating: 92, rank: 12, averageRentPerSqm: 3200, resolutionSource: 'automatic' },
           rentMonthly: 480000,
           area: 120,
           areaConfirmed: true,
@@ -32,7 +37,8 @@ test('browser editing keeps address spaces and defers calculated-field replaceme
           windowsOpen: true,
           ceilingHeight: 3.4,
           ceilingHeightConfirmed: true,
-          repair: 'finished'
+          repair: 'finished',
+          work: { status: 'draft', marker: 'preserve-me' }
         },
         opener: document.getElementById('opener'),
         onSave(card) {
@@ -48,18 +54,19 @@ test('browser editing keeps address spaces and defers calculated-field replaceme
     });
 
     for (const viewport of [
-      { width: 1280, height: 900, columns: 3 },
-      { width: 1024, height: 800, columns: 2 },
-      { width: 981, height: 800, columns: 2 },
-      { width: 681, height: 760, columns: 1 },
-      { width: 375, height: 760, columns: 1 },
-      { width: 320, height: 700, columns: 1 }
+      { width: 1280, height: 900, layoutColumns: 2 },
+      { width: 1024, height: 800, layoutColumns: 2 },
+      { width: 981, height: 800, layoutColumns: 2 },
+      { width: 681, height: 760, layoutColumns: 1 },
+      { width: 375, height: 760, layoutColumns: 1 },
+      { width: 320, height: 700, layoutColumns: 1 }
     ]) {
       await page.setViewportSize(viewport);
       const geometry = await page.locator('#slogi-search-space-card-dialog').evaluate(dialog => ({
         dialogOverflow: dialog.scrollWidth - dialog.clientWidth,
         bodyOverflow: dialog.querySelector('.ss-card-body').scrollWidth - dialog.querySelector('.ss-card-body').clientWidth,
-        columns: getComputedStyle(dialog.querySelector('.ss-card-columns')).gridTemplateColumns,
+        layoutColumns: getComputedStyle(dialog.querySelector('.ss-card-layout')).gridTemplateColumns,
+        sectionColumns: getComputedStyle(dialog.querySelector('.ss-card-columns')).gridTemplateColumns,
         coordinatesWidth: dialog.querySelector('.ss-card-coordinates').getBoundingClientRect().width,
         coordinateInputWidths: Array.from(dialog.querySelectorAll('.ss-card-coordinate-inputs input'), input => input.getBoundingClientRect().width),
         coordinateColumnStart: getComputedStyle(dialog.querySelector('.ss-card-coordinates')).gridColumnStart,
@@ -68,8 +75,9 @@ test('browser editing keeps address spaces and defers calculated-field replaceme
       }));
       assert.ok(geometry.dialogOverflow <= 1, `dialog must not overflow at ${viewport.width}px`);
       assert.ok(geometry.bodyOverflow <= 1, `body must not overflow at ${viewport.width}px`);
-      assert.equal(geometry.columns.trim().split(/\s+/).length, viewport.columns, `card must use ${viewport.columns} section columns at ${viewport.width}px`);
-      assert.equal(geometry.listingLinkHidden, true, 'the no-URL card must keep the listing action hidden');
+      assert.equal(geometry.layoutColumns.trim().split(/\s+/).length, viewport.layoutColumns, `card must use ${viewport.layoutColumns} content columns at ${viewport.width}px`);
+      assert.equal(geometry.sectionColumns.trim().split(/\s+/).length, 1, `compact sections must stack at ${viewport.width}px`);
+      assert.equal(geometry.listingLinkHidden, false, 'a safe listing URL must expose the header action');
       assert.ok(geometry.coordinatesWidth >= 200, `coordinates must keep a usable row at ${viewport.width}px`);
       geometry.coordinateInputWidths.forEach(width => assert.ok(width >= 60, `coordinate inputs must stay usable at ${viewport.width}px`));
       if (viewport.width > 1080) assert.equal(geometry.coordinateColumnStart, '5', 'desktop coordinates must stay in the final wide identity column');
@@ -100,6 +108,21 @@ test('browser editing keeps address spaces and defers calculated-field replaceme
     assert.equal(await comparison.inputValue(), '-5');
     await page.getByRole('button', { name: 'Сохранить' }).click();
     assert.equal(await page.evaluate(() => window.__savedSpaceCard.competitive.comparisonPercentOverride), -5);
+    assert.deepEqual(await page.evaluate(() => ({
+      id: window.__savedSpaceCard.id,
+      source: window.__savedSpaceCard.source,
+      sourceProvider: window.__savedSpaceCard.sourceProvider,
+      listingUrl: window.__savedSpaceCard.listingUrl,
+      geo: window.__savedSpaceCard.geo,
+      centerDetails: window.__savedSpaceCard.cluster.centerDetails,
+      rating: window.__savedSpaceCard.competitive.rating,
+      rank: window.__savedSpaceCard.competitive.rank,
+      work: window.__savedSpaceCard.work
+    })), {
+      id: 'space-1', source: 'parsed', sourceProvider: 'cian', listingUrl: 'https://example.com/listing',
+      geo: { lat: 55.75, lng: 37.61, resolutionSource: 'automatic' }, centerDetails: 'Свободен', rating: 92, rank: 12,
+      work: { status: 'draft', marker: 'preserve-me' }
+    });
 
     await comparison.focus();
     await comparison.press('Control+A');
