@@ -108,6 +108,8 @@ test('visit completion requires persisted photo and video metadata',()=>{
 test('workflow layout always renders four stable panels and one progress scale',()=>{
   for(const panel of ['contact','viewing','media','decision'])assert.equal((app.match(new RegExp(`data-workflow-panel="${panel}"`,'g'))||[]).length,1,panel);
   for(const label of ['Связались','Просмотр назначен','Просмотр завершён','КП'])assert.match(app,new RegExp(label));
+  const decision=app.slice(app.indexOf('function decisionPanel'),app.indexOf('function timelinePanel'));
+  assert.ok(decision.indexOf('data-action="start-proposal"')>decision.indexOf('data-action="confirm-reject"'));
   assert.match(app,/function workflowContent[\s\S]+workflowProgress\(project\).*contactForm\(project\).*viewingForm\(project\).*mediaPanel\(project\).*decisionPanel\(project\)/);
   assert.doesNotMatch(app,/function workflowSidebar|>Следующее действие</);
   assert.match(css,/\.in-work-progress\{[^}]*grid-template-columns:repeat\(4/);
