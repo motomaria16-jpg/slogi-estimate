@@ -72,7 +72,7 @@
         `<div class="premises-card__price cian-card-price"><strong>${esc(money(value.rentMonthly))}</strong><span>${rentPerSqm == null ? 'Цена за м² не рассчитана' : `${esc(money(rentPerSqm))} / м²`}</span></div>` +
       '</button>' +
       (value.contextHtml ? `<div class="premises-card__context">${value.contextHtml}</div>` : '') +
-      `<div class="premises-card__actions${actionsClass ? ` ${esc(actionsClass)}` : ''}">${value.actionsHtml || ''}</div>` +
+      `<div class="premises-card__actions${actionsClass ? ` ${esc(actionsClass)}` : ''}" role="group" aria-label="${esc(value.actionsLabel || 'Действия с помещением')}">${value.actionsHtml || ''}</div>` +
     '</article>';
   }
 

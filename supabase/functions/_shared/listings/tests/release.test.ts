@@ -191,6 +191,18 @@ test('search reads saved rows only and applies recent/removed filter',async()=>{
   const body=await response.json();assert.equal(reads,2);assert.deepEqual(body.items.map((entry:NormalizedListing)=>entry.listingUrl),[recent.listingUrl]);assert.equal(body.meta.total,1);assert.equal(body.meta.snapshotAt,dateReference.toISOString());
 });
 
+test('search defensively removes out-of-contract rows even if the read store returns them',async()=>{
+  const allowedAtLowerBoundary=listing({externalId:'100',listingUrl:'https://www.cian.ru/rent/commercial/100000000',area:100,floor:1,premiseType:'office',hasBasementOrSocle:false});
+  const allowedAtUpperBoundary=listing({externalId:'150',listingUrl:'https://www.cian.ru/rent/commercial/150000000',area:150,floor:1,premiseType:'free_purpose',hasBasementOrSocle:false});
+  const observedLeak=listing({externalId:'bad-range',listingUrl:'https://www.cian.ru/rent/commercial/580000000',title:'Сдается помещение свободного назначения, 5,8–85,9 м²',area:5.8,floor:20,premiseType:'free_purpose',hasBasementOrSocle:false});
+  const basement=listing({externalId:'basement',listingUrl:'https://www.cian.ru/rent/commercial/120000001',area:120,floor:1,premiseType:'retail',hasBasementOrSocle:true});
+  const wrongType=listing({externalId:'warehouse',listingUrl:'https://www.cian.ru/rent/commercial/120000002',area:120,floor:1,premiseType:null,hasBasementOrSocle:false});
+  const items=[observedLeak,basement,wrongType,allowedAtLowerBoundary,allowedAtUpperBoundary];
+  const store:ListingReadStore={async readRecent(){return{items,total:items.length,hasMore:false,nextCursor:null};},async readScanStates(){return[];}};
+  const response=await createSearchListingsHandler({store,authorize:async()=>true,now:()=>dateReference})(new Request('http://local/search',{method:'POST',headers:{Authorization:'Bearer fixture','Content-Type':'application/json'},body:'{}'}));
+  const body=await response.json();assert.equal(response.status,200);assert.deepEqual(body.items.map((entry:NormalizedListing)=>entry.externalId),['100','150']);
+});
+
 test('search returns stable keyset metadata without triggering writes',async()=>{
   let captured:any=null;const rows=Array.from({length:5},(_,index)=>listing({externalId:String(index+1),listingUrl:`https://www.cian.ru/rent/commercial/${100000000+index}`,freshnessAt:new Date(dateReference.getTime()-index*1000).toISOString()}));
   const cursor={firstSeenAt:observedAt,source:'cian' as const,listingUrl:rows[1].listingUrl};

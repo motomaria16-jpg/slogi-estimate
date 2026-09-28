@@ -130,6 +130,18 @@ test('successful mutating callbacks use a forced close while action is busy', ()
   assert.match(SOURCE, /\(state\.busy && !force\)/);
 });
 
+test('workflow extension is opt-in and restricted to the in-work card context', () => {
+  assert.match(SOURCE, /state\.context === 'in-work' && typeof state\.callbacks\.renderWorkflow === 'function'/);
+  assert.match(SOURCE, /data-workflow-section[^>]+hidden/);
+  assert.match(SOURCE, /Сопровождение помещения/);
+  assert.match(SOURCE, /onWorkflowAction/);
+  assert.match(SOURCE, /onWorkflowFile/);
+  assert.match(SOURCE, /new window\.FormData\(state\.form\)/);
+  assert.match(SOURCE, /event\.target\.closest\('\[data-workflow-section\]'\)/);
+  assert.match(SOURCE, /takeButton\.hidden = state\.context === 'in-work'/);
+  assert.match(CSS, /\.ss-card-workflow-content \{ display: grid/);
+});
+
 test('markup is compact, accessible and uses one editable control per value', () => {
   assert.match(SOURCE, /<dialog[^>]+aria-labelledby="ss-card-title"/);
   assert.match(SOURCE, /class="ss-card-identity"/);

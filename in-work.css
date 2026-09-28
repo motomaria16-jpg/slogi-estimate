@@ -66,14 +66,13 @@
 .in-work-card-visit strong,.in-work-card-visit span{display:block}
 .in-work-card-visit strong{font-size:13px;font-weight:500}
 .in-work-card-visit span{margin-top:4px;color:var(--work-muted);font-size:11px}
-.in-work-card-actions{display:flex;grid-column:1/-1;align-items:center;gap:6px;margin-top:-2px}
+.in-work-card-actions{margin:0}
 .in-work-btn,.in-work-icon-btn{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:7px 11px;border:1px solid #82989c;border-radius:8px;background:#fff;color:var(--work-teal);cursor:pointer;text-decoration:none;font-size:12px;font-weight:500;line-height:1.2}
 .in-work-btn:hover,.in-work-icon-btn:hover{background:var(--work-teal-soft)}
 .in-work-btn.primary{border-color:var(--work-gold);background:var(--work-gold);color:#554723}
 .in-work-btn.danger{border-color:#dcb9b2;color:var(--work-red)}
 .in-work-btn[disabled]{opacity:.48;cursor:not-allowed}
 .in-work-icon-btn{width:36px;padding:0;font-size:22px}
-.in-work-card-actions .in-work-card-open{margin-left:auto}
 .in-work-page .ss-card-footer [data-action="take-to-work"]{display:none}
 .in-work-page .premises-card__context>span{display:inline}
 
@@ -124,6 +123,7 @@
 .in-work-drawer-body{display:grid;gap:10px;padding:12px}
 .in-work-panel{padding:14px;border:1px solid var(--work-line);border-radius:14px;background:var(--work-paper)}
 .in-work-panel h3{margin:0 0 11px;font-size:15px;font-weight:500}.in-work-panel-intro{margin:-5px 0 11px;color:var(--work-muted);font-size:12px;line-height:1.45}
+.in-work-inline-status{display:inline-flex;margin-left:6px;padding:3px 7px;border-radius:999px;background:var(--work-cream);color:var(--work-muted);font-size:10px;font-weight:600;vertical-align:middle}.in-work-inline-status.ready{background:var(--work-green-soft);color:var(--work-green)}
 .in-work-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .in-work-field{display:flex;min-width:0;flex-direction:column;gap:5px;color:var(--work-muted);font-size:11px}
 .in-work-field.full{grid-column:1/-1}.in-work-field>span:first-child{font-weight:500}

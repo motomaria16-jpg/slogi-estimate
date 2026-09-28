@@ -65,8 +65,9 @@ test('terminal work states never leak back into search or the active work list',
 
 test('search list, map and background geocoding share the search-candidate selector and rerender on storage events',()=>{
   assert.match(workspaceSource,/function searchableFeedListings\(\)/);
-  assert.match(workspaceSource,/collectProjectGeocodeTargets\(searchableFeedListings\(\),storedProjects\(\)/);
-  assert.match(workspaceSource,/if\(isSearchCandidateProject\(project\)\)items\.push\(projectToItem\(project,listing\)\)/);
+  assert.match(workspaceSource,/function eligibleStoredProjects\(\)/);
+  assert.match(workspaceSource,/collectProjectGeocodeTargets\(searchableFeedListings\(\),eligibleStoredProjects\(\)/);
+  assert.match(workspaceSource,/if\(isSearchCandidateProject\(project\)&&matchesFixedCriteria\(candidate\)\)items\.push\(candidate\)/);
   assert.match(workspaceSource,/function render\(\)[\s\S]*updateMap\(items\)/);
   assert.match(workspaceSource,/takeSpaceIntoWork\(saved\.id\)[\s\S]*render\(\)/);
   assert.match(workspaceSource,/addEventListener\('slogi:locations-updated',[^\n]+render\(\)/);

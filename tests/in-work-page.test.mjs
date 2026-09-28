@@ -86,6 +86,33 @@ test('proposal handoff keeps the canonical project id and removes terminal cards
   assert.doesNotMatch(handoff,/repo\.create|projectRepository\.create|clone\(/);
 });
 
+test('canonical card exposes the complete in-work funnel only through the in-work context',()=>{
+  assert.match(app,/context:'in-work'/);
+  assert.match(app,/renderWorkflow:/);
+  assert.match(app,/onWorkflowAction:/);
+  assert.match(app,/onWorkflowFile:/);
+  assert.match(app,/workflowContent\(project\)/);
+  assert.match(app,/contactForm\(project\).*viewingForm\(project\).*mediaPanel\(project\).*proposalPanel\(project\).*rejectionPanel\(project\)/s);
+  assert.match(app,/Зафиксировать связь/);
+  assert.match(app,/Просмотр назначен и добавлен во внутренний календарь/);
+  assert.match(app,/Просмотр завершён\. Помещение готово к КП/);
+  assert.match(app,/Не подходит ДА/);
+  assert.match(app,/Не подходят ТУ/);
+  assert.match(app,/Комментарий к отказу обязателен/);
+  assert.match(app,/openCanonicalCard\(repo\.get\(calendarEvent\.dataset\.eventProject\),calendarEvent\)/);
+});
+
+test('card funnel writes to the calendar domain and canonical attachment store without copying the project',()=>{
+  const workflow=app.slice(app.indexOf('async function performCardWorkflowAction'),app.indexOf('function currentProject'));
+  assert.match(workflow,/adapter\.saveContact\(projectId,contact\)/);
+  assert.match(workflow,/adapter\.schedule\(projectId,command\)/);
+  assert.match(workflow,/adapter\.reschedule\(projectId,command\)/);
+  assert.match(workflow,/adapter\.complete\(projectId,\{viewingId:viewing\.id,confirmed:true,attachments:counts\.items\}\)/);
+  assert.match(workflow,/adapter\.reject\(projectId,\{reasonCode,comment\}\)/);
+  assert.match(workflow,/adapter\.saveMedia\(projectId,viewing\.id,kind,file\)/);
+  assert.doesNotMatch(workflow,/repo\.create|projectRepository\.create/);
+});
+
 test('responsive calendar uses desktop grids and a mobile agenda',()=>{
   assert.match(css,/\.in-work-calendar-week/);
   assert.match(css,/\.in-work-month/);

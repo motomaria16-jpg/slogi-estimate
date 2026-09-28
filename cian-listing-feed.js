@@ -77,20 +77,24 @@
     return freshness||identity(left).localeCompare(identity(right));
   }
   function within(value,min,max){if(min!=null&&(value==null||value<min))return false;if(max!=null&&(value==null||value>max))return false;return true;}
-  function filterAndSort(items,criteria={},now=Date.now()){
-    const cluster=String(criteria.cluster||'');
+  function matchesFixedCriteria(item,criteria={}){
+    if(!item||typeof item!=='object')return false;
     const requiredFloor=number(criteria.floor);
     const premiseTypes=Array.isArray(criteria.premiseTypes)?criteria.premiseTypes.map(value=>normalizePremiseType(value)).filter(Boolean):[];
+    return within(number(item.area),criteria.areaMin,criteria.areaMax)
+      &&(requiredFloor==null||number(item.floor)===requiredFloor)
+      &&(!premiseTypes.length||premiseTypes.includes(normalizePremiseType(null,item)))
+      &&(criteria.excludeBasementOrSocle!==true||!hasBasementOrSocle(item));
+  }
+  function filterAndSort(items,criteria={},now=Date.now()){
+    const cluster=String(criteria.cluster||'');
     return items.filter(item=>{
       if(!isRecent(item,criteria.days||30,now))return false;
       const clusterMatch=!cluster
         ||(cluster==='__outside'?item.clusterStatus==='outside'
           :cluster==='__unresolved'?item.clusterStatus!=='inside'&&item.clusterStatus!=='outside'
             :cluster==='__unassigned'?!item.clusterId:item.clusterId===cluster);
-      return clusterMatch&&within(item.area,criteria.areaMin,criteria.areaMax)
-        &&(requiredFloor==null||number(item.floor)===requiredFloor)
-        &&(!premiseTypes.length||premiseTypes.includes(normalizePremiseType(null,item)))
-        &&(criteria.excludeBasementOrSocle!==true||!hasBasementOrSocle(item))
+      return clusterMatch&&matchesFixedCriteria(item,criteria)
         &&within(item.rentMonthly,criteria.rentMin,criteria.rentMax)
         &&within(item.pricePerSquareMeter,criteria.sqmMin,criteria.sqmMax);
     }).sort((left,right)=>compareStable(left,right,criteria.sort));
@@ -135,5 +139,5 @@
     const items=deduplicate(receivedItems).sort((left,right)=>compareStable(left,right));
     return {items,total:partial?(serverTotal??items.length):items.length,serverTotal,partial,errorCode,meta,pages:page,received,snapshotAt,freshnessCutoff};
   }
-  return{ALLOWED_PREMISE_TYPES,canonicalUrl,identity,deduplicate,freshnessTime,isRecent,compareStable,normalizePremiseType,hasBasementOrSocle,filterAndSort,loadAllPages};
+  return{ALLOWED_PREMISE_TYPES,canonicalUrl,identity,deduplicate,freshnessTime,isRecent,compareStable,normalizePremiseType,hasBasementOrSocle,matchesFixedCriteria,filterAndSort,loadAllPages};
 });

@@ -66,7 +66,7 @@ function defaultCriteria(existing){const src=existing&&typeof existing==='object
 function defaultPhase0(){
   const stamp=now();
   return{
-    schemaVersion:1,revision:0,source:'manual',listingUrl:'',canonicalUrl:'',externalId:'',listingTitle:'',listingPublishedAt:'',listingUpdatedAt:'',listingAddedAt:'',parserWarnings:[],floor:null,totalFloors:null,
+    schemaVersion:1,revision:0,source:'manual',listingUrl:'',canonicalUrl:'',externalId:'',listingTitle:'',listingDescription:'',listingPublishedAt:'',listingUpdatedAt:'',listingAddedAt:'',parserWarnings:[],floor:null,totalFloors:null,premiseType:'',hasBasementOrSocle:null,
     rent:{amount:null,period:'month',currency:'RUB'},windowsCount:null,roomsCount:null,
     status:STATUS.NO_ANSWER,rejection:null,selectionCriteria:defaultCriteria(),comments:'',
     layout:{received:false,fileName:'',mime:'',size:null,updatedAt:'',updatedBy:null},
@@ -659,7 +659,7 @@ class Phase0Service{
     const clusterApi=window.SlogiPhase0&&window.SlogiPhase0.clusterService;let cluster=clusterApi?clusterApi.find(clusterId||draft.clusterName):null;
     if(!cluster&&geo&&clusterApi)cluster=clusterApi.findByCoordinates(geo.lat,geo.lng);
     const phase0=Object.assign(defaultPhase0(),base,{
-      source,listingUrl,canonicalUrl:normalizeUrl(draft.canonicalUrl||listingUrl),externalId:String(draft.externalId||base.externalId||''),listingTitle:String(draft.listingTitle||base.listingTitle||''),listingPublishedAt:String(draft.publishedAt||base.listingPublishedAt||''),listingUpdatedAt:String(draft.sourceUpdatedAt||base.listingUpdatedAt||''),listingAddedAt:String(base.listingAddedAt||draft.addedAt||stamp),parserWarnings:Array.isArray(draft.parserWarnings)?draft.parserWarnings.map(String).slice(0,20):Array.isArray(base.parserWarnings)?base.parserWarnings:[],floor:nullableNumber(draft.floor??base.floor),totalFloors:nullableNumber(draft.totalFloors??base.totalFloors),
+      source,listingUrl,canonicalUrl:normalizeUrl(draft.canonicalUrl||listingUrl),externalId:String(draft.externalId||base.externalId||''),listingTitle:String(draft.listingTitle||base.listingTitle||''),listingDescription:String(draft.listingDescription||base.listingDescription||''),listingPublishedAt:String(draft.publishedAt||base.listingPublishedAt||''),listingUpdatedAt:String(draft.sourceUpdatedAt||base.listingUpdatedAt||''),listingAddedAt:String(base.listingAddedAt||draft.addedAt||stamp),parserWarnings:Array.isArray(draft.parserWarnings)?draft.parserWarnings.map(String).slice(0,20):Array.isArray(base.parserWarnings)?base.parserWarnings:[],floor:nullableNumber(draft.floor??base.floor),totalFloors:nullableNumber(draft.totalFloors??base.totalFloors),premiseType:String(draft.premiseType??base.premiseType??''),hasBasementOrSocle:draft.hasBasementOrSocle==null?(base.hasBasementOrSocle==null?null:Boolean(base.hasBasementOrSocle)):Boolean(draft.hasBasementOrSocle),
       rent:{amount:nullableNumber(draft.rentMonthly),period:normalizeRentPeriod(draft.rentPeriod),currency:String(draft.rentCurrency||'RUB')},
       windowsCount:nullableNumber(draft.windowsCount),roomsCount:nullableNumber(draft.roomsCount),status,rejection,
       selectionCriteria:defaultCriteria(draft.selectionCriteria),interest,
@@ -711,7 +711,7 @@ class Phase0Service{
       if(!geo){try{const result=await geocodingService.geocode(listing.address);if(result&&result.geo){geo=normalizeGeo(result.geo);cache[id]={geo,updatedAt:now()};const entries=Object.entries(cache).slice(-50);localStorage.setItem(cacheKey,JSON.stringify(Object.fromEntries(entries)));}}catch(_){geo=null;}}
       if(geo)cluster=clusterService.findByCoordinates(geo.lat,geo.lng);
     }
-    const result=await this.save({listingUrl:url,canonicalUrl:url,externalId:String(listing.externalId||''),listingTitle:String(listing.title||''),address:String(listing.address||''),latitude:geo&&geo.lat,longitude:geo&&geo.lng,clusterId:cluster&&cluster.id||'',clusterName:cluster&&cluster.name||'',area:listing.area,rentMonthly:listing.rentMonthly,rentPeriod:'month',rentCurrency:'RUB',floor:listing.floor,totalFloors:listing.totalFloors,ceilingHeight:listing.ceilingHeight,publishedAt:listing.publishedAt,sourceUpdatedAt:listing.sourceUpdatedAt,addedAt:now(),parserWarnings:listing.parseWarnings,status:STATUS.NO_ANSWER,selectionCriteria:defaultCriteria(),interestConfirmed:false,measurementStatus:'Не назначен'});
+    const result=await this.save({listingUrl:url,canonicalUrl:url,externalId:String(listing.externalId||''),listingTitle:String(listing.title||''),listingDescription:String(listing.description||''),address:String(listing.address||''),latitude:geo&&geo.lat,longitude:geo&&geo.lng,clusterId:cluster&&cluster.id||'',clusterName:cluster&&cluster.name||'',area:listing.area,rentMonthly:listing.rentMonthly,rentPeriod:'month',rentCurrency:'RUB',floor:listing.floor,totalFloors:listing.totalFloors,premiseType:listing.premiseType,hasBasementOrSocle:listing.hasBasementOrSocle,ceilingHeight:listing.ceilingHeight,publishedAt:listing.publishedAt,sourceUpdatedAt:listing.sourceUpdatedAt,addedAt:now(),parserWarnings:listing.parseWarnings,status:STATUS.NO_ANSWER,selectionCriteria:defaultCriteria(),interestConfirmed:false,measurementStatus:'Не назначен'});
     return{project:result,created:true};
   }
   updateStatus(projectId,status,rejectionReason=''){

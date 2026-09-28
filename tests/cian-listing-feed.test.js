@@ -72,6 +72,19 @@ test('fixed premise gate keeps only 100–150 m² first-floor allowed types with
   assert.equal(feed.hasBasementOrSocle({has_basement_or_socle:'true'}),true);
 });
 
+test('the same fixed predicate rejects the observed saved-project leak and governs manual candidates',()=>{
+  const criteria={areaMin:100,areaMax:150,floor:1,premiseTypes:['office','retail','free_purpose'],excludeBasementOrSocle:true};
+  const leakedSavedProject={source:'cian',title:'Сдается помещение свободного назначения, 5,8–85,9 м²',area:5.8,floor:20,premiseType:'free_purpose',hasBasementOrSocle:false};
+  assert.equal(feed.matchesFixedCriteria(leakedSavedProject,criteria),false);
+  assert.equal(feed.matchesFixedCriteria({...leakedSavedProject,area:100,floor:1},criteria),true,'100 m² is inclusive');
+  assert.equal(feed.matchesFixedCriteria({...leakedSavedProject,area:150,floor:1},criteria),true,'150 m² is inclusive');
+  assert.equal(feed.matchesFixedCriteria({...leakedSavedProject,area:99.9,floor:1},criteria),false);
+  assert.equal(feed.matchesFixedCriteria({...leakedSavedProject,area:150.1,floor:1},criteria),false);
+  assert.equal(feed.matchesFixedCriteria({...leakedSavedProject,area:120,floor:1,hasBasementOrSocle:true},criteria),false);
+  assert.equal(feed.matchesFixedCriteria({source:'manual',title:'Помещение',area:120,floor:1,hasBasementOrSocle:false},criteria),false,'manual candidate without an allowed type is excluded');
+  assert.equal(feed.matchesFixedCriteria({source:'manual',title:'Офис',area:120,floor:1,hasBasementOrSocle:false},criteria),true,'manual candidate follows the same predicate');
+});
+
 test('later cursor page failure is an explicit partial result and is never retried',async()=>{
   let calls=0;const first=[item(1)];
   const result=await feed.loadAllPages(async({page})=>{calls++;if(page===2)throw new Error('fixture_failure');return{items:first,meta:meta({page,total:2,items:first,hasMore:true,nextCursor:cursorFor(first[0])})};},{limit:1});
@@ -100,4 +113,7 @@ test('read path is read-only, cursor-based and filters against the frozen snapsh
   const readPath=source.slice(source.indexOf('async function fetchListingPage'),source.indexOf('function loadYandex'));
   assert.equal(/fetch\([^)]*(?:cian\.ru|browserless)/i.test(source),false);assert.equal(/refresh-listings|hydrate-listings|update-clusters|\bpersist\b/i.test(source),false);assert.equal(/addMarketListing|\.sync\(|from\(|insert\(|update\(|upsert\(/i.test(readPath),false);assert.equal((readPath.match(/\bfetch\(/g)||[]).length,1);
   assert.match(source,/feed\.loadAllPages/);assert.match(source,/request\.cursor=cursor/);assert.match(source,/applyFixedGate\(loaded\.items\)/);assert.match(source,/areaMin:FIXED_CRITERIA\.areaMin,areaMax:FIXED_CRITERIA\.areaMax,floor:FIXED_CRITERIA\.floor,premiseTypes:/);assert.doesNotMatch(readPath,/\.filter\(item=>isRecent/);
+  assert.match(source,/function matchesFixedCriteria\(item\)\{return feed\.matchesFixedCriteria\(item,FIXED_CRITERIA\);\}/);
+  assert.match(source,/isSearchCandidateProject\(project\)&&matchesFixedCriteria\(candidate\)/);
+  assert.match(source,/if\(matchesFixedCriteria\(candidate\)\)items\.push\(candidate\)/);
 });

@@ -17,6 +17,17 @@ test('общий renderer сохраняет одинаковые базовые
   }
 });
 
+test('зона действий компактна, подписана и не меняет кликабельную базовую карточку',()=>{
+  const html=card.render({...base,actionsLabel:'Действия в работе',actionsHtml:'<button class="premises-card__action-wide">Назначить просмотр</button><button>Этап работы</button><button>Отказ</button>'});
+  assert.match(html,/class="premises-card__open cian-card-open"/);
+  assert.match(html,/role="group" aria-label="Действия в работе"/);
+  assert.match(html,/premises-card__action-wide/);
+  const css=fs.readFileSync(new URL('../premises-list-card.css',import.meta.url),'utf8');
+  assert.match(css,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(css,/min-height:32px!important/);
+  assert.doesNotMatch(css,/\.premises-card__actions button[^}]+width:100%/);
+});
+
 test('список поиска не содержит ссылку на «Мои помещения»',()=>{
   const source=fs.readFileSync(new URL('../cian-workspace.js',import.meta.url),'utf8');
   assert.doesNotMatch(source,/Открыть в «Моих помещениях»/);

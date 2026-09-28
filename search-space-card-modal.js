@@ -16,6 +16,7 @@
     draft: null,
     evaluation: null,
     callbacks: {},
+    context: '',
     opener: null,
     busy: '',
     resolution: 'idle',
@@ -381,6 +382,11 @@
               </div>
             </section>
           </div>
+
+          <section class="ss-card-section ss-card-workflow" data-workflow-section aria-labelledby="ss-card-workflow-title" hidden>
+            <div class="ss-card-section-heading"><span>04</span><h3 id="ss-card-workflow-title">Сопровождение помещения</h3><strong class="ss-card-workflow-status" data-workflow-status></strong></div>
+            <div class="ss-card-workflow-content" data-workflow-content></div>
+          </section>
         </div>
 
         <footer class="ss-card-footer">
@@ -573,8 +579,36 @@
 
   function renderTakeAction() {
     const takeButton = state.dialog.querySelector('[data-action="take-to-work"]');
+    takeButton.hidden = state.context === 'in-work';
     takeButton.disabled = Boolean(state.busy);
     takeButton.setAttribute('aria-disabled', String(takeButton.disabled));
+  }
+
+  function renderWorkflow() {
+    const section = state.dialog.querySelector('[data-workflow-section]');
+    const content = state.dialog.querySelector('[data-workflow-content]');
+    const status = state.dialog.querySelector('[data-workflow-status]');
+    const enabled = state.context === 'in-work' && typeof state.callbacks.renderWorkflow === 'function';
+    section.hidden = !enabled;
+    if (!enabled) {
+      content.innerHTML = '';
+      status.textContent = '';
+      return;
+    }
+    const rendered = state.callbacks.renderWorkflow(state.draft) || {};
+    content.innerHTML = typeof rendered === 'string' ? rendered : text(rendered.html);
+    status.textContent = typeof rendered === 'object' ? text(rendered.status) : '';
+    content.onclick = (event) => {
+      const button = event.target.closest('[data-action]');
+      if (!button) return;
+      event.stopPropagation();
+      runWorkflowAction(button);
+    };
+    content.onchange = (event) => {
+      if (!event.target.matches('input[type="file"]')) return;
+      event.stopPropagation();
+      runWorkflowFile(event.target);
+    };
   }
 
   function render() {
@@ -587,6 +621,7 @@
     else listingLink.removeAttribute('href');
     renderEconomy(state.evaluation);
     renderTakeAction();
+    renderWorkflow();
     if (state.draft.hasWindows !== true && state.draft.hasWindows !== 'yes') setControl('windowsOpen', null);
     const deleteButton = state.dialog.querySelector('[data-action="delete"]');
     deleteButton.hidden = !(state.draft.id && typeof state.callbacks.onDelete === 'function');
@@ -698,8 +733,57 @@
     }
   }
 
+  async function runWorkflowAction(button) {
+    const callback = state.callbacks.onWorkflowAction;
+    if (typeof callback !== 'function') return;
+    clearAlert();
+    const formData = typeof window.FormData === 'function' ? new window.FormData(state.form) : null;
+    const action = text(button && button.dataset && button.dataset.action);
+    try {
+      const pending = callback(action, { card: state.draft, evaluation: state.evaluation, formData, button });
+      state.busy = `workflow-${action || 'action'}`;
+      render();
+      const result = await pending;
+      const payload = result && (result.card || result.data) ? (result.card || result.data) : result;
+      if (payload && typeof payload === 'object') {
+        state.draft = normalize(mergeCard(state.draft, payload));
+        fillForm(state.draft);
+      }
+    } catch (error) {
+      showAlert(error && error.message ? error.message : 'Не удалось выполнить действие. Повторите попытку.');
+    } finally {
+      state.busy = '';
+      render();
+    }
+  }
+
+  async function runWorkflowFile(inputNode) {
+    const callback = state.callbacks.onWorkflowFile;
+    if (typeof callback !== 'function' || !inputNode) return;
+    const file = inputNode.files && inputNode.files[0];
+    if (!file) return;
+    clearAlert();
+    try {
+      const pending = callback(inputNode.name, file, { card: state.draft, evaluation: state.evaluation });
+      state.busy = `workflow-file-${inputNode.name || 'upload'}`;
+      render();
+      const result = await pending;
+      const payload = result && (result.card || result.data) ? (result.card || result.data) : result;
+      if (payload && typeof payload === 'object') {
+        state.draft = normalize(mergeCard(state.draft, payload));
+        fillForm(state.draft);
+      }
+    } catch (error) {
+      showAlert(error && error.message ? error.message : 'Не удалось загрузить файл.');
+    } finally {
+      state.busy = '';
+      render();
+    }
+  }
+
   function bindEvents() {
     state.form.addEventListener('input', (event) => {
+      if (event.target.closest('[data-workflow-section]')) return;
       if (event.target.name === 'address') {
         event.target.setCustomValidity('');
         state.draft.address = event.target.value;
@@ -722,7 +806,13 @@
       if (event.target.name === 'pricePerSqm' || event.target.name === 'comparisonPercent') return;
       syncFromForm(event);
     });
-    state.form.addEventListener('change', syncFromForm);
+    state.form.addEventListener('change', (event) => {
+      if (event.target.closest('[data-workflow-section]')) {
+        if (event.target.matches('input[type="file"]')) runWorkflowFile(event.target);
+        return;
+      }
+      syncFromForm(event);
+    });
     state.form.addEventListener('focusout', finishDeferredEdit);
     state.form.addEventListener('submit', (event) => event.preventDefault());
     state.dialog.addEventListener('click', (event) => {
@@ -734,6 +824,7 @@
       else if (action === 'save') runCallback('onSave', EVENTS.save, true);
       else if (action === 'take-to-work') runCallback('onTakeToWork', EVENTS.takeToWork, true);
       else if (action === 'delete') runCallback('onDelete', EVENTS.delete, true);
+      else if (button.closest('[data-workflow-section]')) runWorkflowAction(button);
     });
     state.dialog.addEventListener('cancel', (event) => {
       event.preventDefault();
@@ -758,7 +849,7 @@
 
   function parseOpenArguments(initialOrOptions, maybeCallbacks) {
     const first = initialOrOptions && typeof initialOrOptions === 'object' ? initialOrOptions : {};
-    const isOptions = own(first, 'initial') || own(first, 'onResolveAddress') || own(first, 'onSave') || own(first, 'onTakeToWork') || own(first, 'onDelete');
+    const isOptions = own(first, 'initial') || own(first, 'onResolveAddress') || own(first, 'onSave') || own(first, 'onTakeToWork') || own(first, 'onDelete') || own(first, 'context') || own(first, 'renderWorkflow');
     return isOptions
       ? { initial: first.initial || {}, callbacks: first }
       : { initial: first, callbacks: maybeCallbacks && typeof maybeCallbacks === 'object' ? maybeCallbacks : {} };
@@ -769,6 +860,7 @@
     const dialog = ensureDialog();
     state.opener = options.callbacks.opener || document.activeElement;
     state.callbacks = options.callbacks;
+    state.context = text(options.callbacks.context);
     state.draft = normalize(options.initial);
     state.busy = '';
     state.resolution = 'idle';
@@ -806,6 +898,7 @@
     state.draft = null;
     state.evaluation = null;
     state.callbacks = {};
+    state.context = '';
     document.body.classList.remove('ss-card-modal-open');
   }
 

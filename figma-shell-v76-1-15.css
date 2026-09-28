@@ -455,7 +455,7 @@ body.figma-shell-v76115 .cian-card-price{min-width:125px!important}
 body.figma-shell-v76115 .cian-card-price strong{font-size:15px!important;font-weight:500!important}
 body.figma-shell-v76115 .cian-card-price span{font-size:11px!important}
 body.figma-shell-v76115 .cian-card-actions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:5px!important;padding:7px 10px 10px!important;border:0!important;background:#fff!important}
-body.figma-shell-v76115 .cian-card-actions .cian-button{min-height:38px!important;padding:7px 9px!important;border-radius:8px!important;font-size:12px!important;line-height:1.2!important}
+body.figma-shell-v76115 .cian-card-actions .cian-button{min-height:32px!important;padding:6px 8px!important;border-radius:8px!important;font-size:12px!important;line-height:1.2!important}
 body.figma-shell-v76115 .cian-card-actions .cian-add-object{background:var(--figma-gold)!important;color:#554723!important}
 body.figma-shell-v76115 .cian-card-actions .cian-remove-listing{border-color:#789095!important;background:#fff!important;color:var(--figma-sidebar-deep)!important}
 body.figma-shell-v76115 .cian-card-actions a{grid-column:1/-1;font-size:12px!important}
