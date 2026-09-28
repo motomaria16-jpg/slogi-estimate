@@ -38,17 +38,22 @@ test('the compact card exposes the complete canonical data inventory once',()=>{
   assert.match(modal,/data-origin="competitive"/);
 });
 
-test('tabs, fixed shell and responsive card keep the approved interaction contract',()=>{
+test('three compact tabs, fixed shell and responsive card keep the approved interaction contract',()=>{
   assert.match(modal,/role="tablist"/);
-  for(const tab of ['object','selection','workflow','history']){
+  for(const tab of ['object','workflow','history']){
     assert.match(modal,new RegExp(`role="tab"[^>]+aria-controls="ss-card-panel-${tab}"[^>]+data-card-tab="${tab}"`));
     assert.match(modal,new RegExp(`role="tabpanel"[^>]+aria-labelledby="ss-card-tab-${tab}"[^>]+data-card-panel="${tab}"`));
   }
+  assert.doesNotMatch(modal,/data-card-tab="selection"|>Отбор<|data-selection-detail/);
   assert.match(modal,/\['ArrowLeft', 'ArrowRight', 'Home', 'End'\]/);
   assert.match(css,/\.ss-card-form \{[^}]*height: 100%/);
   assert.match(css,/\.ss-card-body \{[^}]*overflow: auto/);
   assert.match(css,/\.ss-card-footer \{[^}]*flex: 0 0 auto/);
   assert.match(css,/\.ss-card-layout \{[^}]*grid-template-columns: minmax\(0,1fr\) 278px/);
+  assert.match(css,/\.ss-card-columns \{[^}]*grid-template-columns: repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(css,/\.ss-card-context \{[^}]*align-self: start/);
+  assert.match(css,/\.ss-card-workflow-content \{[^}]*grid-template-columns: repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(css,/\.ss-card-workflow-content \.in-work-field[^}]*grid-template-columns: 108px minmax\(0,1fr\)/);
   assert.match(css,/@media \(max-width: 820px\)[\s\S]+\.ss-card-layout \{ grid-template-columns: 1fr/);
   assert.match(css,/:focus-visible/);
 });

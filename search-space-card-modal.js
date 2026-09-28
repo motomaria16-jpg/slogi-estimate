@@ -325,14 +325,13 @@
               <span class="ss-card-header-badge ss-card-header-badge-status" data-header-status hidden></span>
             </div>
           </div>
-          <p class="ss-card-visually-hidden" id="ss-card-subtitle">Единая карточка помещения: объект, отбор, сопровождение и история</p>
+          <p class="ss-card-visually-hidden" id="ss-card-subtitle">Единая карточка помещения: объект, сопровождение и история</p>
           <a class="ss-card-header-link" data-listing-field-link target="_blank" rel="noopener noreferrer" hidden>Открыть объявление</a>
           <button class="ss-card-close" type="button" data-action="close" aria-label="Закрыть карточку">×</button>
         </header>
 
         <nav class="ss-card-tabs" role="tablist" aria-label="Разделы карточки помещения">
           <button type="button" role="tab" id="ss-card-tab-object" aria-controls="ss-card-panel-object" aria-selected="true" tabindex="0" data-card-tab="object">Объект</button>
-          <button type="button" role="tab" id="ss-card-tab-selection" aria-controls="ss-card-panel-selection" aria-selected="false" tabindex="-1" data-card-tab="selection">Отбор</button>
           <button type="button" role="tab" id="ss-card-tab-workflow" aria-controls="ss-card-panel-workflow" aria-selected="false" aria-disabled="true" tabindex="-1" data-card-tab="workflow">Сопровождение</button>
           <button type="button" role="tab" id="ss-card-tab-history" aria-controls="ss-card-panel-history" aria-selected="false" aria-disabled="true" tabindex="-1" data-card-tab="history">История</button>
         </nav>
@@ -402,13 +401,6 @@
                     </div>
                   </section>
                 </div>
-              </section>
-
-              <section class="ss-card-tab-panel" id="ss-card-panel-selection" role="tabpanel" aria-labelledby="ss-card-tab-selection" data-card-panel="selection" hidden>
-                <section class="ss-card-section ss-card-selection-detail" aria-labelledby="ss-card-selection-title">
-                  <div class="ss-card-section-heading"><span aria-hidden="true">✓</span><h3 id="ss-card-selection-title">Результат отбора</h3></div>
-                  <div data-selection-detail></div>
-                </section>
               </section>
 
               <section class="ss-card-tab-panel" id="ss-card-panel-workflow" role="tabpanel" aria-labelledby="ss-card-tab-workflow" data-card-panel="workflow" data-workflow-section hidden>
@@ -643,7 +635,7 @@
   }
 
   function tabAvailable(name) {
-    return name === 'object' || name === 'selection' || workflowEnabled();
+    return name === 'object' || (workflowEnabled() && (name === 'workflow' || name === 'history'));
   }
 
   function setActiveTab(name, focus) {
@@ -660,6 +652,7 @@
     state.dialog.querySelectorAll('[data-card-panel]').forEach((panel) => {
       panel.hidden = panel.dataset.cardPanel !== state.activeTab;
     });
+    renderContextPanel();
   }
 
   function renderHeader() {
@@ -687,21 +680,6 @@
     ];
   }
 
-  function renderSelection() {
-    const target = state.dialog.querySelector('[data-selection-detail]');
-    const reasons = state.evaluation && state.evaluation.reasons || [];
-    const ready = state.evaluation && state.evaluation.canTakeToWork;
-    const sources = [
-      ['Координаты', state.draft.geo && state.draft.geo.resolutionSource],
-      ['Кластер', state.draft.cluster && state.draft.cluster.resolutionSource],
-      ['Конкурентный анализ', state.draft.competitive && state.draft.competitive.resolutionSource],
-      ['Соответствие площади', state.draft.areaConfirmedSource]
-    ];
-    target.innerHTML = `<div class="ss-card-selection-summary ${ready ? 'ready' : ''}"><strong>${ready ? 'Отбор пройден' : 'Требуется решение'}</strong><span>${ready ? 'Все критерии выполнены.' : `${reasons.length} ${reasons.length === 1 ? 'условие требует' : 'условия требуют'} внимания.`}</span></div>
-      ${reasons.length ? `<ul class="ss-card-reason-list">${reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join('')}</ul>` : ''}
-      <div class="ss-card-provenance" aria-label="Происхождение значений">${sources.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(originLabel(value) || 'не указано')}</strong></div>`).join('')}</div>`;
-  }
-
   function renderContextPanel() {
     const target = state.dialog.querySelector('[data-context-content]');
     if (state.activeTab === 'workflow' && state.workflowView && state.workflowView.sidebarHtml) {
@@ -709,10 +687,11 @@
       return;
     }
     const items = checkItems();
+    const reasons = state.evaluation && state.evaluation.reasons || [];
     const inWork = workflowEnabled();
     const action = inWork ? 'go-workflow' : state.context === 'in-work' ? 'save' : 'take-to-work';
     const actionLabel = inWork ? 'Перейти к сопровождению' : state.context === 'in-work' ? 'Добавить помещение в работу' : 'Добавить в «Помещение в работе»';
-    target.innerHTML = `<section class="ss-card-context-section"><div class="ss-card-context-heading"><span aria-hidden="true">✓</span><h3>Готовность</h3></div><ul class="ss-card-check-list">${items.map((item) => `<li class="${item.ready ? 'ready' : 'pending'}"><span aria-hidden="true"></span>${escapeHtml(item.label)}</li>`).join('')}</ul></section>
+    target.innerHTML = `<section class="ss-card-context-section"><div class="ss-card-context-heading"><span aria-hidden="true">✓</span><h3>Готовность</h3></div><ul class="ss-card-check-list">${items.map((item) => `<li class="${item.ready ? 'ready' : 'pending'}"><span aria-hidden="true"></span>${escapeHtml(item.label)}</li>`).join('')}</ul>${reasons.length ? `<ul class="ss-card-context-reasons">${reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join('')}</ul>` : ''}</section>
       <section class="ss-card-context-section ss-card-next"><div class="ss-card-context-heading"><span aria-hidden="true">⚑</span><h3>Следующий этап</h3></div><button class="ss-card-button ss-card-button-primary ss-card-next-button" type="button" data-action="${action}">${actionLabel} <span aria-hidden="true">→</span></button></section>`;
   }
 
@@ -757,9 +736,7 @@
     renderEconomy(state.evaluation);
     renderWorkflow();
     renderHeader();
-    renderSelection();
     setActiveTab(state.activeTab);
-    renderContextPanel();
     renderTakeAction();
     if (state.draft.hasWindows !== true && state.draft.hasWindows !== 'yes') setControl('windowsOpen', null);
     const centerDetails = state.dialog.querySelector('[data-center-details]');

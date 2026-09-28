@@ -54,12 +54,12 @@ test('browser editing keeps address spaces and defers calculated-field replaceme
     });
 
     for (const viewport of [
-      { width: 1280, height: 900, layoutColumns: 2 },
-      { width: 1024, height: 800, layoutColumns: 2 },
-      { width: 981, height: 800, layoutColumns: 2 },
-      { width: 681, height: 760, layoutColumns: 1 },
-      { width: 375, height: 760, layoutColumns: 1 },
-      { width: 320, height: 700, layoutColumns: 1 }
+      { width: 1280, height: 900, layoutColumns: 2, sectionColumns: 2 },
+      { width: 1024, height: 800, layoutColumns: 2, sectionColumns: 2 },
+      { width: 981, height: 800, layoutColumns: 2, sectionColumns: 2 },
+      { width: 681, height: 760, layoutColumns: 1, sectionColumns: 2 },
+      { width: 375, height: 760, layoutColumns: 1, sectionColumns: 1 },
+      { width: 320, height: 700, layoutColumns: 1, sectionColumns: 1 }
     ]) {
       await page.setViewportSize(viewport);
       const geometry = await page.locator('#slogi-search-space-card-dialog').evaluate(dialog => ({
@@ -76,7 +76,7 @@ test('browser editing keeps address spaces and defers calculated-field replaceme
       assert.ok(geometry.dialogOverflow <= 1, `dialog must not overflow at ${viewport.width}px`);
       assert.ok(geometry.bodyOverflow <= 1, `body must not overflow at ${viewport.width}px`);
       assert.equal(geometry.layoutColumns.trim().split(/\s+/).length, viewport.layoutColumns, `card must use ${viewport.layoutColumns} content columns at ${viewport.width}px`);
-      assert.equal(geometry.sectionColumns.trim().split(/\s+/).length, 1, `compact sections must stack at ${viewport.width}px`);
+      assert.equal(geometry.sectionColumns.trim().split(/\s+/).length, viewport.sectionColumns, `card must use ${viewport.sectionColumns} compact section columns at ${viewport.width}px`);
       assert.equal(geometry.listingLinkHidden, false, 'a safe listing URL must expose the header action');
       assert.ok(geometry.coordinatesWidth >= 200, `coordinates must keep a usable row at ${viewport.width}px`);
       geometry.coordinateInputWidths.forEach(width => assert.ok(width >= 60, `coordinate inputs must stay usable at ${viewport.width}px`));

@@ -142,7 +142,8 @@ test('workflow extension is opt-in and restricted to the in-work card context', 
   assert.match(SOURCE, /takeButton\.hidden = state\.context === 'in-work'/);
   assert.match(SOURCE, /rendered\.historyHtml/);
   assert.match(SOURCE, /state\.workflowView\.sidebarHtml/);
-  assert.match(CSS, /\.ss-card-workflow-content, \.ss-card-history-content \{ display: grid/);
+  assert.match(CSS, /\.ss-card-workflow-content \{ display: grid; grid-template-columns: repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(CSS, /\.ss-card-history-content \{ display: grid/);
 });
 
 test('markup is compact, accessible and uses one editable control per value', () => {
@@ -150,10 +151,11 @@ test('markup is compact, accessible and uses one editable control per value', ()
   assert.match(SOURCE, /class="ss-card-identity"/);
   assert.match(SOURCE, /class="ss-card-columns"/);
   assert.match(SOURCE, /role="tablist"/);
-  for (const tab of ['object','selection','workflow','history']) {
+  for (const tab of ['object','workflow','history']) {
     assert.match(SOURCE, new RegExp(`role="tab"[^>]+data-card-tab="${tab}"`));
     assert.match(SOURCE, new RegExp(`role="tabpanel"[^>]+data-card-panel="${tab}"`));
   }
+  assert.doesNotMatch(SOURCE, /data-card-tab="selection"|>Отбор<|data-selection-detail/);
   assert.match(SOURCE, /\['ArrowLeft', 'ArrowRight', 'Home', 'End'\]/);
   assert.match(SOURCE, /Кластер и рейтинг/);
   assert.match(SOURCE, />Экономика</);
@@ -206,8 +208,8 @@ test('markup is compact, accessible and uses one editable control per value', ()
   assert.match(CSS, /input\[value="false"\]:checked/);
   assert.match(CSS, /\.ss-card-identity \{[^}]*grid-template-columns:/);
   assert.match(CSS, /\.ss-card-layout \{[^}]*grid-template-columns: minmax\(0,1fr\) 278px/);
-  assert.match(CSS, /\.ss-card-columns \{[^}]*grid-template-columns: 1fr/);
-  assert.match(CSS, /\.ss-card-row \{[^}]*min-height: 32px/);
+  assert.match(CSS, /\.ss-card-columns \{[^}]*grid-template-columns: repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(CSS, /\.ss-card-row \{[^}]*min-height: 29px/);
   assert.match(CSS, /\.ss-card-choice span \{[^}]*min-height: 26px/);
   assert.doesNotMatch(CSS, /\.ss-card-status-card|\.ss-card-manual(?:\s|\{|\.)/);
   assert.match(CSS, /\.ss-card-center-choice \.ss-card-choice input\[value="true"\]:checked \+ span \{[^}]*var\(--ss-card-danger\)/);
