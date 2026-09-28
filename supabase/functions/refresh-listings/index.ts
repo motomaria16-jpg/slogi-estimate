@@ -27,7 +27,9 @@ export const DISCOVERY_LIMITS = Object.freeze({
   browserlessCalls: 2,
   concurrency: 1,
   backfillPagesPerRun: 1,
-  runSlotHours: 24,
+  // Four bounded discovery slots per UTC day. Each slot reads the hot page
+  // and one durable cursor page, so discovery is capped at eight sessions.
+  runSlotHours: 6,
   defaultRuntimeMs: 75_000,
   minRuntimeMs: 100,
   hardRuntimeMs: 90_000,

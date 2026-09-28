@@ -23,12 +23,11 @@ const CRON_HEADER = 'x-slogi-listing-cron-secret';
 const SOURCES = new Set<ListingSource>(['cian']);
 
 export const HYDRATION_LIMITS = Object.freeze({
-  // The free Browserless allowance is monthly and proxy traffic also consumes
-  // units. Claim one card every two hours so the automatic feed remains within
-  // the account's sustainable provider budget.
-  defaultBatch: 1,
-  hardBatch: 1,
-  runSlotMinutes: 120,
+  // Process two durable queue items per hourly slot. Together with discovery
+  // this keeps the expanded provider budget bounded at 56 sessions per day.
+  defaultBatch: 2,
+  hardBatch: 2,
+  runSlotMinutes: 60,
   defaultConcurrency: 1,
   hardConcurrency: 1,
   browserlessCallsPerItem: 1,

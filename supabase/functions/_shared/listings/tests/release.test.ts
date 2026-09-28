@@ -158,7 +158,7 @@ test('Browserless quota exhaustion is distinct from an invalid token',()=>{
 });
 
 test('rolling ingestion budgets are bounded, sequential and cursor-capable',()=>{
-  assert.equal(DISCOVERY_LIMITS.browserlessCalls,2);assert.equal(DISCOVERY_LIMITS.concurrency,1);assert.equal(DISCOVERY_LIMITS.backfillPagesPerRun,1);assert.equal(DISCOVERY_LIMITS.runSlotHours,24);assert.equal(HYDRATION_LIMITS.hardBatch,1);assert.equal(HYDRATION_LIMITS.runSlotMinutes,120);assert.equal(HYDRATION_LIMITS.hardConcurrency,1);assert.equal(HYDRATION_LIMITS.browserlessCallsPerItem,1);assert.ok(BROWSERLESS_LIMITS.hardClientTimeoutMs<=75000);
+  assert.equal(DISCOVERY_LIMITS.browserlessCalls,2);assert.equal(DISCOVERY_LIMITS.concurrency,1);assert.equal(DISCOVERY_LIMITS.backfillPagesPerRun,1);assert.equal(DISCOVERY_LIMITS.runSlotHours,6);assert.equal(HYDRATION_LIMITS.hardBatch,2);assert.equal(HYDRATION_LIMITS.runSlotMinutes,60);assert.equal(HYDRATION_LIMITS.hardConcurrency,1);assert.equal(HYDRATION_LIMITS.browserlessCallsPerItem,1);assert.ok(BROWSERLESS_LIMITS.hardClientTimeoutMs<=75000);
   const source=readFileSync(join(repositoryDirectory,'supabase','functions','refresh-listings','index.ts'),'utf8');
   assert.equal(/MAX_BACKFILL_PAGE|max_backfill_page_reached/i.test(source),false);
 });
@@ -259,14 +259,14 @@ test('duplicate daily discovery slot exits before Browserless',async()=>{
   assert.equal(response.status,200);assert.equal(calls,0);assert.equal((await response.json()).outcome.status,'duplicate');
 });
 
-test('duplicate two-hour hydration slot exits before Browserless',async()=>{
+test('duplicate hourly hydration slot exits before Browserless',async()=>{
   let calls=0;const store=inertStore({async claimRun(){return{claimed:false,runId:null,recovered:false};}});
   const handler=createHydrateListingsHandler({store,client:{async fetchPage(){calls++;throw new Error('unexpected');}},environment:environment({SLOGI_LISTING_CRON_SECRET:'fixture'}),now:()=>dateReference,workerId:()=> '11111111-1111-4111-8111-111111111111'});
   const response=await handler(new Request('http://local/hydrate',{method:'POST',headers:{'x-slogi-listing-cron-secret':'fixture','Content-Type':'application/json'},body:'{"source":"cian"}'}));
   assert.equal(response.status,200);assert.equal(calls,0);assert.equal((await response.json()).outcome.status,'duplicate');
 });
 
-test('daily discovery and two-hour hydration slots are normalized without provider calls',async()=>{
+test('six-hour discovery and hourly hydration slots are normalized without provider calls',async()=>{
   const capture=async(kind:'discovery'|'hydration',at:string)=>{
     let slot='';
     const store=inertStore({async claimRun(_source,phase,runSlot){assert.equal(phase,kind);slot=runSlot;return{claimed:false,runId:null,recovered:false};}});
@@ -275,9 +275,9 @@ test('daily discovery and two-hour hydration slots are normalized without provid
     const response=await handler(new Request('http://local/slot',{method:'POST',headers:{'x-slogi-listing-cron-secret':'fixture','Content-Type':'application/json'},body:'{"source":"cian"}'}));
     assert.equal(response.status,200);return slot;
   };
-  assert.equal(await capture('discovery','2026-08-28T07:59:00Z'),'2026-08-28T00:00:00.000Z');
-  assert.equal(await capture('discovery','2026-08-28T13:01:00Z'),'2026-08-28T00:00:00.000Z');
-  assert.equal(await capture('hydration','2026-08-28T07:59:00Z'),'2026-08-28T06:00:00.000Z');
+  assert.equal(await capture('discovery','2026-08-28T07:59:00Z'),'2026-08-28T06:00:00.000Z');
+  assert.equal(await capture('discovery','2026-08-28T13:01:00Z'),'2026-08-28T12:00:00.000Z');
+  assert.equal(await capture('hydration','2026-08-28T07:59:00Z'),'2026-08-28T07:00:00.000Z');
   assert.equal(await capture('hydration','2026-08-28T08:01:00Z'),'2026-08-28T08:00:00.000Z');
 });
 
@@ -462,6 +462,13 @@ test('free-tier recovery schedule caps provider calls and revives quota-failed r
   assert.equal(/cron\.schedule|cron\.unschedule|delete\s+from|insert\s+into|update\s+cron\.job/i.test(sql),false);
 });
 
+test('expanded provider schedule restores 56-call cadence and only revives quota-exhausted rows',()=>{
+  const sql=readFileSync(join(repositoryDirectory,'supabase','schedules','cian-listings-v76137-expanded-budget.sql'),'utf8');
+  assert.match(sql,/56 Browserless sessions per UTC day/);assert.match(sql,/10 0,6,12,18 \* \* \*/);assert.match(sql,/25 \* \* \* \*/);
+  assert.match(sql,/status in \('failed', 'retry'\)/);assert.match(sql,/last_error_code = 'browserless_credits_exhausted'/);assert.match(sql,/cooldown_until = null/);
+  assert.doesNotMatch(sql,/browserless_http_401/);assert.equal(/cron\.schedule|cron\.unschedule|delete\s+from|insert\s+into|update\s+cron\.job/i.test(sql),false);
+});
+
 test('frontend search sends Auth, reads only, and exposes only the active source',()=>{
   const js=readFileSync(join(repositoryDirectory,'cian-workspace.js'),'utf8');const html=readFileSync(join(repositoryDirectory,'available-spaces.html'),'utf8');
   const readPath=js.slice(js.indexOf('async function fetchListingPage'),js.indexOf('function loadYandex'));
@@ -479,17 +486,18 @@ test('hotfix navigation exposes the four product sections in the approved order'
 test('Cian workspace uses canonical clusters and renders measurable map polygons',()=>{
   const js=readFileSync(join(repositoryDirectory,'cian-workspace.js'),'utf8');const mapJs=readFileSync(join(repositoryDirectory,'cian-map-data.js'),'utf8');const html=readFileSync(join(repositoryDirectory,'available-spaces.html'),'utf8');
   assert.doesNotMatch(html,/cian-filter-card|available-(?:cluster|area-min|area-max|rent-min|rent-max|sqm-min|sqm-max|date|sort|reset)/);assert.doesNotMatch(html+js,/сохран[её]нн/i);
-  assert.match(js,/areaMin:FIXED_CRITERIA\.areaMin,areaMax:FIXED_CRITERIA\.areaMax,floor:FIXED_CRITERIA\.floor,premiseTypes:\[\.\.\.FIXED_CRITERIA\.premiseTypes\]/);assert.match(js,/applyFixedGate\(loaded\.items\)/);assert.match(js,/geocodeMissingListings\(all,/);
+  assert.match(js,/areaMin:FIXED_CRITERIA\.areaMin,areaMax:FIXED_CRITERIA\.areaMax,floor:FIXED_CRITERIA\.floor,premiseTypes:\[\.\.\.FIXED_CRITERIA\.premiseTypes\]/);assert.match(js,/applyFixedGate\(loaded\.items\)/);assert.match(js,/geocodeMissingListings\(geocodeTargets,/);
   assert.match(js,/mapData\.clusterState/);assert.match(mapJs,/clusterService\.findByCoordinates/);assert.match(js,/new window\.ymaps\.Polygon/);assert.match(js,/dataset\.clusterPolygons/);
   assert.match(js,/HIDDEN_LISTINGS_KEY='slogi_cian_hidden_listing_ids_v1'/);assert.doesNotMatch(js,/\bfields\b|applyFilters|populateClusters/);
   assert.equal(/fetch\([^)]*cian\.ru/i.test(js),false);
 });
 
-test('adding a Cian listing follows the existing project domain path and deduplicates',()=>{
+test('saving a Cian listing follows the canonical project domain path and deduplicates',()=>{
   const services=readFileSync(join(repositoryDirectory,'phase0-services.js'),'utf8');const workspace=readFileSync(join(repositoryDirectory,'cian-workspace.js'),'utf8');
+  const addStart=services.indexOf('async addMarketListing'),addBlock=services.slice(addStart,services.indexOf('  updateStatus',addStart));
   assert.match(services,/findByListing\('cian'/);assert.match(services,/async addMarketListing\(listing\)/);assert.match(services,/this\.save\(\{listingUrl:url/);
-  assert.match(services,/source!=='cian'&&clusterApi\.findNearestByCoordinates/);
-  assert.match(workspace,/service\.addMarketListing\(item\)/);assert.match(workspace,/SlogiCloud\.sync\(\)/);
+  assert.doesNotMatch(addBlock,/findNearestByCoordinates/);
+  assert.match(workspace,/service\.save\(draftForSave/);assert.match(workspace,/SlogiCloud\.sync\(\)/);
   assert.equal(/localStorage\.setItem\([^,]+,\s*JSON\.stringify\(item\)/.test(workspace),false);
 });
 
