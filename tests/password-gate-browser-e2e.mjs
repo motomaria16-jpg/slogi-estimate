@@ -20,6 +20,7 @@ const canonicalWorkspace='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const syntheticPassword=randomUUID()+randomUUID();
 const grantKey='slogi_device_grant_v1';
 const configSource=`window.SLOGI_PHASE0_CONFIG=${JSON.stringify({
+  fastNavigation:{enabled:false},
   supabase:{url:apiUrl,publishableKey},
   listingSearch:{endpoint:apiUrl+'/functions/v1/search-listings',limit:50,timeoutMs:30000},
   geocoding:{endpoint:apiUrl+'/functions/v1/geocode-address',timeoutMs:12000},
@@ -174,6 +175,11 @@ async function unlock(device,password=syntheticPassword){
 }
 
 async function activeFastFrame(device,requiredSelector='#cian-main'){
+  if(await device.page.locator(requiredSelector).count()){
+    await device.page.waitForSelector(requiredSelector);
+    await device.page.waitForFunction(()=>window.SlogiCloud?.ready===true);
+    return device.page;
+  }
   const resolved=await device.page.waitForFunction(selector=>[...document.querySelectorAll('.slogi-fast-view-frame')].find(frame=>!frame.hidden&&!frame.classList.contains('is-preloading')&&frame.contentDocument&&frame.contentDocument.querySelector(selector))||null,requiredSelector);
   const handle=resolved.asElement(),frame=handle&&await handle.contentFrame();
   assert.ok(frame,'active fast-navigation frame missing');
@@ -182,11 +188,8 @@ async function activeFastFrame(device,requiredSelector='#cian-main'){
   return frame;
 }
 
-async function assertFastNavigationFreshness(device){
-  let search=await activeFastFrame(device),searchHandle=await device.page.locator('.slogi-fast-view-frame:not([hidden])').elementHandle();
-  await searchHandle.evaluate(node=>{node.dataset.e2eViewIdentity='search';});
-  const sidebar=await device.page.locator('.figma-shell-sidebar').elementHandle();
-  await sidebar.evaluate(node=>{node.dataset.e2eShellIdentity='persistent';});
+async function assertDirectNavigationFreshness(device){
+  let search=await activeFastFrame(device);
   const source='cian:1',card=search.locator(`[data-listing-card="${source}"]`);
   await card.locator('.cian-card-open').click();
   const modal=search.getByRole('dialog',{name:'Карточка помещения'});await modal.waitFor();
@@ -194,23 +197,21 @@ async function assertFastNavigationFreshness(device){
   await search.waitForFunction(id=>!document.querySelector(`[data-listing-card="${id}"]`),source);
   const projectId=await search.evaluate(externalId=>window.SlogiPro.readLocations().find(project=>String(project.phase0&&project.phase0.externalId||'')===externalId&&project.phase0&&project.phase0.spaceCard&&project.phase0.spaceCard.work&&project.phase0.spaceCard.work.status==='in_work')?.id||'','1');
   assert.ok(projectId,'take-to-work creates a canonical project id');
-  const searchSrc=await searchHandle.getAttribute('src');
-
-  await device.page.locator('.figma-shell-sidebar .figma-shell-nav-link[href="in-work.html"]').click();
+  await Promise.all([
+    device.page.waitForURL(/\/in-work\.html$/),
+    device.page.locator('.figma-shell-sidebar .figma-shell-nav-link[href="in-work.html"]').click()
+  ]);
   const work=await activeFastFrame(device,'#in-work-main');
   await work.waitForFunction(id=>[...document.querySelectorAll('[data-project-id]')].some(node=>node.dataset.projectId===id),projectId);
-  const workHandle=await device.page.locator('.slogi-fast-view-frame:not([hidden])').elementHandle(),workSrc=await workHandle.getAttribute('src');
-  await workHandle.evaluate(node=>{node.dataset.e2eViewIdentity='work';});
-  assert.equal(await device.page.locator('.figma-shell-sidebar[data-e2e-shell-identity="persistent"]').count(),1,'sidebar DOM survives Search → In-work');
+  assert.equal(await device.page.locator('.figma-shell-sidebar').count(),1,'in-work page keeps the shared sidebar');
 
-  await device.page.locator('.figma-shell-sidebar .figma-shell-nav-link[href="available-spaces.html"]').click();
+  await Promise.all([
+    device.page.waitForURL(/\/available-spaces\.html$/),
+    device.page.locator('.figma-shell-sidebar .figma-shell-nav-link[href="available-spaces.html"]').click()
+  ]);
   search=await activeFastFrame(device);
   await search.waitForFunction(id=>!document.querySelector(`[data-listing-card="${id}"]`),source);
-  assert.equal(await device.page.locator('.slogi-fast-view-frame:not([hidden])[data-e2e-view-identity="search"]').count(),1,'Search reuses the original cached iframe');
-  assert.equal(await device.page.locator('.slogi-fast-view-frame[data-e2e-view-identity="work"]').getAttribute('src'),workSrc,'hidden In-work view is cached without reload');
-  assert.equal(await device.page.locator('.slogi-fast-view-frame[data-e2e-view-identity="search"]').getAttribute('src'),searchSrc,'Search view src remains unchanged');
-  assert.equal(await device.page.locator('.slogi-fast-view-frame').count(),2,'fast navigation keeps at most two route views');
-  assert.equal(await device.page.locator('.figma-shell-sidebar[data-e2e-shell-identity="persistent"]').count(),1,'sidebar identity survives the round trip');
+  assert.equal(await device.page.locator('.figma-shell-sidebar').count(),1,'search page keeps the shared sidebar after return');
 }
 
 async function assertAvailableSpace(device,label){
@@ -535,7 +536,7 @@ try{
   await desktop.page.waitForFunction(()=>window.SlogiCloud?.ready===true);
   assert.ok(desktop.identity.requests.length>originalRequestCount,'reload did not reuse the persistent grant');
   await assertAvailableSpace(desktop,'desktop');
-  await assertFastNavigationFreshness(desktop);
+  await assertDirectNavigationFreshness(desktop);
 
   await desktop.page.evaluate(async()=>{
     localStorage.setItem('slogi_locations_v1',JSON.stringify([{id:'cross-device-fixture',source:'manual'}]));

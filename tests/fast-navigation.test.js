@@ -152,7 +152,7 @@ test('view load failure falls back to a clean full-document URL',async()=>{
 
 test('host wiring keeps the fail-closed gate first, isolates runtimes, and pauses hidden reminders',()=>{
   for(const page of ['available-spaces.html','in-work.html']){
-    const html=read(page),shared=html.indexOf('shared-workspace.js?v=76134'),fast=html.indexOf('fast-navigation.js?v=76134'),headEnd=html.indexOf('</head>');
+    const html=read(page),shared=html.indexOf('shared-workspace.js?v=76134'),fast=html.indexOf('fast-navigation.js?v=76135'),headEnd=html.indexOf('</head>');
     assert.match(html,/data-slogi-access="pending"/);assert.ok(shared>=0&&shared<fast&&fast<headEnd,page);
     const styles=[...html.matchAll(/href="([^"]+\.css\?[^\"]+)"/g)].map(match=>match[1]);
     assert.match(styles.at(-1),/^figma-shell-v76-1-15\.css\?v=\d+$/);
@@ -163,6 +163,8 @@ test('host wiring keeps the fail-closed gate first, isolates runtimes, and pause
   assert.match(inWork,/if\(window\.__slogiFastNavigationHost\)return/);
   assert.match(inWork,/slogi:view-visibility/);assert.match(inWork,/clearInterval\(reminderTimer\)/);assert.match(inWork,/if\(appInitialized\)reload\(\)/,'a cached in-work view must refresh local storage on resume');
   const source=read('fast-navigation.js');
+  assert.match(read('phase0-config.js'),/fastNavigation:\{[\s\S]*enabled:existingFastNavigation\.enabled===true/,'production must fail safe to direct page navigation');
+  assert.match(source,/fastNavigation\.enabled===true/,'persistent iframe navigation must require an explicit runtime flag');
   assert.match(source,/requestIdleCallback/);assert.match(source,/max:2/);assert.doesNotMatch(source,/previous\.remove\(\)/);
   assert.match(source,/data-slogi-access'\)==='granted'/,'view loading must wait for the existing fail-closed gate');
   assert.match(source,/accessObserver\.observe\(frameDoc\.documentElement/,'embedded pending access must be observed before a view is cached');

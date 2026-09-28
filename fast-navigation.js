@@ -253,6 +253,7 @@
   function boot(win){
     if(win.__slogiFastNavigation76115)return;
     win.__slogiFastNavigation76115=true;
+    if(!(win.SLOGI_PHASE0_CONFIG&&win.SLOGI_PHASE0_CONFIG.fastNavigation&&win.SLOGI_PHASE0_CONFIG.fastNavigation.enabled===true))return;
     const url=new URL(win.location.href),embedded=url.searchParams.get(VIEW_PARAM)==='1';
     if(embedded&&win.parent===win){url.searchParams.delete(VIEW_PARAM);win.location.replace(url.href);return;}
     if(embedded){bootEmbedded(win);return;}
