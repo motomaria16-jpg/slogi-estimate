@@ -25,6 +25,7 @@
 .in-work-hero{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:72px;padding:8px 2px 13px}
 .in-work-title-line{display:flex;align-items:center;gap:10px}
 .in-work-title-line h1{margin:0;font-size:28px;font-weight:500;letter-spacing:-.03em}
+.in-work-title-line h1:focus,.in-work-title-line h1:focus-visible{outline:none!important;box-shadow:none!important}
 .in-work-count,.in-work-map-count{display:inline-flex;align-items:center;min-height:28px;padding:4px 10px;border-radius:999px;background:var(--work-gold-soft);color:#75602e;font-size:12px;font-weight:500}
 .in-work-hero-actions{display:flex;align-items:center;gap:8px}
 .in-work-mode-switch,.in-work-calendar-views,.in-work-mobile-views{display:flex;gap:3px;padding:3px;border:1px solid var(--work-line);border-radius:11px;background:#eee9e2}

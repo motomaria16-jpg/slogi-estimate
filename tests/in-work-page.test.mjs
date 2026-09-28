@@ -48,6 +48,14 @@ test('in-work header is concise and adds a canonical room directly to work',()=>
   assert.match(app,/byId\('in-work-add-space'\)\.addEventListener\('click'/);
 });
 
+test('in-work heading has no focus outline and list counters stay visually hidden',()=>{
+  assert.match(html,/in-work\.css\?v=76142/);
+  assert.match(html,/class="in-work-list-column" aria-label="Список помещений в работе"/);
+  assert.match(html,/class="in-work-sr-only" id="in-work-list-summary"/);
+  assert.doesNotMatch(html,/Активные помещения/);
+  assert.match(css,/\.in-work-title-line h1:focus,\.in-work-title-line h1:focus-visible\{outline:none!important;box-shadow:none!important\}/);
+});
+
 test('shared list receives only visit and refusal actions in the required order',()=>{
   const card=app.slice(app.indexOf('function cardHtml'),app.indexOf('function renderList'));
   assert.match(card,/data-action="\$\{scheduled\?'reschedule':'schedule'\}"[^>]*>Назначить просмотр<\/button>[\s\S]*data-action="reject">Отказ<\/button>/);
