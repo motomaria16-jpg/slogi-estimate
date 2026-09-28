@@ -191,7 +191,7 @@ test('host wiring keeps the fail-closed gate first, isolates runtimes, and pause
   for(const page of ['available-spaces.html','in-work.html']){
     const html=read(page),shared=html.indexOf('shared-workspace.js?v=76134'),fast=html.indexOf('fast-navigation.js?v='),headEnd=html.indexOf('</head>');
     assert.match(html,/data-slogi-access="pending"/);assert.ok(shared>=0&&shared<fast&&fast<headEnd,page);
-    assert.match(html,/phase0-config\.js\?v=76138/);assert.match(html,/fast-navigation\.js\?v=76139/);
+    assert.match(html,/phase0-config\.js\?v=76138/);assert.match(html,/fast-navigation\.js\?v=76140/);
     const styles=[...html.matchAll(/href="([^"]+\.css\?[^\"]+)"/g)].map(match=>match[1]);
     assert.match(styles.at(-1),/^figma-shell-v76-1-15\.css\?v=\d+$/);
   }
@@ -203,11 +203,14 @@ test('host wiring keeps the fail-closed gate first, isolates runtimes, and pause
   const source=read('fast-navigation.js');
   assert.match(read('phase0-config.js'),/fastNavigation:\{[\s\S]*enabled:existingFastNavigation\.enabled!==false/,'persistent navigation must be enabled by default with an explicit runtime opt-out');
   assert.match(source,/fastNavigation\.enabled===true/,'persistent iframe navigation must require an explicit runtime flag');
-  assert.match(source,/requestIdleCallback/);assert.match(source,/max:2/);assert.doesNotMatch(source,/previous\.remove\(\)/);
+  assert.match(source,/max:2/);assert.doesNotMatch(source,/previous\.remove\(\)/);
+  assert.doesNotMatch(source,/requestIdleCallback/,'a hidden route must not run before the user opens it');
   assert.match(source,/if\(fallbackActive\(win\)\)return;\s*bootHost\(win\)/,'a fallback reload must run the ordinary page app instead of setting the host flag again');
   assert.match(source,/if\(busy&&!activeFrame&&!fallbackVisible\)/,'the current frame must stay visible while the next one loads');
   assert.match(source,/doc\.readyState==='complete'\)start\(\);else win\.addEventListener\('load',start,\{once:true\}\)/,'the native app must initialize before the persistent host can take over');
-  assert.match(source,/cleanUrl\(href,initial\)\.href===initial&&!activeFrame/,'a failed initial iframe must leave the working native page in place');
+  assert.match(source,/if\(cleanHref===initial\)return Promise\.resolve\(\{native:true/,'the initial page must remain native instead of loading itself in an iframe');
+  assert.doesNotMatch(source,/coordinator\.navigate\(initial/,'startup must never replace a working native page with a loading overlay');
+  assert.doesNotMatch(source,/__slogiFastNavigationHost=true/,'the native page application must never be suppressed by the navigation shell');
   assert.match(source,/Открыть раздел обычным способом/,'failed iframe navigation needs a keyboard-accessible full-page fallback');
   assert.match(source,/if\(!shell\)\{disableFastNavigation\(win\);win\.location\.replace\(initial\);return;\}/,'a missing shell must enter bounded fallback instead of a reload loop');
   assert.match(source,/data-slogi-access'\)==='granted'/,'view loading must wait for the existing fail-closed gate');
@@ -215,6 +218,7 @@ test('host wiring keeps the fail-closed gate first, isolates runtimes, and pause
   const shellCss=read('figma-shell-v76-1-15.css');
   assert.match(shellCss,/\.slogi-fast-view-host\{display:none;/,'the loading host must not cover the native page');
   assert.match(shellCss,/body\.slogi-fast-navigation-active>\.slogi-fast-view-host\{display:block\}/);
+  assert.match(shellCss,/\.slogi-fast-view-status\[hidden\]\{display:none!important\}/,'a ready view must never remain covered by the loading message');
   assert.doesNotMatch(shellCss,/body\.slogi-fast-navigation-host>main/,'the native page must stay visible until an iframe is ready');
   const workspace=read('shared-workspace.js');
   assert.match(workspace,/embeddedFastView/);assert.match(workspace,/parentWindow\.SlogiCloud\.ready!==true/,'embedded views may reuse only an already granted same-origin workspace owner');

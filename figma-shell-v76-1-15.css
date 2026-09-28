@@ -618,6 +618,7 @@ body.slogi-fast-navigation-active>.slogi-fast-view-host{display:block}
 .slogi-fast-view-frame.is-preloading{position:absolute;inset:0;visibility:hidden;pointer-events:none}
 .slogi-fast-view-frame[hidden]{display:none}
 .slogi-fast-view-status{display:grid;min-height:100%;place-items:center;color:var(--figma-muted);font-size:13px}
+.slogi-fast-view-status[hidden]{display:none!important}
 body.slogi-fast-navigation-active>.site-header,
 body.slogi-fast-navigation-active>main,
 body.slogi-fast-navigation-active>#available-toast,

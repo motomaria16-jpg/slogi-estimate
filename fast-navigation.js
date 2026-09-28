@@ -153,11 +153,10 @@
 
   function bootHost(win){
     const doc=win.document,initial=cleanUrl(win.location.href,win.location.href).href;
-    win.__slogiFastNavigationHost=true;
-    doc.documentElement.setAttribute('data-slogi-fast-host','true');
 
     const start=()=>{
       if(!doc.body||doc.body.classList.contains('slogi-fast-navigation-host'))return;
+      doc.documentElement.setAttribute('data-slogi-fast-host','true');
       doc.body.classList.add('slogi-fast-navigation-host');
       const shell=doc.querySelector('.figma-shell-sidebar');
       if(!shell){disableFastNavigation(win);win.location.replace(initial);return;}
@@ -196,7 +195,11 @@
         });
       }
       const cache=createBoundedViewCache({max:2,load:createFrame,dispose:view=>view&&view.frame&&view.frame.remove()});
-      const loadView=href=>cache.get(routeName(href),cleanUrl(href,initial).href);
+      const loadView=href=>{
+        const cleanHref=cleanUrl(href,initial).href;
+        if(cleanHref===initial)return Promise.resolve({native:true,href:cleanHref,route:routeName(cleanHref)});
+        return cache.get(routeName(cleanHref),cleanHref);
+      };
 
       function signalView(view,active){
         if(!view||!view.frame||!view.frame.contentWindow)return;
@@ -214,7 +217,16 @@
       }
 
       function showView(view,href){
-        const previous=activeFrame;activeFrame=view;activeFrame.frame.hidden=false;activeFrame.frame.setAttribute('aria-hidden','false');
+        const previous=activeFrame;
+        if(view&&view.native){
+          if(previous){signalView(previous,false);previous.frame.hidden=true;previous.frame.setAttribute('aria-hidden','true');}
+          activeFrame=null;
+          try{win.dispatchEvent(new win.CustomEvent('slogi:view-visibility',{detail:{active:true}}));win.dispatchEvent(new win.Event('resize'));}catch(_error){}
+          fallbackVisible=false;fallbackLink.hidden=true;status.hidden=true;doc.body.classList.remove('slogi-fast-navigation-active');
+          setActive(href);
+          return;
+        }
+        activeFrame=view;activeFrame.frame.hidden=false;activeFrame.frame.setAttribute('aria-hidden','false');
         if(previous&&previous!==activeFrame){signalView(previous,false);previous.frame.hidden=true;previous.frame.setAttribute('aria-hidden','true');}
         try{win.dispatchEvent(new win.CustomEvent('slogi:view-visibility',{detail:{active:false}}));}catch(_error){}
         signalView(activeFrame,true);
@@ -234,9 +246,6 @@
         pushState:href=>win.history.pushState(Object.assign({},win.history.state||{},{slogiFastNavigation:true}),'',href),
         hardNavigate:href=>{
           disableFastNavigation(win);
-          if(cleanUrl(href,initial).href===initial&&!activeFrame){
-            host.remove();doc.body.classList.remove('slogi-fast-navigation-host');win.__slogiFastNavigationHost=false;return;
-          }
           fallbackVisible=true;statusMessage.textContent='Раздел не удалось загрузить.';fallbackLink.href=href;fallbackLink.hidden=false;status.hidden=false;doc.body.classList.add('slogi-fast-navigation-active');
           try{win.location.replace(href);}catch(_error){}
         },
@@ -257,11 +266,7 @@
         if(!activeFrame||event.source!==activeFrame.frame.contentWindow||!isFastUrl(event.data.href,initial))return;
         coordinator.navigate(event.data.href,'push');
       });
-      coordinator.navigate(initial,'replace').then(()=>{
-        const other=routeName(initial)==='available-spaces.html'?'in-work.html':'available-spaces.html',href=new URL(other,initial).href;
-        const preload=()=>loadView(href).then(view=>signalView(view,false)).catch(()=>{});
-        if(typeof win.requestIdleCallback==='function')win.requestIdleCallback(preload,{timeout:2500});else win.setTimeout(preload,250);
-      });
+      setActive(initial);
     };
     const startAfterGrant=()=>{
       let readinessTimer=null,scheduled=false;

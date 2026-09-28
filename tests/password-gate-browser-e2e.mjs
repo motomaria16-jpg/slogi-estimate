@@ -11,6 +11,7 @@ const chromePath=String(process.env.SLOGI_LOCAL_CHROME||'');
 const nodeModules=String(process.env.SLOGI_NODE_MODULES||'');
 const visualStage=String(process.env.SLOGI_VISUAL_STAGE||'').trim();
 const visualOutput=String(process.env.SLOGI_VISUAL_OUTPUT||'').trim();
+const fastNavigationEnabled=String(process.env.SLOGI_TEST_FAST_NAVIGATION||'')==='1';
 assert.ok(chromePath&&nodeModules,'browser_runtime_missing');
 const {chromium}=await import(pathToFileURL(join(nodeModules,'playwright','index.mjs')).href);
 
@@ -20,7 +21,7 @@ const canonicalWorkspace='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const syntheticPassword=randomUUID()+randomUUID();
 const grantKey='slogi_device_grant_v1';
 const configSource=`window.SLOGI_PHASE0_CONFIG=${JSON.stringify({
-  fastNavigation:{enabled:false},
+  fastNavigation:{enabled:fastNavigationEnabled},
   supabase:{url:apiUrl,publishableKey},
   listingSearch:{endpoint:apiUrl+'/functions/v1/search-listings',limit:50,timeoutMs:30000},
   geocoding:{endpoint:apiUrl+'/functions/v1/geocode-address',timeoutMs:12000},
