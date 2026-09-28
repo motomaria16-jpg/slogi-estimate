@@ -682,10 +682,17 @@
 
   function renderContextPanel() {
     const target = state.dialog.querySelector('[data-context-content]');
-    if (state.activeTab === 'workflow' && state.workflowView && state.workflowView.sidebarHtml) {
-      target.innerHTML = text(state.workflowView.sidebarHtml);
+    const context = target.closest('.ss-card-context');
+    const layout = target.closest('.ss-card-layout');
+    if (state.activeTab === 'workflow') {
+      const sidebar = state.workflowView && text(state.workflowView.sidebarHtml);
+      context.hidden = !sidebar;
+      layout.classList.toggle('ss-card-layout-full', !sidebar);
+      target.innerHTML = sidebar || '';
       return;
     }
+    context.hidden = false;
+    layout.classList.remove('ss-card-layout-full');
     const items = checkItems();
     const reasons = state.evaluation && state.evaluation.reasons || [];
     const inWork = workflowEnabled();
@@ -723,6 +730,44 @@
     };
     history.onclick = content.onclick;
     history.onchange = content.onchange;
+  }
+
+  function captureWorkflowUi() {
+    const content = state.dialog && state.dialog.querySelector('[data-workflow-content]');
+    const body = state.dialog && state.dialog.querySelector('.ss-card-body');
+    if (!content) return null;
+    const controls = Array.from(content.querySelectorAll('input:not([type="file"]), select, textarea'));
+    const active = document.activeElement;
+    return {
+      scrollTop: body ? body.scrollTop : 0,
+      controls: controls.map((control, index) => ({ index, name: control.name, type: control.type, value: control.value, checked: control.checked })),
+      activeControl: controls.includes(active) ? controls.indexOf(active) : -1,
+      activeAction: active && active.dataset ? text(active.dataset.action) : '',
+      activeMediaId: active && active.dataset ? text(active.dataset.mediaId) : '',
+      selectionStart: active && typeof active.selectionStart === 'number' ? active.selectionStart : null,
+      selectionEnd: active && typeof active.selectionEnd === 'number' ? active.selectionEnd : null
+    };
+  }
+
+  function restoreWorkflowUi(snapshot) {
+    if (!snapshot) return;
+    const content = state.dialog.querySelector('[data-workflow-content]');
+    const body = state.dialog.querySelector('.ss-card-body');
+    const controls = Array.from(content.querySelectorAll('input:not([type="file"]), select, textarea'));
+    snapshot.controls.forEach((saved) => {
+      const control = controls[saved.index];
+      if (!control || control.name !== saved.name || control.type !== saved.type) return;
+      if (control.type === 'radio' || control.type === 'checkbox') control.checked = saved.checked;
+      else control.value = saved.value;
+    });
+    requestAnimationFrame(() => {
+      if (body) body.scrollTop = snapshot.scrollTop;
+      let focusTarget = snapshot.activeControl >= 0 ? controls[snapshot.activeControl] : null;
+      if (!focusTarget && snapshot.activeAction) focusTarget = Array.from(content.querySelectorAll(`[data-action="${snapshot.activeAction}"]`)).find((node) => !snapshot.activeMediaId || text(node.dataset.mediaId) === snapshot.activeMediaId);
+      if (!focusTarget || focusTarget.disabled) return;
+      focusTarget.focus({ preventScroll: true });
+      if (snapshot.selectionStart != null && typeof focusTarget.setSelectionRange === 'function') focusTarget.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd);
+    });
   }
 
   function render() {
@@ -857,10 +902,13 @@
     clearAlert();
     const formData = typeof window.FormData === 'function' ? new window.FormData(state.form) : null;
     const action = text(button && button.dataset && button.dataset.action);
+    const ui = captureWorkflowUi();
     try {
       const pending = callback(action, { card: state.draft, evaluation: state.evaluation, formData, button });
       state.busy = `workflow-${action || 'action'}`;
-      render();
+      button.disabled = true;
+      const panel = button.closest('[data-workflow-panel]');
+      if (panel) panel.setAttribute('aria-busy', 'true');
       const result = await pending;
       const payload = result && (result.card || result.data) ? (result.card || result.data) : result;
       if (payload && typeof payload === 'object') {
@@ -872,6 +920,7 @@
     } finally {
       state.busy = '';
       render();
+      restoreWorkflowUi(ui);
     }
   }
 
@@ -880,11 +929,14 @@
     if (typeof callback !== 'function' || !inputNode) return;
     const file = inputNode.files && inputNode.files[0];
     if (!file) return;
+    const ui = captureWorkflowUi();
     clearAlert();
     try {
       const pending = callback(inputNode.name, file, { card: state.draft, evaluation: state.evaluation });
       state.busy = `workflow-file-${inputNode.name || 'upload'}`;
-      render();
+      inputNode.disabled = true;
+      const panel = inputNode.closest('[data-workflow-panel]');
+      if (panel) panel.setAttribute('aria-busy', 'true');
       const result = await pending;
       const payload = result && (result.card || result.data) ? (result.card || result.data) : result;
       if (payload && typeof payload === 'object') {
@@ -896,6 +948,7 @@
     } finally {
       state.busy = '';
       render();
+      restoreWorkflowUi(ui);
     }
   }
 

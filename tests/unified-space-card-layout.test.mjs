@@ -53,21 +53,34 @@ test('three compact tabs, fixed shell and responsive card keep the approved inte
   assert.match(css,/\.ss-card-columns \{[^}]*grid-template-columns: repeat\(2,minmax\(0,1fr\)\)/);
   assert.match(css,/\.ss-card-context \{[^}]*align-self: start/);
   assert.match(css,/\.ss-card-workflow-content \{[^}]*grid-template-columns: repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(css,/\.ss-card-layout\.ss-card-layout-full \{[^}]*grid-template-columns: minmax\(0,1fr\)/);
   assert.match(css,/\.ss-card-workflow-content \.in-work-field[^}]*grid-template-columns: 108px minmax\(0,1fr\)/);
   assert.match(css,/@media \(max-width: 820px\)[\s\S]+\.ss-card-layout \{ grid-template-columns: 1fr/);
   assert.match(css,/:focus-visible/);
 });
 
-test('the complete funnel remains wired to the same id, calendar domain and attachment store',()=>{
+test('the complete funnel remains wired to the same id and keeps four stable workflow panels',()=>{
   for(const value of ['contactName','contactPhone','contactEmail','startsAt','assignedToId','reminderMinutesBefore','viewingPhoto','viewingVideo','rejectionReason','rejectionComment'])assert.match(work,new RegExp(`name="${value}"`));
-  for(const action of ['save-contact','save-visit','cancel-visit','complete-visit','confirm-reject','start-proposal'])assert.match(work,new RegExp(`data-action="${action}"`));
+  for(const action of ['save-contact','save-visit','cancel-visit','complete-visit','delete-media','confirm-reject','start-proposal'])assert.match(work,new RegExp(`data-action="${action}"`));
+  for(const panel of ['contact','viewing','media','decision'])assert.equal((work.match(new RegExp(`data-workflow-panel="${panel}"`,'g'))||[]).length,1,panel);
   assert.match(work,/historyHtml:timelinePanel\(project\)/);
-  assert.match(work,/sidebarHtml:workflowSidebar\(project\)/);
+  assert.match(work,/sidebarHtml:''/);
+  assert.doesNotMatch(work,/function workflowSidebar|>Следующее действие</);
   assert.match(work,/adapter\.saveMedia\(projectId,viewing\.id,kind,file\)/);
   assert.match(work,/adapter\.complete\(projectId,\{viewingId:viewing\.id,confirmed:true,attachments:counts\.items\}\)/);
   assert.match(work,/adapter\.reject\(projectId,\{reasonCode,comment\}\)/);
   assert.match(work,/const projectId=project\.id;await adapter\.startProposal\(projectId\)/);
   const cardFlow=work.slice(work.indexOf('function openCanonicalCard'),work.indexOf('function currentProject'));
   assert.doesNotMatch(cardFlow,/repo\.create|projectRepository\.create|clone\(/);
+});
+
+test('workflow rerenders preserve dirty controls, scroll and focus',()=>{
+  assert.match(modal,/function captureWorkflowUi\(\)/);
+  assert.match(modal,/function restoreWorkflowUi\(snapshot\)/);
+  assert.match(modal,/scrollTop: body \? body\.scrollTop : 0/);
+  assert.match(modal,/focus\(\{ preventScroll: true \}\)/);
+  const action=modal.slice(modal.indexOf('async function runWorkflowAction'),modal.indexOf('async function runWorkflowFile'));
+  assert.doesNotMatch(action,/state\.busy = `workflow-[^\n]+\n\s*render\(\)/);
+  assert.match(action,/restoreWorkflowUi\(ui\)/);
 });
 

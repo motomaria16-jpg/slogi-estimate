@@ -105,6 +105,23 @@ test('visit completion requires persisted photo and video metadata',()=>{
   assert.match(app,/notifyDueReminders/);
 });
 
+test('workflow layout always renders four stable panels and one progress scale',()=>{
+  for(const panel of ['contact','viewing','media','decision'])assert.equal((app.match(new RegExp(`data-workflow-panel="${panel}"`,'g'))||[]).length,1,panel);
+  for(const label of ['Связались','Просмотр назначен','Просмотр завершён','КП'])assert.match(app,new RegExp(label));
+  assert.match(app,/function workflowContent[\s\S]+workflowProgress\(project\).*contactForm\(project\).*viewingForm\(project\).*mediaPanel\(project\).*decisionPanel\(project\)/);
+  assert.doesNotMatch(app,/function workflowSidebar|>Следующее действие</);
+  assert.match(css,/\.in-work-progress\{[^}]*grid-template-columns:repeat\(4/);
+});
+
+test('media remain editable after completion and can be removed individually',()=>{
+  const panel=app.slice(app.indexOf('function mediaPanel'),app.indexOf('function decisionPanel'));
+  assert.doesNotMatch(panel,/return''/);
+  assert.match(panel,/complete\|\|new Date\(viewing\.startsAt\)/);
+  assert.match(panel,/data-action="delete-media"/);
+  assert.match(app,/call\('removeAttachment',projectId,\{viewingId,attachmentId:mediaId\}\)/);
+  assert.match(app,/state\.pendingMedia\.delete\(viewingId\)/);
+});
+
 test('proposal handoff keeps the canonical project id and removes terminal cards',()=>{
   assert.match(app,/const projectId=project\.id;await adapter\.startProposal\(projectId\)/);
   assert.match(app,/proposal\.html\?location=\$\{encodeURIComponent\(projectId\)\}&from=in-work/);
@@ -120,7 +137,7 @@ test('canonical card exposes the complete in-work funnel only through the in-wor
   assert.match(app,/onWorkflowAction:/);
   assert.match(app,/onWorkflowFile:/);
   assert.match(app,/workflowContent\(project\)/);
-  assert.match(app,/contactForm\(project\).*viewingForm\(project\).*mediaPanel\(project\).*proposalPanel\(project\).*rejectionPanel\(project\)/s);
+  assert.match(app,/workflowProgress\(project\).*contactForm\(project\).*viewingForm\(project\).*mediaPanel\(project\).*decisionPanel\(project\)/s);
   assert.match(app,/Зафиксировать связь/);
   assert.match(app,/Просмотр назначен и добавлен во внутренний календарь/);
   assert.match(app,/Просмотр завершён\. Помещение готово к КП/);
@@ -138,6 +155,7 @@ test('card funnel writes to the calendar domain and canonical attachment store w
   assert.match(workflow,/adapter\.complete\(projectId,\{viewingId:viewing\.id,confirmed:true,attachments:counts\.items\}\)/);
   assert.match(workflow,/adapter\.reject\(projectId,\{reasonCode,comment\}\)/);
   assert.match(workflow,/adapter\.saveMedia\(projectId,viewing\.id,kind,file\)/);
+  assert.match(workflow,/adapter\.deleteMedia\(projectId,viewingId,mediaId\)/);
   assert.doesNotMatch(workflow,/repo\.create|projectRepository\.create/);
 });
 

@@ -235,7 +235,6 @@
   function schedule(project,command={},context={}){
     const state=prepare(project,command);if(state.replayed)return state.project;
     if(terminal(state.status))throw new WorkCalendarError('Closed project cannot be scheduled.','PIPELINE_CLOSED',{status:state.status});
-    if(state.status==='viewing_completed')throw new WorkCalendarError('A completed viewing can only proceed to proposal or rejection.','VIEWING_ALREADY_COMPLETED');
     if(state.work.activeViewingId)throw new WorkCalendarError('Project already has an active viewing.','ACTIVE_VIEWING_EXISTS',{viewingId:state.work.activeViewingId});
     const assignedToId=text(command.assignedToId);
     if(!assignedToId)throw new WorkCalendarError('assignedToId is required.','ASSIGNEE_REQUIRED');
@@ -313,9 +312,27 @@
     return record(state,'complete',at,viewing.id);
   }
 
+  function removeAttachment(project,command={},context={}){
+    const state=prepare(project,command);if(state.replayed)return state.project;
+    const viewingId=text(command.viewingId),attachmentId=text(command.attachmentId);
+    if(!viewingId)throw new WorkCalendarError('viewingId is required.','VIEWING_ID_REQUIRED');
+    if(!attachmentId)throw new WorkCalendarError('attachmentId is required.','ATTACHMENT_ID_REQUIRED');
+    const viewing=state.work.viewings.find(item=>item.id===viewingId);
+    if(!viewing)throw new WorkCalendarError('Viewing was not found.','VIEWING_NOT_FOUND',{viewingId});
+    const attachments=Array.isArray(viewing.attachments)?viewing.attachments:[];
+    const attachment=attachments.find(item=>item&&item.id===attachmentId)||null,at=nowIso(context.now);
+    if(attachment&&attachment.status!=='removed')Object.assign(attachment,{status:'removed',removedAt:at,removedById:text(command.actorId)});
+    viewing.updatedAt=at;viewing.updatedById=text(command.actorId);
+    return record(state,'removeAttachment',at,attachmentId);
+  }
+
   function startProposal(project,command={},context={}){
     const state=prepare(project,command);if(state.replayed)return state.project;
     if(state.status!=='viewing_completed')throw new WorkCalendarError('Proposal can start only after a completed viewing.','VIEWING_NOT_COMPLETED',{status:state.status});
+    const completedViewing=state.work.viewings.find(item=>item.id===text(state.work.pipeline&&state.work.pipeline.viewingId))||state.work.viewings.slice().reverse().find(item=>item.status==='completed');
+    const uploaded=completedViewing&&Array.isArray(completedViewing.attachments)?completedViewing.attachments.filter(item=>item&&item.status==='uploaded'):[];
+    const hasPhoto=uploaded.some(item=>item.kind==='photo'),hasVideo=uploaded.some(item=>item.kind==='video');
+    if(!hasPhoto||!hasVideo)throw new WorkCalendarError('At least one uploaded photo and one uploaded video are required.','VIEWING_MEDIA_REQUIRED',{hasPhoto,hasVideo});
     const at=nowIso(context.now);state.work.activeViewingId=null;
     setPipeline(state,'proposal_started',at,{proposalId:text(command.proposalId),proposalStartedAt:at,proposalStartedById:text(command.actorId),viewingId:state.work.pipeline.viewingId||null});
     return record(state,'startProposal',at,text(command.proposalId));
@@ -372,6 +389,7 @@
     cancel(id,command){return this.apply(id,'cancel',cancel,command);}
     reject(id,command){return this.apply(id,'reject',reject,command);}
     complete(id,command){return this.apply(id,'complete',complete,command);}
+    removeAttachment(id,command){return this.apply(id,'remove-attachment',removeAttachment,command);}
     startProposal(id,command){return this.apply(id,'start-proposal',startProposal,command);}
     markContacted(id,command){return this.apply(id,'mark-contacted',markContacted,command);}
     acknowledgeReminder(id,command){return this.apply(id,'acknowledge-reminder',acknowledgeReminder,command);}
@@ -383,6 +401,6 @@
   return{
     TIME_ZONE,DEFAULT_DURATION_MINUTES,DEFAULT_REMINDER_MINUTES,PIPELINE_STATUSES,TERMINAL_STATUSES,VIEWING_STATUSES,REJECTION_REASONS,
     WorkCalendarError,WorkCalendarService,createService,moscowLocalToIso,formatInMoscow,normalizeWork,normalizeProject,pipelineStatus,isInWork,listInWork,
-    hasOperation,findOverlaps,getInAppReminders,acknowledgeReminder,markContacted,schedule,reschedule,cancel,reject,complete,startProposal
+    hasOperation,findOverlaps,getInAppReminders,acknowledgeReminder,markContacted,schedule,reschedule,cancel,reject,complete,removeAttachment,startProposal
   };
 });

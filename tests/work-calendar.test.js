@@ -24,7 +24,7 @@ function schedule(source=project(),overrides={}){
 
 test('browser/CommonJS API exposes the pure domain and repository adapter contract',()=>{
   assert.equal(globalThis.SlogiWorkCalendar,calendar);
-  ['normalizeProject','pipelineStatus','isInWork','findOverlaps','getInAppReminders','schedule','reschedule','cancel','reject','complete','startProposal','createService'].forEach(name=>assert.equal(typeof calendar[name],'function',name));
+  ['normalizeProject','pipelineStatus','isInWork','findOverlaps','getInAppReminders','schedule','reschedule','cancel','reject','complete','removeAttachment','startProposal','createService'].forEach(name=>assert.equal(typeof calendar[name],'function',name));
   assert.equal(calendar.TIME_ZONE,'Europe/Moscow');
   assert.deepEqual(calendar.PIPELINE_STATUSES,['contact_pending','contacted','viewing_scheduled','viewing_completed','proposal_started','rejected']);
   assert.equal(calendar.moscowLocalToIso('2026-09-27T15:00'),'2026-09-27T12:00:00.000Z');
@@ -78,7 +78,21 @@ test('reschedule preserves the viewing id, checks conflicts, and cancel clears t
   assert.equal(cancelled.phase0.spaceCard.work.viewings[0].status,'cancelled');
 });
 
-test('completion is explicit, after startsAt, and requires uploaded photo plus uploaded video',()=>{
+test('schedule, reschedule, cancel and schedule again preserve one project and append viewing history',()=>{
+  const initial=schedule(project('stable-space'));
+  const firstId=initial.phase0.spaceCard.work.activeViewingId;
+  const moved=calendar.reschedule(initial,command('move-first',{viewingId:firstId,startsAt:'2026-09-28T09:00:00+03:00'}),{now:'2026-09-27T10:05:00Z',projects:[initial]});
+  const cancelled=calendar.cancel(moved,command('cancel-first',{viewingId:firstId}),{now:'2026-09-27T10:10:00Z'});
+  const next=calendar.schedule(cancelled,command('schedule-second',{viewingId:'viewing-second',assignedToId:'employee-1',startsAt:'2026-09-29T09:00:00+03:00'}),{now:'2026-09-27T10:15:00Z',projects:[cancelled]});
+  const work=next.phase0.spaceCard.work;
+  assert.equal(next.id,'stable-space');
+  assert.equal(next.phase0.spaceCard.id,'stable-space');
+  assert.equal(work.activeViewingId,'viewing-second');
+  assert.deepEqual(work.viewings.map(item=>[item.id,item.status]),[[firstId,'cancelled'],['viewing-second','scheduled']]);
+  assert.equal(work.operations.filter(item=>item.type==='schedule').length,2);
+});
+
+test('completion is explicit, after startsAt, requires media, and permits a repeat viewing with a new id',()=>{
   const scheduled=schedule();
   const media=[
     {id:'photo-1',kind:'photo',status:'uploaded',mimeType:'image/jpeg'},
@@ -92,7 +106,30 @@ test('completion is explicit, after startsAt, and requires uploaded photo plus u
   assert.equal(completed.phase0.spaceCard.work.activeViewingId,null);
   assert.equal(completed.phase0.spaceCard.work.viewings[0].status,'completed');
   assert.equal(completed.phase0.spaceCard.work.viewings[0].attachments.filter(item=>item.status==='uploaded').length,2);
-  assert.throws(()=>calendar.schedule(completed,command('second-viewing',{assignedToId:'employee-1',startsAt:'2026-09-28T12:00:00Z'}),{now:'2026-09-27T12:02:00Z',projects:[completed]}),error=>error.code==='VIEWING_ALREADY_COMPLETED');
+  const repeated=calendar.schedule(completed,command('second-viewing',{viewingId:'viewing-repeat',assignedToId:'employee-1',startsAt:'2026-09-28T12:00:00Z'}),{now:'2026-09-27T12:02:00Z',projects:[completed]});
+  assert.equal(repeated.id,'space-1');
+  assert.equal(repeated.phase0.spaceCard.id,'space-1');
+  assert.equal(repeated.phase0.spaceCard.work.activeViewingId,'viewing-repeat');
+  assert.deepEqual(repeated.phase0.spaceCard.work.viewings.map(item=>[item.id,item.status]),[['viewing-op-schedule','completed'],['viewing-repeat','scheduled']]);
+  assert.equal(repeated.phase0.spaceCard.work.viewings[0].attachments.length,2,'completed viewing history stays intact');
+});
+
+test('removeAttachment tombstones only matching metadata and is idempotent by operation id',()=>{
+  const scheduled=schedule();
+  const completed=calendar.complete(scheduled,command('complete-with-media',{confirmed:true,attachments:[
+    {id:'photo-1',kind:'photo',status:'uploaded',mimeType:'image/jpeg',attachmentType:'work-viewing/viewing-op-schedule/photo/photo-1'},
+    {id:'video-1',kind:'video',status:'uploaded',mimeType:'video/mp4',attachmentType:'work-viewing/viewing-op-schedule/video/video-1'}
+  ]}),{now:'2026-09-27T12:10:00Z'});
+  const removed=calendar.removeAttachment(completed,command('remove-photo',{viewingId:'viewing-op-schedule',attachmentId:'photo-1'}),{now:'2026-09-27T12:11:00Z'});
+  assert.equal(removed.id,'space-1');
+  assert.equal(removed.phase0.spaceCard.id,'space-1');
+  const attachments=removed.phase0.spaceCard.work.viewings[0].attachments;
+  assert.deepEqual(attachments.map(item=>[item.id,item.status]),[['photo-1','removed'],['video-1','uploaded']]);
+  assert.equal(attachments[0].removedAt,'2026-09-27T12:11:00.000Z');
+  assert.throws(()=>calendar.startProposal(removed,command('proposal-without-photo',{proposalId:'kp-missing-media'}),{now:'2026-09-27T12:11:30Z'}),error=>error.code==='VIEWING_MEDIA_REQUIRED'&&!error.details.hasPhoto&&error.details.hasVideo);
+  const replay=calendar.removeAttachment(removed,command('remove-photo',{viewingId:'viewing-op-schedule',attachmentId:'photo-1'}),{now:'2026-09-27T12:12:00Z'});
+  assert.deepEqual(replay,removed);
+  assert.equal(replay.phase0.spaceCard.work.operations.filter(item=>item.id==='remove-photo').length,1);
 });
 
 test('proposal handoff and rejection close work without changing or deleting the project id',()=>{
