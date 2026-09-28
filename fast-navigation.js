@@ -216,6 +216,7 @@
       function showView(view,href){
         const previous=activeFrame;activeFrame=view;activeFrame.frame.hidden=false;activeFrame.frame.setAttribute('aria-hidden','false');
         if(previous&&previous!==activeFrame){signalView(previous,false);previous.frame.hidden=true;previous.frame.setAttribute('aria-hidden','true');}
+        try{win.dispatchEvent(new win.CustomEvent('slogi:view-visibility',{detail:{active:false}}));}catch(_error){}
         signalView(activeFrame,true);
         fallbackVisible=false;fallbackLink.hidden=true;status.hidden=true;doc.body.classList.add('slogi-fast-navigation-active');
         try{
@@ -232,7 +233,11 @@
         initialUrl:initial,loadView,showView,setActive,
         pushState:href=>win.history.pushState(Object.assign({},win.history.state||{},{slogiFastNavigation:true}),'',href),
         hardNavigate:href=>{
-          disableFastNavigation(win);fallbackVisible=true;statusMessage.textContent='Раздел не удалось загрузить.';fallbackLink.href=href;fallbackLink.hidden=false;status.hidden=false;
+          disableFastNavigation(win);
+          if(cleanUrl(href,initial).href===initial&&!activeFrame){
+            host.remove();doc.body.classList.remove('slogi-fast-navigation-host');win.__slogiFastNavigationHost=false;return;
+          }
+          fallbackVisible=true;statusMessage.textContent='Раздел не удалось загрузить.';fallbackLink.href=href;fallbackLink.hidden=false;status.hidden=false;doc.body.classList.add('slogi-fast-navigation-active');
           try{win.location.replace(href);}catch(_error){}
         },
         setBusy:busy=>{
@@ -259,10 +264,11 @@
       });
     };
     const startAfterGrant=()=>{
-      let readinessTimer=null;
+      let readinessTimer=null,scheduled=false;
       const observer=new win.MutationObserver(assess);
       const cleanup=()=>{observer.disconnect();if(readinessTimer)win.clearInterval(readinessTimer);win.removeEventListener('slogi:shared-workspace-ready',assess);};
-      function assess(){if(workspaceReady(win)){cleanup();start();}}
+      function launch(){if(scheduled)return;scheduled=true;cleanup();if(doc.readyState==='complete')start();else win.addEventListener('load',start,{once:true});}
+      function assess(){if(workspaceReady(win))launch();}
       observer.observe(doc.documentElement,{attributes:true,attributeFilter:['data-slogi-access']});
       win.addEventListener('slogi:shared-workspace-ready',assess);
       readinessTimer=win.setInterval(assess,100);
