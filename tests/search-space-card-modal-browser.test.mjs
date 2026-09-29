@@ -74,19 +74,42 @@ test('browser editing keeps address spaces and defers calculated-field replaceme
         listingLinkHidden: dialog.querySelector('[data-listing-field-link]').hidden
       }));
       assert.ok(geometry.dialogOverflow <= 1, `dialog must not overflow at ${viewport.width}px`);
-      assert.ok(geometry.bodyOverflow <= 1, `body must not overflow at ${viewport.width}px`);
+      assert.ok(geometry.bodyOverflow <= 1, `body must not overflow at ${viewport.width}px (overflow: ${geometry.bodyOverflow}px)`);
       assert.equal(geometry.layoutColumns.trim().split(/\s+/).length, viewport.layoutColumns, `card must use ${viewport.layoutColumns} content columns at ${viewport.width}px`);
       assert.equal(geometry.sectionColumns.trim().split(/\s+/).length, viewport.sectionColumns, `card must use ${viewport.sectionColumns} compact section columns at ${viewport.width}px`);
       assert.equal(geometry.listingLinkHidden, false, 'a safe listing URL must expose the header action');
       assert.ok(geometry.coordinatesWidth >= 200, `coordinates must keep a usable row at ${viewport.width}px`);
       geometry.coordinateInputWidths.forEach(width => assert.ok(width >= 60, `coordinate inputs must stay usable at ${viewport.width}px`));
-      if (viewport.width > 1080) assert.equal(geometry.coordinateColumnStart, '5', 'desktop coordinates must stay in the final wide identity column');
-      else {
-        assert.equal(geometry.coordinateColumnStart, '1');
-        assert.equal(geometry.coordinateColumnEnd, '-1', 'intermediate and mobile coordinates must span the identity row');
-      }
+      assert.equal(geometry.coordinateColumnStart, '1');
+      assert.equal(geometry.coordinateColumnEnd, '-1', 'coordinates must use one stable full-width identity row');
     }
     await page.setViewportSize({ width: 1280, height: 900 });
+
+    const objectMetrics = await page.locator('#slogi-search-space-card-dialog').evaluate(dialog => ({
+      labelStyles: Array.from(dialog.querySelectorAll('.ss-card-row > span, .ss-card-row > legend')).map(label => ({
+        fontSize: getComputedStyle(label).fontSize,
+        fontWeight: getComputedStyle(label).fontWeight
+      })),
+      fieldHeights: Array.from(dialog.querySelectorAll('.ss-card-row > input, .ss-card-row > select')).map(field => field.getBoundingClientRect().height),
+      choiceGroups: Array.from(dialog.querySelectorAll('.ss-card-option > div')).map(group => ({
+        width: group.getBoundingClientRect().width,
+        columns: getComputedStyle(group).gridTemplateColumns
+      })),
+      clusterControlStarts: Array.from(dialog.querySelectorAll('.ss-card-section:first-child .ss-card-row')).map(row => {
+        const control = row.querySelector('input:not([type="radio"]), select, .ss-card-option > div');
+        return control ? control.getBoundingClientRect().left : null;
+      }).filter(value => value !== null)
+    }));
+    objectMetrics.labelStyles.forEach(style => {
+      assert.equal(style.fontSize, '11px', 'object labels must use the same compact typography as workflow labels');
+      assert.equal(style.fontWeight, '500');
+    });
+    objectMetrics.fieldHeights.forEach(height => assert.ok(Math.abs(height - 29) <= 1, 'object fields must match the compact workflow field height'));
+    objectMetrics.choiceGroups.forEach(group => {
+      assert.ok(Math.abs(group.width - 128) <= 1, 'yes/no controls must have one fixed width');
+      assert.equal(group.columns.trim().split(/\s+/).length, 2, 'yes/no controls must use equal columns');
+    });
+    objectMetrics.clusterControlStarts.forEach(start => assert.ok(Math.abs(start - objectMetrics.clusterControlStarts[0]) <= 1, `controls in a section must start on one vertical line: ${objectMetrics.clusterControlStarts.join(', ')}`));
 
     const price = page.locator('input[name="pricePerSqm"]');
     await price.focus();

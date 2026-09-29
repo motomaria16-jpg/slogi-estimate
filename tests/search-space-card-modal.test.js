@@ -212,8 +212,10 @@ test('markup is compact, accessible and uses one editable control per value', ()
   assert.match(CSS, /\.ss-card-identity \{[^}]*grid-template-columns:/);
   assert.match(CSS, /\.ss-card-layout \{[^}]*grid-template-columns: minmax\(0,1fr\) 278px/);
   assert.match(CSS, /\.ss-card-columns \{[^}]*grid-template-columns: repeat\(2,minmax\(0,1fr\)\)/);
-  assert.match(CSS, /\.ss-card-row \{[^}]*min-height: 29px/);
-  assert.match(CSS, /\.ss-card-choice span \{[^}]*min-height: 26px/);
+  assert.match(CSS, /\.ss-card-row \{[^}]*min-height: 31px/);
+  assert.match(CSS, /\.ss-card-row > span, \.ss-card-row > legend \{[^}]*font-size: 11px[^}]*font-weight: 500/);
+  assert.match(CSS, /\.ss-card-option > div \{[^}]*width: 128px[^}]*grid-column: 2[^}]*grid-template-columns: repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(CSS, /\.ss-card-choice span \{[^}]*width: 100%[^}]*min-height: 29px/);
   assert.doesNotMatch(CSS, /\.ss-card-status-card|\.ss-card-manual(?:\s|\{|\.)/);
   assert.match(CSS, /\.ss-card-center-choice \.ss-card-choice input\[value="true"\]:checked \+ span \{[^}]*var\(--ss-card-danger\)/);
   assert.match(CSS, /\.ss-card-center-choice \.ss-card-choice input\[value="false"\]:checked \+ span \{[^}]*#2f6941/);
