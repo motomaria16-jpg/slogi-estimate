@@ -149,3 +149,56 @@ test('browser editing keeps address spaces and defers calculated-field replaceme
     await browser.close();
   }
 });
+
+test('workflow proposal action stays in the fixed footer and action buttons share one size', { skip: !hasBrowserRuntime }, async () => {
+  const { chromium } = await import(pathToFileURL(join(nodeModules, 'playwright', 'index.mjs')).href);
+  const browser = await chromium.launch({ headless: true, executablePath: chromePath });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await page.setContent('<!doctype html><html lang="ru"><body><button id="opener">Открыть</button></body></html>');
+    await page.addStyleTag({ path: join(root, 'in-work.css') });
+    await page.addStyleTag({ path: join(root, 'search-space-card-modal.css') });
+    await page.addScriptTag({ path: join(root, 'search-space-card.js') });
+    await page.addScriptTag({ path: join(root, 'search-space-card-modal.js') });
+    await page.evaluate(() => {
+      window.SlogiSearchSpaceCardModal.open({
+        initial: { id: 'space-workflow', source: 'manual', address: 'Москва', work: { status: 'in_work' } },
+        opener: document.getElementById('opener'),
+        context: 'in-work',
+        renderWorkflow() {
+          return {
+            status: 'Готово к КП',
+            html: '<section class="in-work-panel in-work-workflow-panel" data-workflow-panel="contact"><button class="in-work-btn" data-action="save-contact" type="button">Обновить контакт</button></section><section class="in-work-panel in-work-workflow-panel" data-workflow-panel="decision"><button class="in-work-btn danger" data-action="confirm-reject" type="button">Зафиксировать отказ</button></section>',
+            historyHtml: '',
+            sidebarHtml: '',
+            footerAction: { action: 'start-proposal', label: 'Сформировать КП', disabled: false }
+          };
+        },
+        onWorkflowAction(action) { window.__workflowFooterAction = action; return false; }
+      });
+    });
+    await page.getByRole('tab', { name: 'Сопровождение' }).click();
+    const proposal = page.getByRole('button', { name: 'Сформировать КП' });
+    assert.equal(await proposal.count(), 1, 'the proposal action must exist only once');
+    assert.equal(await proposal.locator('xpath=ancestor::footer').count(), 1, 'the proposal action must live in the fixed footer');
+    const footerButtons = await page.locator('.ss-card-footer-main .ss-card-button:visible').evaluateAll(nodes => nodes.map(node => ({ width: node.getBoundingClientRect().width, top: node.getBoundingClientRect().top })));
+    assert.equal(footerButtons.length, 3);
+    footerButtons.forEach(button => {
+      assert.ok(Math.abs(button.width - footerButtons[0].width) <= 1);
+      assert.ok(Math.abs(button.top - footerButtons[0].top) <= 1);
+    });
+    const workflowButtons = await page.locator('.ss-card-workflow-content .in-work-btn').evaluateAll(nodes => nodes.map(node => ({ width: node.getBoundingClientRect().width, height: node.getBoundingClientRect().height })));
+    workflowButtons.forEach(button => {
+      assert.ok(Math.abs(button.width - 170) <= 1);
+      assert.ok(Math.abs(button.height - 38) <= 1);
+    });
+    await proposal.click();
+    assert.equal(await page.evaluate(() => window.__workflowFooterAction), 'start-proposal');
+    await page.setViewportSize({ width: 375, height: 760 });
+    const mobileFooterWidths = await page.locator('.ss-card-footer-main .ss-card-button:visible').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().width));
+    assert.equal(mobileFooterWidths.length, 3);
+    mobileFooterWidths.forEach(width => assert.ok(Math.abs(width - mobileFooterWidths[0]) <= 1));
+  } finally {
+    await browser.close();
+  }
+});

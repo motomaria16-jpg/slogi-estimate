@@ -106,9 +106,9 @@ body.ss-card-modal-open { overflow: hidden; }
 .ss-card-workflow-content .in-work-field input, .ss-card-workflow-content .in-work-field select { min-height: 29px; padding: 4px 7px; font-size: 12px; }
 .ss-card-workflow-content .in-work-field textarea { min-height: 42px; padding: 6px 7px; font-size: 12px; }
 .ss-card-workflow-content .in-work-form-actions { margin-top: 5px; gap: 5px; }
-.ss-card-workflow-content .in-work-form-actions .in-work-btn { min-height: 30px; padding: 5px 9px; }
-.ss-card-workflow-content .in-work-media-grid { gap: 6px; }
-.ss-card-workflow-content .in-work-upload { min-height: 44px; padding: 7px; }
+.ss-card-workflow-content .in-work-btn { width: 170px; min-width: 170px; height: 38px; min-height: 38px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; border-radius: 9px; font-size: 13px; line-height: 1.2; }
+.ss-card-workflow-content .in-work-media-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.ss-card-workflow-content .in-work-upload { width: 170px; min-height: 38px; flex: 0 0 170px; padding: 0 12px; }
 .ss-card-workflow-content .in-work-media-item { min-height: 25px; }
 .ss-card-workflow-content .in-work-media-status { margin-top: 5px; }
 .ss-card-workflow-content .in-work-complete-gate { margin-top: 5px; padding: 6px 7px; }
@@ -131,6 +131,7 @@ body.ss-card-modal-open { overflow: hidden; }
 .ss-card-delete[hidden], [data-listing-field-link][hidden] { display: none; }
 .ss-card-footer { min-height: 58px; padding: 9px 12px; display: flex; flex: 0 0 auto; align-items: center; gap: 8px; border-top: 1px solid var(--ss-card-line); background: var(--ss-card-surface); }
 .ss-card-footer-main { margin-left: auto; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.ss-card-footer-main .ss-card-button { width: 170px; }
 .ss-card-visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; margin: -1px !important; padding: 0 !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; border: 0 !important; }
 .ss-card-form :focus-visible { outline: 3px solid rgba(47,90,93,.45); outline-offset: 2px; }
 @media (max-width: 1080px) {
@@ -173,8 +174,10 @@ body.ss-card-modal-open { overflow: hidden; }
   .ss-card-columns { grid-template-columns: 1fr; }
   .ss-card-columns > .ss-card-section:last-child { grid-column: auto; }
   .ss-card-workflow-content { grid-template-columns: 1fr; }
-  .ss-card-footer { padding: 7px; }
-  .ss-card-footer-main { margin-left: auto; }
+  .ss-card-workflow-content .in-work-btn, .ss-card-workflow-content .in-work-upload { width: auto; min-width: 0; flex: 1 1 140px; }
+  .ss-card-footer { padding: 7px; flex-wrap: wrap; }
+  .ss-card-footer-main { width: 100%; margin-left: 0; }
+  .ss-card-footer-main .ss-card-button { width: auto; min-width: 0; flex: 1 1 0; padding-inline: 8px; }
 }
 @media (max-width: 420px) {
   .ss-card-header-link { display: none; }

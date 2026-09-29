@@ -421,6 +421,7 @@
         <footer class="ss-card-footer">
           <button class="ss-card-delete" type="button" data-action="delete" hidden>Удалить помещение</button>
           <div class="ss-card-footer-main">
+            <button class="ss-card-button ss-card-button-primary" type="button" data-action="start-proposal" data-workflow-footer-action hidden>Сформировать КП</button>
             <button class="ss-card-button ss-card-button-ghost" type="button" data-action="close">Отмена</button>
             <button class="ss-card-button ss-card-button-secondary" type="button" data-action="save">Сохранить</button>
           </div>
@@ -634,6 +635,19 @@
     return state.context === 'in-work' && typeof state.callbacks.renderWorkflow === 'function';
   }
 
+  function renderWorkflowFooterAction() {
+    const button = state.dialog && state.dialog.querySelector('[data-workflow-footer-action]');
+    if (!button) return;
+    const config = state.workflowView && state.workflowView.footerAction;
+    const visible = state.activeTab === 'workflow' && workflowEnabled() && config && text(config.action);
+    button.hidden = !visible;
+    if (!visible) return;
+    button.dataset.action = text(config.action);
+    button.textContent = text(config.label) || 'Продолжить';
+    button.disabled = Boolean(state.busy || config.disabled);
+    button.setAttribute('aria-disabled', String(button.disabled));
+  }
+
   function tabAvailable(name) {
     return name === 'object' || (workflowEnabled() && (name === 'workflow' || name === 'history'));
   }
@@ -653,6 +667,7 @@
       panel.hidden = panel.dataset.cardPanel !== state.activeTab;
     });
     renderContextPanel();
+    renderWorkflowFooterAction();
   }
 
   function renderHeader() {
@@ -793,6 +808,7 @@
     });
     const resolveButton = state.dialog.querySelector('[data-action="resolve-address"]');
     resolveButton.textContent = state.busy === 'resolve' ? 'Определяем…' : 'Определить';
+    renderWorkflowFooterAction();
   }
 
   function syncFromForm(event) {
@@ -1001,6 +1017,7 @@
       else if (action === 'take-to-work') runCallback('onTakeToWork', EVENTS.takeToWork, true);
       else if (action === 'delete') runCallback('onDelete', EVENTS.delete, true);
       else if (action === 'go-workflow') setActiveTab('workflow', true);
+      else if (button.matches('[data-workflow-footer-action]') && workflowEnabled()) runWorkflowAction(button);
       else if (button.closest('[data-card-panel="workflow"], [data-card-panel="history"], .ss-card-context')) runWorkflowAction(button);
     });
     state.dialog.addEventListener('cancel', (event) => {

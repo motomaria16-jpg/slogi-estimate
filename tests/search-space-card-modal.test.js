@@ -142,6 +142,9 @@ test('workflow extension is opt-in and restricted to the in-work card context', 
   assert.match(SOURCE, /takeButton\.hidden = state\.context === 'in-work'/);
   assert.match(SOURCE, /rendered\.historyHtml/);
   assert.match(SOURCE, /state\.workflowView\.sidebarHtml/);
+  assert.match(SOURCE, /data-action="start-proposal" data-workflow-footer-action hidden/);
+  assert.match(SOURCE, /function renderWorkflowFooterAction\(\)/);
+  assert.match(SOURCE, /button\.matches\('\[data-workflow-footer-action\]'\)/);
   assert.match(CSS, /\.ss-card-workflow-content \{ display: grid; grid-template-columns: repeat\(2,minmax\(0,1fr\)\)/);
   assert.match(CSS, /\.ss-card-history-content \{ display: grid/);
 });

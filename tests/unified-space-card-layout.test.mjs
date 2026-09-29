@@ -61,7 +61,9 @@ test('three compact tabs, fixed shell and responsive card keep the approved inte
 
 test('the complete funnel remains wired to the same id and keeps four stable workflow panels',()=>{
   for(const value of ['contactName','contactPhone','contactEmail','startsAt','assignedToId','reminderMinutesBefore','viewingPhoto','viewingVideo','rejectionReason','rejectionComment'])assert.match(work,new RegExp(`name="${value}"`));
-  for(const action of ['save-contact','save-visit','cancel-visit','complete-visit','delete-media','confirm-reject','start-proposal'])assert.match(work,new RegExp(`data-action="${action}"`));
+  for(const action of ['save-contact','save-visit','cancel-visit','complete-visit','delete-media','confirm-reject'])assert.match(work,new RegExp(`data-action="${action}"`));
+  assert.match(work,/footerAction:\{action:'start-proposal',label:'Сформировать КП'/);
+  assert.match(modal,/data-action="start-proposal" data-workflow-footer-action hidden/);
   for(const panel of ['contact','viewing','media','decision'])assert.equal((work.match(new RegExp(`data-workflow-panel="${panel}"`,'g'))||[]).length,1,panel);
   assert.match(work,/historyHtml:timelinePanel\(project\)/);
   assert.match(work,/sidebarHtml:''/);
