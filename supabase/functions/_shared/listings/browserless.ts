@@ -113,7 +113,7 @@ export function resolveHourlyBrowserlessPolicy(source: ListingSource, environmen
 
 export function classifyBrowserlessHttpFailure(status: number, body: string): string {
   const normalized = String(body || '').toLowerCase().replace(/\s+/g, ' ').slice(0, 20_000);
-  if (status === 401 && /(?:out of credits|unit limit reached|credits? exhausted|insufficient units?)/.test(normalized)) {
+  if (status === 401 && /(?:out of credits|unit(?:s)?(?: usage)? limit(?: (?:has been )?reached| allowed)|reached the units? usage limit|credits? exhausted|insufficient units?)/.test(normalized)) {
     return 'browserless_credits_exhausted';
   }
   if (status === 401) return 'browserless_http_401';

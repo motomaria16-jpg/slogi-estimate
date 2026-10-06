@@ -154,6 +154,7 @@ test('runtime Browserless policy is Cian smart-scrape only',()=>{
 
 test('Browserless quota exhaustion is distinct from an invalid token',()=>{
   assert.equal(classifyBrowserlessHttpFailure(401,'Account out of credits (401)'),'browserless_credits_exhausted');
+  assert.equal(classifyBrowserlessHttpFailure(401,"You've reached the units usage limit allowed under our free plan"),'browserless_credits_exhausted');
   assert.equal(classifyBrowserlessHttpFailure(401,'Unauthorized'),'browserless_http_401');
 });
 
