@@ -1,0 +1,130 @@
+:root{
+  --proposal-paper:#fff;
+  --proposal-bg:#f4f1ed;
+  --proposal-line:#e7ded2;
+  --proposal-text:#26373a;
+  --proposal-muted:#6b7e82;
+  --proposal-teal:#35585d;
+  --proposal-teal-soft:#e8f0ee;
+  --proposal-gold:#f1d897;
+  --proposal-gold-soft:#fff5d8;
+  --proposal-green:#39715f;
+  --proposal-green-soft:#e7f3ed;
+  --proposal-red:#9a5148;
+}
+
+.proposal-sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+.proposal-page{background:var(--proposal-bg);color:var(--proposal-text)}
+.proposal-page button,.proposal-page input,.proposal-page textarea{font:inherit}
+.proposal-page button,.proposal-page a{-webkit-tap-highlight-color:transparent}
+.proposal-page :focus-visible{outline:3px solid rgba(57,105,112,.26);outline-offset:2px}
+.proposal-main{width:calc(100% - var(--figma-sidebar-width,220px) - 34px);max-width:1540px;margin-left:calc(var(--figma-sidebar-width,220px) + 17px);padding:12px 0 36px}
+
+/* КП is a list workspace like Search and In work, so it uses the same shell. */
+body.proposal-page.figma-shell-v76115>.object-context-bar{display:none!important}
+@media(min-width:901px){body.proposal-page.figma-shell-v76115>.site-header{display:none!important}}
+
+.proposal-hero{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:72px;padding:8px 2px 13px;margin:0}
+.proposal-title-line{display:flex;align-items:center;gap:10px}
+.proposal-title-line h1{margin:0;color:var(--proposal-text);font-size:28px;font-weight:500;line-height:1.12;letter-spacing:-.03em}
+.proposal-title-line h1:focus,.proposal-title-line h1:focus-visible{outline:none!important;box-shadow:none!important}
+.proposal-count{display:inline-flex;align-items:center;min-height:28px;padding:4px 10px;border-radius:999px;background:var(--proposal-gold-soft);color:#75602e;font-size:12px;font-weight:500}
+
+.proposal-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:10px;border:1px solid var(--proposal-line);border-radius:14px;background:var(--proposal-paper)}
+.proposal-search{position:relative;min-width:250px;flex:1}
+.proposal-search::before{content:'⌕';position:absolute;top:50%;left:12px;transform:translateY(-52%);color:var(--proposal-muted);font-size:18px;pointer-events:none}
+.proposal-search input{width:100%;height:40px;min-height:40px!important;padding:8px 12px 8px 36px;border:1px solid var(--proposal-line);border-radius:9px;background:#fff;color:var(--proposal-text);outline:none}
+.proposal-search input::placeholder{color:#90a0a2}
+.proposal-search input:focus{border-color:#82989c!important;box-shadow:0 0 0 3px rgba(75,110,115,.1)}
+.proposal-filters{display:flex;align-items:center;gap:5px;overflow-x:auto;scrollbar-width:thin}
+.proposal-filters button{min-height:36px;height:36px;padding:7px 11px;border:1px solid transparent;border-radius:999px;background:#f6f3ef;color:var(--proposal-muted);cursor:pointer;font-size:12px;white-space:nowrap}
+.proposal-filters button.active{border-color:#b8c9c5;background:var(--proposal-teal-soft);color:var(--proposal-teal);font-weight:500}
+
+.proposal-list-shell{min-height:520px;padding:13px;border:1px solid var(--proposal-line);border-radius:16px;background:var(--proposal-paper)}
+.proposal-list{display:grid;gap:0;border-top:1px solid #eee7dd}
+.proposal-list-card{border-radius:0;border-width:0 0 1px;box-shadow:none}
+.proposal-list-card:last-child{border-bottom:0}
+.proposal-list-card .premises-card__actions{padding:8px 12px 10px}
+
+.proposal-btn{display:inline-flex;align-items:center;justify-content:center;min-width:146px;min-height:38px;height:38px;padding:0 12px;border:1px solid #82989c;border-radius:9px;background:#fff;color:var(--proposal-teal);font-size:13px;line-height:1.2;text-decoration:none;cursor:pointer}
+.proposal-btn:hover{background:var(--proposal-teal-soft)}
+.proposal-btn.primary{border-color:var(--proposal-teal);background:var(--proposal-teal);color:#fff}
+.proposal-btn.accent{border-color:var(--proposal-gold);background:var(--proposal-gold);color:#554723}
+.proposal-btn:disabled,.proposal-btn[aria-disabled="true"]{opacity:.45;pointer-events:none;cursor:not-allowed}
+
+.proposal-empty{min-height:440px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:46px 20px;text-align:center;color:var(--proposal-muted)}
+.proposal-empty[hidden]{display:none}
+.proposal-empty>span{display:block;margin-bottom:7px;font-size:34px}
+.proposal-empty h2{margin:0;color:var(--proposal-text);font-size:17px;font-weight:500}
+.proposal-empty p{max-width:520px;margin:7px auto 15px;font-size:13px;line-height:1.5}
+
+/* The КП tab follows the same compact section rhythm as the common card. */
+.proposal-workflow-grid{display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);gap:8px}
+.proposal-panel{min-width:0;padding:9px;border:1px solid var(--proposal-line);border-radius:11px;background:var(--proposal-paper)}
+.proposal-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.proposal-panel h3{margin:0;color:var(--proposal-text);font-size:14px;font-weight:500;line-height:1.3}
+.proposal-status{display:inline-flex;align-items:center;min-height:25px;padding:4px 8px;border-radius:999px;background:#f6f3ef;color:var(--proposal-muted);font-size:10px;line-height:1.2}
+.proposal-status.ready{background:var(--proposal-green-soft);color:var(--proposal-green)}
+.proposal-terms-grid{display:grid;grid-template-columns:1fr;gap:3px}
+.proposal-terms-grid label{display:grid;grid-template-columns:108px minmax(0,1fr);align-items:center;gap:6px;min-height:40px;color:var(--proposal-muted);font-size:11px}
+.proposal-email-field{display:flex;flex-direction:column;gap:5px;margin-top:8px;color:var(--proposal-muted);font-size:11px}
+.proposal-terms-grid input,.proposal-email-field input,.proposal-email-field textarea{width:100%;min-height:40px!important;border:1px solid var(--proposal-line);border-radius:9px;background:#fff;color:var(--proposal-text);padding:7px 10px;outline:none;font-size:12px}
+.proposal-terms-grid input{height:40px}
+.proposal-email-field textarea{min-height:118px!important;resize:vertical;line-height:1.45}
+.proposal-terms-grid input:focus,.proposal-email-field input:focus,.proposal-email-field textarea:focus{border-color:#82989c!important;box-shadow:0 0 0 3px rgba(75,110,115,.1)}
+.proposal-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}
+.proposal-actions.spread{align-items:center;justify-content:space-between}
+.proposal-actions.spread>div{display:flex;gap:6px}
+.proposal-attachments{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.proposal-file{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;min-height:40px;padding:5px 8px;border:1px solid #c9d9d5;border-radius:9px;background:#eef6f3;color:var(--proposal-text);text-align:left;cursor:pointer}
+.proposal-file>span{display:inline-flex;align-items:center;justify-content:center;width:36px;height:26px;border-radius:7px;background:var(--proposal-teal);color:#fff;font-size:10px;font-weight:700}
+.proposal-file strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+.proposal-file:disabled{opacity:.45;cursor:not-allowed}
+.proposal-success{margin:8px 0 0;padding:8px 10px;border-radius:9px;background:var(--proposal-green-soft);color:var(--proposal-green);font-size:11px;line-height:1.45}
+.proposal-history ol{list-style:none;margin:0;padding:0}
+.proposal-history li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #eee7dd}
+.proposal-history li:last-child{border-bottom:0}
+.proposal-history li strong{font-size:12px}
+.proposal-history li span{color:var(--proposal-muted);font-size:11px}
+.ss-card-workflow-content>.proposal-workflow-grid,.ss-card-history-content>.proposal-panel{grid-column:1/-1}
+
+.proposal-toast{position:fixed;right:24px;bottom:24px;z-index:10000;max-width:390px;padding:11px 14px;border-radius:10px;background:var(--proposal-teal);color:#fff;box-shadow:0 12px 35px rgba(38,55,58,.24);font-size:12px;opacity:0;transform:translateY(12px);pointer-events:none;transition:.18s ease}
+.proposal-toast.show{opacity:1;transform:none}
+.proposal-toast.error{background:var(--proposal-red)}
+.kp-render-host{position:fixed;left:-10000px;top:0;width:794px;z-index:-1}
+.terms-grid-four{grid-template-columns:repeat(2,1fr)}
+.terms-grid-four .kp-box:nth-child(odd){border-right:0}
+.terms-grid-four .kp-box:nth-child(-n+2){border-bottom:0}
+.terms-grid-four .kp-box:last-child{border-right:1px solid #ead9ce}
+
+@media(max-width:900px){
+  .proposal-main{width:calc(100% - 20px)!important;max-width:none;margin:0 10px!important;padding:0 0 28px!important}
+  .proposal-hero{padding:7px 2px 10px}
+  .proposal-title-line{align-items:flex-start;flex-direction:column;gap:5px}
+  .proposal-title-line h1{font-size:24px}
+  .proposal-toolbar{align-items:stretch;flex-direction:column;padding:9px}
+  .proposal-search{min-width:0}
+  .proposal-filters{padding-bottom:3px}
+  .proposal-list-shell{padding:10px;border-radius:14px}
+  .proposal-list{border-top:0}
+  .proposal-list-card{margin-bottom:8px;border:1px solid var(--proposal-line);border-radius:14px}
+  .proposal-toast{right:10px;bottom:10px;left:10px;max-width:none}
+}
+
+@media(max-width:680px){
+  .proposal-workflow-grid{grid-template-columns:1fr}
+  .proposal-actions.spread{align-items:stretch;flex-direction:column}
+  .proposal-actions.spread>div{display:grid;grid-template-columns:1fr 1fr}
+  .proposal-actions.spread>.proposal-btn{width:100%}
+}
+
+@media(max-width:420px){
+  .proposal-count{font-size:11px}
+  .proposal-panel{padding:9px}
+  .proposal-attachments{grid-template-columns:1fr}
+  .proposal-terms-grid label{grid-template-columns:102px minmax(0,1fr)}
+  .proposal-btn{min-width:0}
+}
+
+@media(prefers-reduced-motion:reduce){.proposal-toast{transition:none}}
+@media print{body.proposal-page.figma-shell-v76115>.object-context-bar,.proposal-toolbar,.proposal-toast{display:none!important}.proposal-main{width:100%!important;margin:0!important;padding:0!important}.proposal-list-shell{border:0}.proposal-list-card{break-inside:avoid}}

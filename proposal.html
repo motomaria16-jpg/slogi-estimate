@@ -1,14 +1,54 @@
 <!DOCTYPE html>
-<script src="legacy-placeholder-redirect.js?v=76133"></script>
-<html lang="ru" data-slogi-access="pending"><head><meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/><meta content="no-cache,no-store,must-revalidate" http-equiv="Cache-Control"/><title>СЛОГИ — Объект · Коммерческое предложение</title><link href="favicon.svg?v=31" rel="icon"/><link href="professional-ui.css?v=31" rel="stylesheet"/><link href="app-shell.css?v=50" rel="stylesheet"/>
-  <link href="layout-v76-1-1.css?v=7611" rel="stylesheet"/><link href="workflow-pages.css?v=31" rel="stylesheet"/><link href="objects-visual-standard.css?v=33" rel="stylesheet"/><link href="layout-fixed-header.css?v=33" rel="stylesheet"/><link href="schoolslogi-theme-v76-1-5.css?v=76114" rel="stylesheet"/><link href="password-gate.css?v=7617" rel="stylesheet"/><link href="figma-shell-v76-1-15.css?v=76116" rel="stylesheet"/><script src="phase0-config.js?v=7617"></script><script src="shared-workspace.js?v=7617"></script></head><body>
-<header class="site-header"><div class="top"><div class="brand"><a class="logo-link" href="index.html"><div class="logo-word"><span>С</span><span>Л</span><span>О</span><span>Г</span><span>И</span></div></a><div class="title-wrap"><h1>Объект · Коммерческое предложение</h1><div class="subtitle">Редактирование и выгрузка по фирменному шаблону</div></div></div></div></header>
-<main class="workflow-main"><div class="workflow-hero"><div><h2>Редактор коммерческого предложения</h2><p>Данные объекта и сроки подставляются автоматически. Любой текст в двухстраничном документе можно изменить непосредственно в предпросмотре.</p></div><div class="flow-steps"><span class="flow-step done">1 · Спецификация</span><span class="flow-arrow">→</span><span class="flow-step done">2 · Смета</span><span class="flow-arrow">→</span><span class="flow-step active">3 · КП</span></div></div>
-<section class="object-strip" id="object-strip"></section><div class="notice bad" hidden="" id="outdated-banner">После формирования КП смета была изменена. Обновите документ из актуальных данных объекта.</div><div style="height:15px"></div>
-<div class="proposal-workspace"><aside class="workflow-sidebar">
-<section class="workflow-card"><div class="workflow-card-head">Параметры документа</div><div class="workflow-card-body"><div class="field"><label>Версия сметы</label><select class="wf-select" id="estimate-version"></select><div class="workflow-status" id="estimate-link-note"></div></div><div class="form-grid"><div class="field"><label>Дата</label><input class="wf-input" id="kp-date" type="date"/></div><div class="field"><label>Получатель</label><input class="wf-input" id="kp-recipient"/></div></div><div class="form-grid"><div class="field"><label>Желаемая ставка, ₽/м²</label><input class="wf-input" id="kp-rate" type="number"/></div><div class="field"><label>Срок аренды, лет</label><input class="wf-input" id="kp-years" type="number"/></div></div><div class="form-grid"><div class="field"><label>Арендные каникулы, мес.</label><input class="wf-input" id="kp-holidays" type="number"/></div><div class="field"><label>Этаж / вход</label><input class="wf-input" id="kp-floor"/></div></div><div class="field"><label>Подписант</label><input class="wf-input" id="kp-signatory"/></div><div class="field"><label>Должность</label><input class="wf-input" id="kp-position"/></div><div class="field"><label>Контакты</label><input class="wf-input" id="kp-contacts"/></div><button class="wf-btn" id="apply-data" style="width:100%">Обновить данные в КП</button></div></section>
-<section class="workflow-card"><div class="workflow-card-head">Действия</div><div class="workflow-card-body"><div class="workflow-actions"><button class="wf-btn accent" id="save-draft">Сохранить черновик</button><button class="wf-btn primary" id="create-version">Создать новую версию</button><button class="wf-btn primary" id="download-docx">Скачать DOCX</button><button class="wf-btn" id="download-pdf">Скачать PDF</button><a class="wf-btn" id="back-passport">Вернуться в обзор объекта</a></div><div class="workflow-status" id="save-status"></div></div></section>
-<section class="notice">Скачивается настоящий DOCX на базе приложенного шаблона. Разметка, логотип, колонтитулы и фирменная композиция сохраняются.</section>
-</aside><section class="proposal-preview" id="proposal-editor"></section></div></main>
-<script src="professional-core.js?v=31"></script><script src="professional-shell.js?v=76131"></script><script src="workflow-storage.js?v=31"></script><script src="pako-inflate.min.js?v=31"></script><script src="office-zip.js?v=31"></script><script src="kp-template-map.js?v=31"></script><script src="proposal-assets.js?v=31"></script><script src="proposal-workflow.js?v=31"></script><script src="figma-shell-v76-1-15.js?v=76131"></script>
-</body></html>
+<html lang="ru" data-slogi-access="pending">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1" name="viewport"/>
+  <meta content="no-cache,no-store,must-revalidate" http-equiv="Cache-Control"/>
+  <title>СЛОГИ — КП</title>
+  <link href="favicon.svg?v=40" rel="icon"/>
+  <link href="professional-ui.css?v=31" rel="stylesheet"/>
+  <link href="app-shell.css?v=61" rel="stylesheet"/>
+  <link href="layout-v76-1-1.css?v=7611" rel="stylesheet"/>
+  <link href="objects-visual-standard.css?v=33" rel="stylesheet"/>
+  <link href="phase0.css?v=68" rel="stylesheet"/>
+  <link href="in-work.css?v=76142" rel="stylesheet"/>
+  <link href="premises-list-card.css?v=76138" rel="stylesheet"/>
+  <link href="search-space-card-modal.css?v=76151" rel="stylesheet"/>
+  <link href="workflow-pages.css?v=76160" rel="stylesheet"/>
+  <link href="proposal.css?v=76162" rel="stylesheet"/>
+  <link href="schoolslogi-theme-v76-1-5.css?v=76114" rel="stylesheet"/>
+  <link href="password-gate.css?v=7617" rel="stylesheet"/>
+  <link href="figma-shell-v76-1-15.css?v=76141" rel="stylesheet"/>
+  <script src="phase0-config.js?v=76138"></script>
+  <script src="shared-workspace.js?v=76134"></script>
+  <script src="fast-navigation.js?v=76160"></script>
+</head>
+<body class="slogi-search-page proposal-page">
+<header class="site-header"><div class="top"><div class="brand"><a class="logo-link" href="index.html" aria-label="СЛОГИ — главная"><div class="logo-word" aria-hidden="true"><span>С</span><span>Л</span><span>О</span><span>Г</span><span>И</span></div></a></div></div></header>
+<main class="proposal-main" id="proposal-main">
+  <section class="proposal-hero" aria-labelledby="proposal-title"><div class="proposal-title-line"><h1 id="proposal-title">КП</h1><span class="proposal-count" id="proposal-count">0 объектов</span></div></section>
+  <section class="proposal-toolbar" aria-label="Поиск и фильтры коммерческих предложений">
+    <label class="proposal-search"><span class="proposal-sr-only">Поиск помещения</span><input id="proposal-search" type="search" autocomplete="off" placeholder="Поиск по адресу, кластеру или контакту"/></label>
+    <div class="proposal-filters" id="proposal-filters" role="group" aria-label="Статус КП"><button class="active" type="button" aria-pressed="true" data-status="">Все</button><button type="button" aria-pressed="false" data-status="draft">Подготовка</button><button type="button" aria-pressed="false" data-status="prepared">Готово к отправке</button><button type="button" aria-pressed="false" data-status="sent">Отправлено</button></div>
+  </section>
+  <section class="proposal-list-shell" aria-label="Помещения на этапе КП">
+    <p class="proposal-sr-only" id="proposal-summary" aria-live="polite">Загрузка…</p><div class="proposal-list" id="proposal-list" aria-live="polite"></div>
+    <div class="proposal-empty" id="proposal-empty" hidden><span aria-hidden="true">⌕</span><h2>Помещений на этапе КП пока нет</h2><p>После завершения просмотра нажмите «Сформировать КП» в карточке помещения.</p><a class="proposal-btn primary" href="in-work.html">Перейти в «Помещения в работе»</a></div>
+  </section>
+</main>
+<div class="proposal-toast" id="proposal-toast" role="status" aria-live="polite"></div>
+<script src="professional-core.js?v=31"></script>
+<script src="workflow-storage.js?v=31"></script>
+<script src="professional-shell.js?v=76131"></script>
+<script src="search-space-card.js?v=76131"></script>
+<script src="premises-list-card.js?v=76136"></script>
+<script src="phase0-services.js?v=76136"></script>
+<script src="search-space-card-modal.js?v=76160"></script>
+<script src="kp-template-map.js?v=31"></script>
+<script src="proposal-assets.js?v=31"></script>
+<script src="proposal-stage.js?v=76160"></script>
+<script src="proposal-document.js?v=76161"></script>
+<script src="proposal-app.js?v=76160"></script>
+<script src="figma-shell-v76-1-15.js?v=76160"></script>
+</body>
+</html>

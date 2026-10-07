@@ -632,7 +632,11 @@
   }
 
   function workflowEnabled() {
-    return state.context === 'in-work' && typeof state.callbacks.renderWorkflow === 'function';
+    return ['in-work','proposal'].includes(state.context) && typeof state.callbacks.renderWorkflow === 'function';
+  }
+
+  function workflowLabel() {
+    return state.context === 'proposal' ? 'КП' : 'Сопровождение';
   }
 
   function renderWorkflowFooterAction() {
@@ -680,6 +684,8 @@
     const workflowStatus = state.workflowView && text(state.workflowView.status);
     status.textContent = workflowStatus || '';
     status.hidden = !status.textContent;
+    const workflowTab = state.dialog.querySelector('[data-card-tab="workflow"]');
+    if (workflowTab) workflowTab.textContent = workflowLabel();
     setOrigin('coordinates', state.draft.geo && state.draft.geo.resolutionSource);
     setOrigin('cluster', state.draft.cluster && state.draft.cluster.resolutionSource);
     setOrigin('competitive', state.draft.competitive && state.draft.competitive.resolutionSource);
@@ -712,7 +718,7 @@
     const reasons = state.evaluation && state.evaluation.reasons || [];
     const inWork = workflowEnabled();
     const action = inWork ? 'go-workflow' : state.context === 'in-work' ? 'save' : 'take-to-work';
-    const actionLabel = inWork ? 'Перейти к сопровождению' : state.context === 'in-work' ? 'Добавить помещение в работу' : 'Добавить в «Помещение в работе»';
+    const actionLabel = inWork ? (state.context === 'proposal' ? 'Перейти к КП' : 'Перейти к сопровождению') : state.context === 'in-work' ? 'Добавить помещение в работу' : 'Добавить в «Помещение в работе»';
     target.innerHTML = `<section class="ss-card-context-section"><div class="ss-card-context-heading"><span aria-hidden="true">✓</span><h3>Готовность</h3></div><ul class="ss-card-check-list">${items.map((item) => `<li class="${item.ready ? 'ready' : 'pending'}"><span aria-hidden="true"></span>${escapeHtml(item.label)}</li>`).join('')}</ul>${reasons.length ? `<ul class="ss-card-context-reasons">${reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join('')}</ul>` : ''}</section>
       <section class="ss-card-context-section ss-card-next"><div class="ss-card-context-heading"><span aria-hidden="true">⚑</span><h3>Следующий этап</h3></div><button class="ss-card-button ss-card-button-primary ss-card-next-button" type="button" data-action="${action}">${actionLabel} <span aria-hidden="true">→</span></button></section>`;
   }
@@ -732,6 +738,8 @@
     content.innerHTML = typeof rendered === 'string' ? rendered : text(rendered.html);
     history.innerHTML = typeof rendered === 'object' ? text(rendered.historyHtml) : '';
     if (!history.innerHTML) history.innerHTML = '<section class="in-work-panel"><h3>История</h3><p class="in-work-panel-intro">Действий пока нет.</p></section>';
+    content.querySelectorAll('button[disabled]').forEach((button) => { button.dataset.businessDisabled = 'true'; });
+    history.querySelectorAll('button[disabled]').forEach((button) => { button.dataset.businessDisabled = 'true'; });
     content.onclick = (event) => {
       const button = event.target.closest('[data-action]');
       if (!button) return;
@@ -804,7 +812,7 @@
     const deleteButton = state.dialog.querySelector('[data-action="delete"]');
     deleteButton.hidden = !(state.draft.id && typeof state.callbacks.onDelete === 'function');
     state.dialog.querySelectorAll('button').forEach((button) => {
-      button.disabled = Boolean(state.busy);
+      button.disabled = Boolean(state.busy) || button.dataset.businessDisabled === 'true';
     });
     const resolveButton = state.dialog.querySelector('[data-action="resolve-address"]');
     resolveButton.textContent = state.busy === 'resolve' ? 'Определяем…' : 'Определить';
@@ -1067,7 +1075,7 @@
     state.callbacks = options.callbacks;
     state.context = text(options.callbacks.context);
     state.draft = normalize(options.initial);
-    state.activeTab = 'object';
+    state.activeTab = tabAvailable(text(options.callbacks.initialTab)) ? text(options.callbacks.initialTab) : 'object';
     state.workflowView = null;
     state.busy = '';
     state.resolution = 'idle';
@@ -1082,7 +1090,10 @@
       else dialog.setAttribute('open', '');
     }
     document.body.classList.add('ss-card-modal-open');
-    window.setTimeout(() => input('address') && input('address').focus(), 0);
+    window.setTimeout(() => {
+      const target=state.activeTab==='object'?input('address'):state.dialog.querySelector('[data-card-panel="workflow"] input, [data-card-panel="workflow"] textarea, [data-card-panel="workflow"] button');
+      if(target&&typeof target.focus==='function')target.focus();
+    }, 0);
     emit(EVENTS.open, { card: state.draft, evaluation: state.evaluation });
     return state.draft;
   }

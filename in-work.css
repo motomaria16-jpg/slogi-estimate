@@ -105,6 +105,7 @@
 .in-work-event strong{font-weight:600}.in-work-event span{margin-top:2px;color:var(--work-muted)}
 .in-work-event.completed{border-left-color:var(--work-green);background:var(--work-green-soft)}
 .in-work-event.cancelled{border-left-color:#9a8c82;background:#f2efec;text-decoration:line-through;opacity:.72}
+.in-work-event.task{border-left-color:#d3a128;background:#fff1c6}
 
 .in-work-month{display:grid;grid-template-columns:repeat(7,minmax(112px,1fr));min-width:760px}
 .in-work-month-weekday{padding:10px;border-right:1px solid var(--work-line);border-bottom:1px solid var(--work-line);background:var(--work-cream);color:var(--work-muted);font-size:11px;text-align:center}

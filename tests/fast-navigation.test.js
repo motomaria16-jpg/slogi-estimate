@@ -21,7 +21,7 @@ function anchor(href,attributes={}){
 
 function click(overrides={}){return{button:0,defaultPrevented:false,metaKey:false,ctrlKey:false,shiftKey:false,altKey:false,...overrides};}
 
-test('only unmodified same-app Search/In-work links use fast navigation',()=>{
+test('only unmodified same-app Search/In-work/KP links use fast navigation',()=>{
   assert.equal(navigation.clickTarget(click(),anchor('in-work.html'),BASE).href,'https://slogi.example/app/in-work.html');
   assert.equal(navigation.clickTarget(click(),anchor('in-work.html?mode=calendar'),BASE).search,'?mode=calendar');
   assert.equal(navigation.clickTarget(click({ctrlKey:true}),anchor('in-work.html'),BASE),null);
@@ -32,7 +32,7 @@ test('only unmodified same-app Search/In-work links use fast navigation',()=>{
   assert.equal(navigation.clickTarget(click(),anchor('#calendar'),BASE),null);
   assert.equal(navigation.clickTarget(click(),anchor('https://other.example/in-work.html'),BASE),null);
   assert.equal(navigation.clickTarget(click(),anchor('/other/in-work.html'),BASE),null);
-  assert.equal(navigation.clickTarget(click(),anchor('proposal.html'),BASE),null);
+  assert.equal(navigation.clickTarget(click(),anchor('proposal.html'),BASE).href,'https://slogi.example/app/proposal.html');
 });
 
 test('internal iframe marker never leaks into the visible deep link',()=>{

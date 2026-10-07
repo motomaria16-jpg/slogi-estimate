@@ -9,7 +9,7 @@
 
   const VIEW_PARAM='__slogi_view';
   const FALLBACK_KEY='slogi_fast_navigation_fallback_until_v1';
-  const FAST_ROUTES=Object.freeze(['available-spaces.html','in-work.html']);
+  const FAST_ROUTES=Object.freeze(['available-spaces.html','in-work.html','proposal.html']);
 
   function workspaceReady(win){
     try{return win.document.documentElement.getAttribute('data-slogi-access')==='granted'&&Boolean(win.SlogiCloud&&win.SlogiCloud.ready===true);}catch(_error){return false;}
@@ -176,7 +176,7 @@
           const onError=()=>finish(reject,new Error('view_load_failed'));
           const onLoad=()=>{
             try{
-              const frameDoc=frame.contentDocument,expected=routeName(href),required=expected==='available-spaces.html'?'#cian-main':'#in-work-main';
+              const frameDoc=frame.contentDocument,expected=routeName(href),required=expected==='available-spaces.html'?'#cian-main':expected==='in-work.html'?'#in-work-main':'#proposal-main';
               if(!frameDoc||!frameDoc.querySelector(required))throw new Error('view_contract_missing');
               const assess=()=>{
                 const access=frameDoc.documentElement&&frameDoc.documentElement.getAttribute('data-slogi-access');
@@ -212,8 +212,9 @@
           const active=routeName(new URL(link.getAttribute('href'),initial))===activeRoute;
           link.classList.toggle('active',active);if(active)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');
         });
-        const title=doc.querySelector('.figma-shell-mobile-title');if(title)title.textContent=activeRoute==='in-work.html'?'Помещения в работе':'Поиск помещений';
-        doc.body.dataset.slogiRoute=activeRoute==='in-work.html'?'in-work':'search';
+        const routeMeta=activeRoute==='in-work.html'?{title:'Помещения в работе',id:'in-work'}:activeRoute==='proposal.html'?{title:'КП',id:'kp'}:{title:'Поиск помещений',id:'search'};
+        const title=doc.querySelector('.figma-shell-mobile-title');if(title)title.textContent=routeMeta.title;
+        doc.body.dataset.slogiRoute=routeMeta.id;
       }
 
       function showView(view,href){

@@ -130,8 +130,8 @@ test('successful mutating callbacks use a forced close while action is busy', ()
   assert.match(SOURCE, /\(state\.busy && !force\)/);
 });
 
-test('workflow extension is opt-in and restricted to the in-work card context', () => {
-  assert.match(SOURCE, /state\.context === 'in-work' && typeof state\.callbacks\.renderWorkflow === 'function'/);
+test('workflow extension is opt-in for in-work and proposal card contexts', () => {
+  assert.match(SOURCE, /\['in-work',\s*'proposal'\]\.includes\(state\.context\) && typeof state\.callbacks\.renderWorkflow === 'function'/);
   assert.match(SOURCE, /data-workflow-section[^>]+hidden/);
   assert.match(SOURCE, /data-card-tab="workflow">Сопровождение/);
   assert.match(SOURCE, /data-card-tab="history">История/);

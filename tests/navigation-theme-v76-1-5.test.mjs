@@ -9,7 +9,8 @@ const themeName='schoolslogi-theme-v76-1-5.css';
 const approvedThemeName='figma-shell-v76-1-15.css';
 const workPages=[
   'available-spaces.html',
-  'in-work.html'
+  'in-work.html',
+  'proposal.html'
 ];
 const placeholderPage='under-development.html';
 const redirectPages=[
@@ -18,7 +19,6 @@ const redirectPages=[
   'passport.html',
   'source-specification.html',
   'specification.html',
-  'proposal.html',
   'team.html',
   'settings.html',
   'all-locations.html',
@@ -87,9 +87,9 @@ test('every unfinished route resolves to one protected in-style placeholder',()=
   }
 });
 
-test('primary navigation exposes the in-work page without changing existing product routes',()=>{
+test('primary navigation exposes the in-work and proposal pages without changing existing product routes',()=>{
   const shell=read('professional-shell.js');
-  const expected=['available-spaces.html','in-work.html','index.html','workspace.html?section=estimate','workspace.html?section=repair'];
+  const expected=['available-spaces.html','in-work.html','proposal.html','index.html','workspace.html?section=estimate','workspace.html?section=repair'];
   for(const route of expected)assert.ok(shell.includes(route),route);
   assert.equal(shell.includes('Инструменты'),false);
   for(const target of removedPages)assert.equal(shell.includes(target),false,target);
@@ -234,7 +234,7 @@ test('left menu follows the two-stage product structure and links unfinished sec
     assert.ok(position>previous,label+' is present in the requested order');
     previous=position;
   }
-  for(const route of ['available-spaces.html','in-work.html','under-development.html?section=kp','under-development.html?section=approval','under-development.html?section=repair-documents','under-development.html?section=repair-process','under-development.html?section=repair-exit','under-development.html?section=objects'])assert.ok(shell.includes(route),route);
+  for(const route of ['available-spaces.html','in-work.html','proposal.html','under-development.html?section=approval','under-development.html?section=repair-documents','under-development.html?section=repair-process','under-development.html?section=repair-exit','under-development.html?section=objects'])assert.ok(shell.includes(route),route);
   assert.match(shell,/\{id:'in-work',href:'in-work\.html',label:'Помещение в работе',icon:'building'\}/);
   assert.doesNotMatch(shell,/disabled:true/);
   assert.match(shell,/page==='under-development\.html'\?String\(query\.get\('section'\)\|\|''\):''/);
