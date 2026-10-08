@@ -19,6 +19,7 @@
     context: '',
     activeTab: 'object',
     workflowView: null,
+    proposalView: null,
     opener: null,
     busy: '',
     resolution: 'idle',
@@ -334,6 +335,7 @@
           <button type="button" role="tab" id="ss-card-tab-object" aria-controls="ss-card-panel-object" aria-selected="true" tabindex="0" data-card-tab="object">Объект</button>
           <button type="button" role="tab" id="ss-card-tab-workflow" aria-controls="ss-card-panel-workflow" aria-selected="false" aria-disabled="true" tabindex="-1" data-card-tab="workflow">Сопровождение</button>
           <button type="button" role="tab" id="ss-card-tab-history" aria-controls="ss-card-panel-history" aria-selected="false" aria-disabled="true" tabindex="-1" data-card-tab="history">История</button>
+          <button type="button" role="tab" id="ss-card-tab-proposal" aria-controls="ss-card-panel-proposal" aria-selected="false" aria-disabled="true" tabindex="-1" data-card-tab="proposal">КП</button>
         </nav>
 
         <div class="ss-card-body">
@@ -409,6 +411,10 @@
 
               <section class="ss-card-tab-panel" id="ss-card-panel-history" role="tabpanel" aria-labelledby="ss-card-tab-history" data-card-panel="history" hidden>
                 <div class="ss-card-history-content" data-history-content></div>
+              </section>
+
+              <section class="ss-card-tab-panel" id="ss-card-panel-proposal" role="tabpanel" aria-labelledby="ss-card-tab-proposal" data-card-panel="proposal" data-proposal-section hidden>
+                <div class="ss-card-proposal-content" data-proposal-content></div>
               </section>
             </div>
 
@@ -632,11 +638,11 @@
   }
 
   function workflowEnabled() {
-    return ['in-work','proposal'].includes(state.context) && typeof state.callbacks.renderWorkflow === 'function';
+    return state.context === 'in-work' && typeof state.callbacks.renderWorkflow === 'function';
   }
 
-  function workflowLabel() {
-    return state.context === 'proposal' ? 'КП' : 'Сопровождение';
+  function proposalEnabled() {
+    return state.context === 'proposal' && typeof state.callbacks.renderProposal === 'function';
   }
 
   function renderWorkflowFooterAction() {
@@ -653,7 +659,11 @@
   }
 
   function tabAvailable(name) {
-    return name === 'object' || (workflowEnabled() && (name === 'workflow' || name === 'history'));
+    if (name === 'object') return true;
+    if (name === 'workflow') return workflowEnabled();
+    if (name === 'proposal') return proposalEnabled();
+    if (name === 'history') return workflowEnabled() || proposalEnabled();
+    return false;
   }
 
   function setActiveTab(name, focus) {
@@ -682,10 +692,9 @@
     const provider = text(state.draft.sourceProvider).toLocaleUpperCase('ru-RU');
     source.textContent = state.draft.source === 'manual' ? 'Введено вручную' : `Получено из ${provider || 'источника'}`;
     const workflowStatus = state.workflowView && text(state.workflowView.status);
-    status.textContent = workflowStatus || '';
+    const proposalStatus = state.proposalView && text(state.proposalView.status);
+    status.textContent = proposalStatus || workflowStatus || '';
     status.hidden = !status.textContent;
-    const workflowTab = state.dialog.querySelector('[data-card-tab="workflow"]');
-    if (workflowTab) workflowTab.textContent = workflowLabel();
     setOrigin('coordinates', state.draft.geo && state.draft.geo.resolutionSource);
     setOrigin('cluster', state.draft.cluster && state.draft.cluster.resolutionSource);
     setOrigin('competitive', state.draft.competitive && state.draft.competitive.resolutionSource);
@@ -705,8 +714,9 @@
     const target = state.dialog.querySelector('[data-context-content]');
     const context = target.closest('.ss-card-context');
     const layout = target.closest('.ss-card-layout');
-    if (state.activeTab === 'workflow') {
-      const sidebar = state.workflowView && text(state.workflowView.sidebarHtml);
+    if (state.activeTab === 'workflow' || state.activeTab === 'proposal') {
+      const view = state.activeTab === 'proposal' ? state.proposalView : state.workflowView;
+      const sidebar = view && text(view.sidebarHtml);
       context.hidden = !sidebar;
       layout.classList.toggle('ss-card-layout-full', !sidebar);
       target.innerHTML = sidebar || '';
@@ -717,29 +727,25 @@
     const items = checkItems();
     const reasons = state.evaluation && state.evaluation.reasons || [];
     const inWork = workflowEnabled();
-    const action = inWork ? 'go-workflow' : state.context === 'in-work' ? 'save' : 'take-to-work';
-    const actionLabel = inWork ? (state.context === 'proposal' ? 'Перейти к КП' : 'Перейти к сопровождению') : state.context === 'in-work' ? 'Добавить помещение в работу' : 'Добавить в «Помещение в работе»';
+    const inProposal = proposalEnabled();
+    const action = inProposal ? 'go-proposal' : inWork ? 'go-workflow' : state.context === 'in-work' ? 'save' : 'take-to-work';
+    const actionLabel = inProposal ? 'Перейти к КП' : inWork ? 'Перейти к сопровождению' : state.context === 'in-work' ? 'Добавить помещение в работу' : 'Добавить в «Помещение в работе»';
     target.innerHTML = `<section class="ss-card-context-section"><div class="ss-card-context-heading"><span aria-hidden="true">✓</span><h3>Готовность</h3></div><ul class="ss-card-check-list">${items.map((item) => `<li class="${item.ready ? 'ready' : 'pending'}"><span aria-hidden="true"></span>${escapeHtml(item.label)}</li>`).join('')}</ul>${reasons.length ? `<ul class="ss-card-context-reasons">${reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join('')}</ul>` : ''}</section>
       <section class="ss-card-context-section ss-card-next"><div class="ss-card-context-heading"><span aria-hidden="true">⚑</span><h3>Следующий этап</h3></div><button class="ss-card-button ss-card-button-primary ss-card-next-button" type="button" data-action="${action}">${actionLabel} <span aria-hidden="true">→</span></button></section>`;
   }
 
   function renderWorkflow() {
     const content = state.dialog.querySelector('[data-workflow-content]');
-    const history = state.dialog.querySelector('[data-history-content]');
     const enabled = workflowEnabled();
     if (!enabled) {
       content.innerHTML = '';
-      history.innerHTML = '';
       state.workflowView = null;
       return;
     }
     const rendered = state.callbacks.renderWorkflow(state.draft) || {};
     state.workflowView = typeof rendered === 'string' ? { html: rendered } : rendered;
     content.innerHTML = typeof rendered === 'string' ? rendered : text(rendered.html);
-    history.innerHTML = typeof rendered === 'object' ? text(rendered.historyHtml) : '';
-    if (!history.innerHTML) history.innerHTML = '<section class="in-work-panel"><h3>История</h3><p class="in-work-panel-intro">Действий пока нет.</p></section>';
     content.querySelectorAll('button[disabled]').forEach((button) => { button.dataset.businessDisabled = 'true'; });
-    history.querySelectorAll('button[disabled]').forEach((button) => { button.dataset.businessDisabled = 'true'; });
     content.onclick = (event) => {
       const button = event.target.closest('[data-action]');
       if (!button) return;
@@ -751,12 +757,55 @@
       event.stopPropagation();
       runWorkflowFile(event.target);
     };
-    history.onclick = content.onclick;
-    history.onchange = content.onchange;
+  }
+
+  function renderProposal() {
+    const content = state.dialog.querySelector('[data-proposal-content]');
+    const enabled = proposalEnabled();
+    if (!enabled) {
+      content.innerHTML = '';
+      state.proposalView = null;
+      return;
+    }
+    const rendered = state.callbacks.renderProposal(state.draft) || {};
+    state.proposalView = typeof rendered === 'string' ? { html: rendered } : rendered;
+    content.innerHTML = typeof rendered === 'string' ? rendered : text(rendered.html);
+    content.querySelectorAll('button[disabled]').forEach((button) => { button.dataset.businessDisabled = 'true'; });
+    content.onclick = (event) => {
+      const button = event.target.closest('[data-action]');
+      if (!button) return;
+      event.stopPropagation();
+      runWorkflowAction(button);
+    };
+    content.onchange = (event) => {
+      if (!event.target.matches('input[type="file"]')) return;
+      event.stopPropagation();
+      runWorkflowFile(event.target);
+    };
+  }
+
+  function renderHistory() {
+    const history = state.dialog.querySelector('[data-history-content]');
+    const view = state.proposalView || state.workflowView;
+    history.innerHTML = view && text(view.historyHtml);
+    if (!history.innerHTML) history.innerHTML = '<section class="in-work-panel"><h3>История</h3><p class="in-work-panel-intro">Действий пока нет.</p></section>';
+    history.querySelectorAll('button[disabled]').forEach((button) => { button.dataset.businessDisabled = 'true'; });
+    history.onclick = (event) => {
+      const button = event.target.closest('[data-action]');
+      if (!button) return;
+      event.stopPropagation();
+      runWorkflowAction(button);
+    };
+    history.onchange = (event) => {
+      if (!event.target.matches('input[type="file"]')) return;
+      event.stopPropagation();
+      runWorkflowFile(event.target);
+    };
   }
 
   function captureWorkflowUi() {
-    const content = state.dialog && state.dialog.querySelector('[data-workflow-content]');
+    const selector = state.activeTab === 'proposal' ? '[data-proposal-content]' : '[data-workflow-content]';
+    const content = state.dialog && state.dialog.querySelector(selector);
     const body = state.dialog && state.dialog.querySelector('.ss-card-body');
     if (!content) return null;
     const controls = Array.from(content.querySelectorAll('input:not([type="file"]), select, textarea'));
@@ -774,7 +823,8 @@
 
   function restoreWorkflowUi(snapshot) {
     if (!snapshot) return;
-    const content = state.dialog.querySelector('[data-workflow-content]');
+    const selector = state.activeTab === 'proposal' ? '[data-proposal-content]' : '[data-workflow-content]';
+    const content = state.dialog.querySelector(selector);
     const body = state.dialog.querySelector('.ss-card-body');
     const controls = Array.from(content.querySelectorAll('input:not([type="file"]), select, textarea'));
     snapshot.controls.forEach((saved) => {
@@ -803,6 +853,8 @@
     else listingLink.removeAttribute('href');
     renderEconomy(state.evaluation);
     renderWorkflow();
+    renderProposal();
+    renderHistory();
     renderHeader();
     setActiveTab(state.activeTab);
     renderTakeAction();
@@ -921,7 +973,8 @@
   }
 
   async function runWorkflowAction(button) {
-    const callback = state.callbacks.onWorkflowAction;
+    const inProposal = Boolean(button && button.closest('[data-card-panel="proposal"]')) || state.activeTab === 'proposal';
+    const callback = inProposal ? state.callbacks.onProposalAction : state.callbacks.onWorkflowAction;
     if (typeof callback !== 'function') return;
     clearAlert();
     const formData = typeof window.FormData === 'function' ? new window.FormData(state.form) : null;
@@ -929,7 +982,7 @@
     const ui = captureWorkflowUi();
     try {
       const pending = callback(action, { card: state.draft, evaluation: state.evaluation, formData, button });
-      state.busy = `workflow-${action || 'action'}`;
+      state.busy = `${inProposal ? 'proposal' : 'workflow'}-${action || 'action'}`;
       button.disabled = true;
       const panel = button.closest('[data-workflow-panel]');
       if (panel) panel.setAttribute('aria-busy', 'true');
@@ -949,7 +1002,8 @@
   }
 
   async function runWorkflowFile(inputNode) {
-    const callback = state.callbacks.onWorkflowFile;
+    const inProposal = Boolean(inputNode && inputNode.closest('[data-card-panel="proposal"]')) || state.activeTab === 'proposal';
+    const callback = inProposal ? state.callbacks.onProposalFile : state.callbacks.onWorkflowFile;
     if (typeof callback !== 'function' || !inputNode) return;
     const file = inputNode.files && inputNode.files[0];
     if (!file) return;
@@ -957,7 +1011,7 @@
     clearAlert();
     try {
       const pending = callback(inputNode.name, file, { card: state.draft, evaluation: state.evaluation });
-      state.busy = `workflow-file-${inputNode.name || 'upload'}`;
+      state.busy = `${inProposal ? 'proposal' : 'workflow'}-file-${inputNode.name || 'upload'}`;
       inputNode.disabled = true;
       const panel = inputNode.closest('[data-workflow-panel]');
       if (panel) panel.setAttribute('aria-busy', 'true');
@@ -978,7 +1032,7 @@
 
   function bindEvents() {
     state.form.addEventListener('input', (event) => {
-      if (event.target.closest('[data-workflow-section]')) return;
+      if (event.target.closest('[data-workflow-section], [data-proposal-section]')) return;
       if (event.target.name === 'address') {
         event.target.setCustomValidity('');
         state.draft.address = event.target.value;
@@ -1002,7 +1056,7 @@
       syncFromForm(event);
     });
     state.form.addEventListener('change', (event) => {
-      if (event.target.closest('[data-workflow-section]')) {
+      if (event.target.closest('[data-workflow-section], [data-proposal-section]')) {
         if (event.target.matches('input[type="file"]')) runWorkflowFile(event.target);
         return;
       }
@@ -1025,8 +1079,9 @@
       else if (action === 'take-to-work') runCallback('onTakeToWork', EVENTS.takeToWork, true);
       else if (action === 'delete') runCallback('onDelete', EVENTS.delete, true);
       else if (action === 'go-workflow') setActiveTab('workflow', true);
+      else if (action === 'go-proposal') setActiveTab('proposal', true);
       else if (button.matches('[data-workflow-footer-action]') && workflowEnabled()) runWorkflowAction(button);
-      else if (button.closest('[data-card-panel="workflow"], [data-card-panel="history"], .ss-card-context')) runWorkflowAction(button);
+      else if (button.closest('[data-card-panel="workflow"], [data-card-panel="proposal"], [data-card-panel="history"], .ss-card-context')) runWorkflowAction(button);
     });
     state.dialog.addEventListener('cancel', (event) => {
       event.preventDefault();
@@ -1062,7 +1117,7 @@
 
   function parseOpenArguments(initialOrOptions, maybeCallbacks) {
     const first = initialOrOptions && typeof initialOrOptions === 'object' ? initialOrOptions : {};
-    const isOptions = own(first, 'initial') || own(first, 'onResolveAddress') || own(first, 'onSave') || own(first, 'onTakeToWork') || own(first, 'onDelete') || own(first, 'context') || own(first, 'renderWorkflow');
+    const isOptions = own(first, 'initial') || own(first, 'onResolveAddress') || own(first, 'onSave') || own(first, 'onTakeToWork') || own(first, 'onDelete') || own(first, 'context') || own(first, 'renderWorkflow') || own(first, 'renderProposal');
     return isOptions
       ? { initial: first.initial || {}, callbacks: first }
       : { initial: first, callbacks: maybeCallbacks && typeof maybeCallbacks === 'object' ? maybeCallbacks : {} };
@@ -1077,6 +1132,7 @@
     state.draft = normalize(options.initial);
     state.activeTab = tabAvailable(text(options.callbacks.initialTab)) ? text(options.callbacks.initialTab) : 'object';
     state.workflowView = null;
+    state.proposalView = null;
     state.busy = '';
     state.resolution = 'idle';
     state.resolutionMessage = state.draft.cluster.status === 'inside'
@@ -1091,7 +1147,8 @@
     }
     document.body.classList.add('ss-card-modal-open');
     window.setTimeout(() => {
-      const target=state.activeTab==='object'?input('address'):state.dialog.querySelector('[data-card-panel="workflow"] input, [data-card-panel="workflow"] textarea, [data-card-panel="workflow"] button');
+      const panelSelector = state.activeTab === 'proposal' ? '[data-card-panel="proposal"]' : '[data-card-panel="workflow"]';
+      const target=state.activeTab==='object'?input('address'):state.dialog.querySelector(`${panelSelector} input, ${panelSelector} textarea, ${panelSelector} button`);
       if(target&&typeof target.focus==='function')target.focus();
     }, 0);
     emit(EVENTS.open, { card: state.draft, evaluation: state.evaluation });
@@ -1119,6 +1176,7 @@
     state.context = '';
     state.activeTab = 'object';
     state.workflowView = null;
+    state.proposalView = null;
     document.body.classList.remove('ss-card-modal-open');
   }
 

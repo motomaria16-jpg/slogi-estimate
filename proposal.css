@@ -86,7 +86,7 @@ body.proposal-page.figma-shell-v76115>.object-context-bar{display:none!important
 .proposal-history li:last-child{border-bottom:0}
 .proposal-history li strong{font-size:12px}
 .proposal-history li span{color:var(--proposal-muted);font-size:11px}
-.ss-card-workflow-content>.proposal-workflow-grid,.ss-card-history-content>.proposal-panel{grid-column:1/-1}
+.ss-card-proposal-content>.proposal-workflow-grid,.ss-card-history-content>.proposal-panel{grid-column:1/-1}
 
 .proposal-toast{position:fixed;right:24px;bottom:24px;z-index:10000;max-width:390px;padding:11px 14px;border-radius:10px;background:var(--proposal-teal);color:#fff;box-shadow:0 12px 35px rgba(38,55,58,.24);font-size:12px;opacity:0;transform:translateY(12px);pointer-events:none;transition:.18s ease}
 .proposal-toast.show{opacity:1;transform:none}

@@ -16,6 +16,9 @@ test('KP page uses the persistent platform shell and the canonical card',()=>{
   assert.match(html,/proposal-app\.js/);
   assert.match(shell,/{id:'kp',href:'proposal\.html'/);
   assert.match(navigation,/\['available-spaces\.html','in-work\.html','proposal\.html'\]/);
+  assert.match(app,/context:'proposal',initialTab:'proposal',renderProposal:/);
+  assert.match(app,/onProposalAction:/);
+  assert.doesNotMatch(app,/initialTab:'workflow',renderWorkflow:/);
 });
 
 test('KP workflow keeps all requested fields, PDF, lease, email and sent action',()=>{

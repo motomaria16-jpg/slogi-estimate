@@ -225,3 +225,50 @@ test('workflow proposal action stays in the fixed footer and action buttons shar
     await browser.close();
   }
 });
+
+test('proposal unlocks as a fourth section without replacing the canonical card', { skip: !hasBrowserRuntime }, async () => {
+  const { chromium } = await import(pathToFileURL(join(nodeModules, 'playwright', 'index.mjs')).href);
+  const browser = await chromium.launch({ headless: true, executablePath: chromePath });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await page.setContent('<!doctype html><html lang="ru"><body><button id="opener">Открыть</button></body></html>');
+    await page.addStyleTag({ path: join(root, 'search-space-card-modal.css') });
+    await page.addScriptTag({ path: join(root, 'search-space-card.js') });
+    await page.addScriptTag({ path: join(root, 'search-space-card-modal.js') });
+    await page.evaluate(() => {
+      window.SlogiSearchSpaceCardModal.open({
+        initial: { id: 'space-proposal', source: 'manual', address: 'Москва' },
+        context: 'in-work',
+        renderWorkflow: () => ({ html: '<p>Сопровождение</p>' })
+      });
+    });
+    const beforeTabs = await page.locator('[data-card-tab]').evaluateAll(nodes => nodes.map(node => ({ name: node.textContent.trim(), disabled: node.getAttribute('aria-disabled') })));
+    assert.deepEqual(beforeTabs, [
+      { name: 'Объект', disabled: 'false' },
+      { name: 'Сопровождение', disabled: 'false' },
+      { name: 'История', disabled: 'false' },
+      { name: 'КП', disabled: 'true' }
+    ]);
+    const beforeDialog = await page.locator('.ss-card-dialog').evaluate(node => ({ width: node.getBoundingClientRect().width, height: node.getBoundingClientRect().height }));
+    await page.evaluate(() => {
+      window.SlogiSearchSpaceCardModal.close('handoff', true);
+      window.SlogiSearchSpaceCardModal.open({
+        initial: { id: 'space-proposal', source: 'manual', address: 'Москва' },
+        context: 'proposal',
+        initialTab: 'proposal',
+        renderProposal: () => ({ status: 'Подготовка КП', html: '<section data-proposal-marker>Коммерческие условия</section>' }),
+        onProposalAction: () => false
+      });
+    });
+    const afterTabs = await page.locator('[data-card-tab]').evaluateAll(nodes => nodes.map(node => ({ name: node.textContent.trim(), disabled: node.getAttribute('aria-disabled'), selected: node.getAttribute('aria-selected') })));
+    assert.equal(afterTabs.length, 4);
+    assert.deepEqual(afterTabs.map(tab => tab.name), ['Объект', 'Сопровождение', 'История', 'КП']);
+    assert.equal(afterTabs.find(tab => tab.name === 'КП').disabled, 'false');
+    assert.equal(afterTabs.find(tab => tab.name === 'КП').selected, 'true');
+    assert.equal(await page.locator('[data-proposal-marker]').isVisible(), true);
+    const afterDialog = await page.locator('.ss-card-dialog').evaluate(node => ({ width: node.getBoundingClientRect().width, height: node.getBoundingClientRect().height }));
+    assert.deepEqual(afterDialog, beforeDialog, 'the modal shell must not change when the КП section unlocks');
+  } finally {
+    await browser.close();
+  }
+});
