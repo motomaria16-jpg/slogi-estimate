@@ -131,26 +131,24 @@ test('successful mutating callbacks use a forced close while action is busy', ()
 });
 
 test('workflow and proposal are separate opt-in sections of the same card', () => {
-  assert.match(SOURCE, /state\.context === 'in-work' && typeof state\.callbacks\.renderWorkflow === 'function'/);
+  assert.match(SOURCE, /\(state\.context === 'in-work' \|\| state\.context === 'proposal'\) && typeof state\.callbacks\.renderWorkflow === 'function'/);
   assert.match(SOURCE, /state\.context === 'proposal' && typeof state\.callbacks\.renderProposal === 'function'/);
   assert.match(SOURCE, /data-workflow-section[^>]+hidden/);
   assert.match(SOURCE, /data-proposal-section[^>]+hidden/);
   assert.match(SOURCE, /data-card-tab="workflow">Сопровождение/);
   assert.match(SOURCE, /data-card-tab="proposal">КП/);
-  assert.match(SOURCE, /data-card-tab="history">История/);
+  assert.doesNotMatch(SOURCE, /data-card-tab="history"|data-card-panel="history"|>История<\/button>/);
   assert.match(SOURCE, /onWorkflowAction/);
   assert.match(SOURCE, /onProposalAction/);
   assert.match(SOURCE, /onWorkflowFile/);
   assert.match(SOURCE, /new window\.FormData\(state\.form\)/);
   assert.match(SOURCE, /event\.target\.closest\('\[data-workflow-section\], \[data-proposal-section\]'\)/);
   assert.match(SOURCE, /takeButton\.hidden = state\.context === 'in-work'/);
-  assert.match(SOURCE, /view && text\(view\.historyHtml\)/);
   assert.match(SOURCE, /state\.proposalView/);
   assert.match(SOURCE, /data-action="start-proposal" data-workflow-footer-action hidden/);
   assert.match(SOURCE, /function renderWorkflowFooterAction\(\)/);
   assert.match(SOURCE, /button\.matches\('\[data-workflow-footer-action\]'\)/);
   assert.match(CSS, /\.ss-card-workflow-content, \.ss-card-proposal-content \{ display: grid; grid-template-columns: repeat\(2,minmax\(0,1fr\)\)/);
-  assert.match(CSS, /\.ss-card-history-content \{ display: grid/);
 });
 
 test('markup is compact, accessible and uses one editable control per value', () => {
@@ -158,10 +156,11 @@ test('markup is compact, accessible and uses one editable control per value', ()
   assert.match(SOURCE, /class="ss-card-identity"/);
   assert.match(SOURCE, /class="ss-card-columns"/);
   assert.match(SOURCE, /role="tablist"/);
-  for (const tab of ['object','workflow','history','proposal']) {
+  for (const tab of ['object','workflow','proposal']) {
     assert.match(SOURCE, new RegExp(`role="tab"[^>]+data-card-tab="${tab}"`));
     assert.match(SOURCE, new RegExp(`role="tabpanel"[^>]+data-card-panel="${tab}"`));
   }
+  assert.doesNotMatch(SOURCE, /data-card-tab="history"|data-card-panel="history"/);
   assert.doesNotMatch(SOURCE, /data-card-tab="selection"|>Отбор<|data-selection-detail/);
   assert.match(SOURCE, /\['ArrowLeft', 'ArrowRight', 'Home', 'End'\]/);
   assert.match(SOURCE, /Кластер и рейтинг/);

@@ -1,8 +1,8 @@
 (function(){
   'use strict';
   if(window.__slogiFastNavigationHost)return;
-  const S=window.SlogiPhase0,W=window.SlogiWorkflow,P=window.SlogiPro,cardModel=window.SlogiSearchSpaceCard,cardModal=window.SlogiSearchSpaceCardModal,listCard=window.SlogiPremisesListCard,stage=window.SlogiProposalStage,documentBuilder=window.SlogiProposalDocument;
-  if(!S||!W||!cardModel||!cardModal||!listCard||!stage||!documentBuilder)return;
+  const S=window.SlogiPhase0,W=window.SlogiWorkflow,P=window.SlogiPro,cardModel=window.SlogiSearchSpaceCard,cardModal=window.SlogiSearchSpaceCardModal,listCard=window.SlogiPremisesListCard,stage=window.SlogiProposalStage,documentBuilder=window.SlogiProposalDocument,inWorkCard=window.SlogiInWorkPage;
+  if(!S||!W||!cardModel||!cardModal||!listCard||!stage||!documentBuilder||!inWorkCard)return;
   const repo=S.projectRepository,$=id=>document.getElementById(id),all=(selector,root=document)=>Array.from(root.querySelectorAll(selector)),esc=S.esc;
   const state={projects:[],visible:[],filter:'',query:'',selectedId:''};
   const LEASE_FILE='lease-agreement-template.docx',LEASE_NAME='Типовой договор аренды нежилого помещения.docx';
@@ -37,9 +37,9 @@
     return`<div class="proposal-workflow-grid">
       <section class="proposal-panel" data-workflow-panel="terms"><div class="proposal-panel-head"><h3>Коммерческие условия</h3><span class="proposal-status ${prepared?'ready':''}">${prepared?'PDF подготовлен':'Заполните 4 параметра'}</span></div><div class="proposal-terms-grid">
         <label><span>Арендные каникулы, дней</span><input name="rentFreeDays" type="number" min="0" step="1" inputmode="numeric" value="${esc(proposal.rentFreeDays??'')}" required></label>
-        <label><span>Базовая ставка, ₽/м²/мес.</span><input name="baseRentRate" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(proposal.baseRentRate??'')}" required></label>
-        <label><span>Льготная ставка, ₽/м²/мес.</span><input name="discountRentRate" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(proposal.discountRentRate??'')}" required></label>
-        <label><span>Льготный период, дней</span><input name="discountPeriodDays" type="number" min="0" step="1" inputmode="numeric" value="${esc(proposal.discountPeriodDays??'')}" required></label>
+        <label><span>Базовая арендная ставка, ₽/м²/мес.</span><input name="baseRentRate" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(proposal.baseRentRate??'')}" required></label>
+        <label><span>Ставка на льготный период, ₽/м²/мес.</span><input name="discountRentRate" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(proposal.discountRentRate??'')}" required></label>
+        <label><span>Срок льготного периода, дней</span><input name="discountPeriodDays" type="number" min="0" step="1" inputmode="numeric" value="${esc(proposal.discountPeriodDays??'')}" required></label>
       </div><div class="proposal-actions"><button class="proposal-btn primary" type="button" data-action="prepare-proposal">${prepared?'Обновить КП':'Подготовить КП'}</button></div></section>
       <section class="proposal-panel" data-workflow-panel="package"><div class="proposal-panel-head"><h3>Пакет для арендодателя</h3><span class="proposal-status ${prepared?'ready':''}">${prepared?'Готов к отправке':'Сначала подготовьте КП'}</span></div>
         <div class="proposal-attachments"><button class="proposal-file" type="button" data-action="download-pdf" ${prepared?'':'disabled'}><span>PDF</span><strong>${esc(proposal.pdfName||'Коммерческое предложение')}</strong></button><button class="proposal-file" type="button" data-action="download-lease"><span>DOCX</span><strong>${esc(LEASE_NAME)}</strong></button></div>
@@ -85,7 +85,7 @@
   }
   function openProposal(project,opener){
     if(!project)return;const projectId=String(project.id);state.selectedId=projectId;
-    cardModal.open({initial:canonicalCard(project),opener,context:'proposal',initialTab:'proposal',renderProposal:()=>{const current=repo.get(projectId),proposal=current?proposalOf(current):{status:'draft'};return{status:statusLabel(proposal),html:current?workflowHtml(current):'',historyHtml:current?historyHtml(current):'',sidebarHtml:''};},onProposalAction:(action,context)=>performWorkflowAction(projectId,action,context),onResolveAddress:async draft=>{const result=await S.phase0Service.resolveSpaceAddress(draft.address,projectId);return{address:result.address,geo:result.geo?{lat:result.geo.lat,lng:result.geo.lng,resolutionSource:'automatic'}:null,cluster:result.cluster,competitive:result.competitive};},onSave:async draft=>({card:canonicalCard(await saveCanonicalCard(repo.get(projectId),draft))})});
+    cardModal.open({initial:canonicalCard(project),opener,context:'proposal',initialTab:'proposal',renderWorkflow:()=>{const current=repo.get(projectId);if(!current)return{status:'',html:'',sidebarHtml:''};const view=inWorkCard.renderCardWorkflow(current);return Object.assign({},view,{footerAction:null});},onWorkflowAction:(action,context)=>inWorkCard.performCardWorkflowAction(projectId,action,Object.assign({},context,{preserveProposalStage:true})),onWorkflowFile:(name,file)=>inWorkCard.uploadCardWorkflowFile(projectId,name,file),renderProposal:()=>{const current=repo.get(projectId),proposal=current?proposalOf(current):{status:'draft'};return{status:statusLabel(proposal),html:current?workflowHtml(current):'',historyHtml:current?historyHtml(current):'',sidebarHtml:''};},onProposalAction:(action,context)=>performWorkflowAction(projectId,action,context),onResolveAddress:async draft=>{const result=await S.phase0Service.resolveSpaceAddress(draft.address,projectId);return{address:result.address,geo:result.geo?{lat:result.geo.lat,lng:result.geo.lng,resolutionSource:'automatic'}:null,cluster:result.cluster,competitive:result.competitive};},onSave:async draft=>({card:canonicalCard(await saveCanonicalCard(repo.get(projectId),draft))})});
   }
   function bind(){
     $('proposal-search').addEventListener('input',event=>{state.query=event.target.value;reload();});

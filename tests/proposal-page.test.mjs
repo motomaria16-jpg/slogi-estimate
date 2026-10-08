@@ -12,13 +12,20 @@ test('KP page uses the persistent platform shell and the canonical card',()=>{
   assert.match(html,/id="proposal-main"/);
   assert.match(html,/fast-navigation\.js/);
   assert.match(html,/search-space-card-modal\.js/);
+  assert.match(html,/work-calendar\.js/);
+  assert.match(html,/in-work-app\.js/);
   assert.match(html,/proposal-stage\.js/);
   assert.match(html,/proposal-app\.js/);
   assert.match(shell,/{id:'kp',href:'proposal\.html'/);
   assert.match(navigation,/\['available-spaces\.html','in-work\.html','proposal\.html'\]/);
-  assert.match(app,/context:'proposal',initialTab:'proposal',renderProposal:/);
+  assert.match(app,/context:'proposal',initialTab:'proposal',renderWorkflow:/);
+  assert.match(app,/renderCardWorkflow\(current\)/);
+  assert.match(app,/onWorkflowAction:/);
+  assert.match(app,/onWorkflowAction:[^\n]+preserveProposalStage:true/);
+  assert.match(app,/onWorkflowFile:/);
+  assert.match(app,/renderProposal:/);
   assert.match(app,/onProposalAction:/);
-  assert.doesNotMatch(app,/initialTab:'workflow',renderWorkflow:/);
+  assert.doesNotMatch(app,/initialTab:'workflow'/);
 });
 
 test('KP workflow keeps all requested fields, PDF, lease, email and sent action',()=>{
@@ -26,6 +33,9 @@ test('KP workflow keeps all requested fields, PDF, lease, email and sent action'
   assert.match(app,/name="baseRentRate"/);
   assert.match(app,/name="discountRentRate"/);
   assert.match(app,/name="discountPeriodDays"/);
+  assert.match(app,/Базовая арендная ставка, ₽\/м²\/мес\./);
+  assert.match(app,/Ставка на льготный период, ₽\/м²\/мес\./);
+  assert.match(app,/Срок льготного периода, дней/);
   assert.match(app,/prepare-proposal/);
   assert.match(app,/proposal-pdf/);
   assert.match(app,/lease-agreement-template\.docx/);

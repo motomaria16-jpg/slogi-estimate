@@ -171,9 +171,10 @@
 
   function prepare(project,command){
     const id=operationId(command),next=normalizeProject(project),work=next.phase0.spaceCard.work,status=pipelineFrom(work);
-    if(hasOperation(next,id))return{project:next,work,status,operation:id,replayed:true};
-    if(!status||!isInWork(next))throw new WorkCalendarError('Project is not in work.','PROJECT_NOT_IN_WORK',{projectId:next.id});
-    return{project:next,work,status,operation:id,replayed:false};
+    const preserveProposalStage=status==='proposal_started'&&command&&command.preserveProposalStage===true;
+    if(hasOperation(next,id))return{project:next,work,status,operation:id,replayed:true,preserveProposalStage};
+    if(!status||(!isInWork(next)&&!preserveProposalStage))throw new WorkCalendarError('Project is not in work.','PROJECT_NOT_IN_WORK',{projectId:next.id});
+    return{project:next,work,status,operation:id,replayed:false,preserveProposalStage};
   }
 
   function record(context,type,at,resultId=''){
@@ -187,6 +188,18 @@
     context.work.pipeline=Object.assign({},context.work.pipeline||{},clone(extra),{status,updatedAt:at});
     context.work.status=terminal(status)?'closed':'in_work';
     context.work.stage=status==='proposal_started'?'proposal_handoff':status;
+  }
+
+  function setOperationalPipeline(context,status,at,extra={}){
+    if(!context.preserveProposalStage){setPipeline(context,status,at,extra);return;}
+    const patch=clone(extra)||{};
+    if(Object.prototype.hasOwnProperty.call(patch,'viewingId')){
+      patch.accompanimentViewingId=patch.viewingId;
+      delete patch.viewingId;
+    }
+    context.work.pipeline=Object.assign({},context.work.pipeline||{},patch,{status:'proposal_started',accompanimentStatus:status,updatedAt:at});
+    context.work.status='closed';
+    context.work.stage='proposal_handoff';
   }
 
   function viewingInterval(command,base={}){
@@ -234,7 +247,7 @@
 
   function schedule(project,command={},context={}){
     const state=prepare(project,command);if(state.replayed)return state.project;
-    if(terminal(state.status))throw new WorkCalendarError('Closed project cannot be scheduled.','PIPELINE_CLOSED',{status:state.status});
+    if(terminal(state.status)&&!state.preserveProposalStage)throw new WorkCalendarError('Closed project cannot be scheduled.','PIPELINE_CLOSED',{status:state.status});
     if(state.work.activeViewingId)throw new WorkCalendarError('Project already has an active viewing.','ACTIVE_VIEWING_EXISTS',{viewingId:state.work.activeViewingId});
     const assignedToId=text(command.assignedToId);
     if(!assignedToId)throw new WorkCalendarError('assignedToId is required.','ASSIGNEE_REQUIRED');
@@ -247,7 +260,7 @@
     };
     viewing.reminders=buildReminders(id,viewing.startsAt,command.reminderMinutesBefore);
     assertNoOverlap(context.projects,viewing,{excludeProjectId:state.project.id,excludeViewingId:id});
-    state.work.viewings.push(viewing);state.work.activeViewingId=id;setPipeline(state,'viewing_scheduled',at,{viewingId:id});
+    state.work.viewings.push(viewing);state.work.activeViewingId=id;setOperationalPipeline(state,'viewing_scheduled',at,{viewingId:id});
     return record(state,'schedule',at,id);
   }
 
@@ -260,7 +273,7 @@
 
   function reschedule(project,command={},context={}){
     const state=prepare(project,command);if(state.replayed)return state.project;
-    if(terminal(state.status))throw new WorkCalendarError('Closed project cannot be rescheduled.','PIPELINE_CLOSED',{status:state.status});
+    if(terminal(state.status)&&!state.preserveProposalStage)throw new WorkCalendarError('Closed project cannot be rescheduled.','PIPELINE_CLOSED',{status:state.status});
     const viewing=activeViewing(state,command),assignedToId=text(command.assignedToId||viewing.assignedToId);
     if(!assignedToId)throw new WorkCalendarError('assignedToId is required.','ASSIGNEE_REQUIRED');
     const interval=viewingInterval(command,viewing),at=nowIso(context.now),candidate=Object.assign({},viewing,interval,{assignedToId});
@@ -268,7 +281,7 @@
     viewing.assignedToId=assignedToId;viewing.startsAt=interval.startsAt;viewing.endsAt=interval.endsAt;viewing.updatedAt=at;viewing.updatedById=text(command.actorId);
     if(Object.prototype.hasOwnProperty.call(command,'notes'))viewing.notes=text(command.notes);
     viewing.reminders=buildReminders(viewing.id,viewing.startsAt,command.reminderMinutesBefore||viewing.reminders.map(item=>item.minutesBefore));
-    state.work.activeViewingId=viewing.id;setPipeline(state,'viewing_scheduled',at,{viewingId:viewing.id});
+    state.work.activeViewingId=viewing.id;setOperationalPipeline(state,'viewing_scheduled',at,{viewingId:viewing.id});
     return record(state,'reschedule',at,viewing.id);
   }
 
@@ -277,7 +290,7 @@
     const viewing=activeViewing(state,command),at=nowIso(context.now);
     viewing.status='cancelled';viewing.cancelledAt=at;viewing.cancelledById=text(command.actorId);viewing.cancellationReason=text(command.reason);viewing.updatedAt=at;
     viewing.reminders=viewing.reminders.map(item=>Object.assign({},item,{status:'cancelled'}));
-    state.work.activeViewingId=null;setPipeline(state,'contacted',at,{viewingId:null});
+    state.work.activeViewingId=null;setOperationalPipeline(state,'contacted',at,{viewingId:null});
     return record(state,'cancel',at,viewing.id);
   }
 
@@ -308,7 +321,7 @@
     if(!hasPhoto||!hasVideo)throw new WorkCalendarError('At least one uploaded photo and one uploaded video are required.','VIEWING_MEDIA_REQUIRED',{hasPhoto,hasVideo});
     viewing.attachments=unique;viewing.status='completed';viewing.completedAt=at;viewing.completedById=text(command.actorId);viewing.completionNote=text(command.note);viewing.updatedAt=at;
     viewing.reminders=viewing.reminders.map(item=>Object.assign({},item,{status:item.status==='acknowledged'?'acknowledged':'cancelled'}));
-    state.work.activeViewingId=null;setPipeline(state,'viewing_completed',at,{viewingId:viewing.id});
+    state.work.activeViewingId=null;setOperationalPipeline(state,'viewing_completed',at,{viewingId:viewing.id});
     return record(state,'complete',at,viewing.id);
   }
 
@@ -340,11 +353,12 @@
 
   function markContacted(project,command={},context={}){
     const state=prepare(project,command);if(state.replayed)return state.project;
-    if(terminal(state.status))throw new WorkCalendarError('Closed project cannot be contacted.','PIPELINE_CLOSED',{status:state.status});
+    if(terminal(state.status)&&!state.preserveProposalStage)throw new WorkCalendarError('Closed project cannot be contacted.','PIPELINE_CLOSED',{status:state.status});
     const at=nowIso(context.now),contact=command.contact&&typeof command.contact==='object'?clone(command.contact):null;
     if(contact)state.work.landlordContact=Object.assign({},state.work.landlordContact||{},contact,{contactedAt:at});
-    const nextStatus=['viewing_scheduled','viewing_completed'].includes(state.status)?state.status:'contacted';
-    setPipeline(state,nextStatus,at,{contactedAt:at,contactedById:text(command.actorId)});
+    const operationalStatus=state.preserveProposalStage&&state.work.pipeline&&state.work.pipeline.accompanimentStatus||state.status;
+    const nextStatus=['viewing_scheduled','viewing_completed'].includes(operationalStatus)?operationalStatus:'contacted';
+    setOperationalPipeline(state,nextStatus,at,{contactedAt:at,contactedById:text(command.actorId)});
     return record(state,'markContacted',at);
   }
 

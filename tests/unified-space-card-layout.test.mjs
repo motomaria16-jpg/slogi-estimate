@@ -38,12 +38,13 @@ test('the compact card exposes the complete canonical data inventory once',()=>{
   assert.match(modal,/data-origin="competitive"/);
 });
 
-test('four compact tabs, fixed shell and responsive card keep the approved interaction contract',()=>{
+test('three compact tabs, fixed shell and responsive card keep the approved interaction contract',()=>{
   assert.match(modal,/role="tablist"/);
-  for(const tab of ['object','workflow','history','proposal']){
+  for(const tab of ['object','workflow','proposal']){
     assert.match(modal,new RegExp(`role="tab"[^>]+aria-controls="ss-card-panel-${tab}"[^>]+data-card-tab="${tab}"`));
     assert.match(modal,new RegExp(`role="tabpanel"[^>]+aria-labelledby="ss-card-tab-${tab}"[^>]+data-card-panel="${tab}"`));
   }
+  assert.doesNotMatch(modal,/data-card-tab="history"|data-card-panel="history"/);
   assert.doesNotMatch(modal,/data-card-tab="selection"|>Отбор<|data-selection-detail/);
   assert.match(modal,/\['ArrowLeft', 'ArrowRight', 'Home', 'End'\]/);
   assert.match(css,/\.ss-card-form \{[^}]*height: 100%/);
@@ -55,6 +56,10 @@ test('four compact tabs, fixed shell and responsive card keep the approved inter
   assert.match(css,/\.ss-card-workflow-content, \.ss-card-proposal-content \{[^}]*grid-template-columns: repeat\(2,minmax\(0,1fr\)\)/);
   assert.match(css,/\.ss-card-layout\.ss-card-layout-full \{[^}]*grid-template-columns: minmax\(0,1fr\)/);
   assert.match(css,/\.ss-card-workflow-content \.in-work-field[^}]*grid-template-columns: 108px minmax\(0,1fr\)/);
+  assert.match(css,/\.ss-card-proposal-content \.proposal-workflow-grid \{[^}]*grid-template-columns: repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(css,/\.ss-card-proposal-content, \.ss-card-proposal-content \.proposal-workflow-grid \{[^}]*align-items: start/);
+  assert.match(css,/\.ss-card-proposal-content \.proposal-terms-grid input,[\s\S]*?height: 29px/);
+  assert.match(css,/\.ss-card-proposal-content \.proposal-btn \{[^}]*width: 170px[^}]*height: 38px[^}]*font-size: 13px[^}]*font-weight: 500/);
   assert.match(css,/@media \(max-width: 820px\)[\s\S]+\.ss-card-layout \{ grid-template-columns: 1fr/);
   assert.match(css,/:focus-visible/);
 });
@@ -69,8 +74,8 @@ test('the complete funnel remains wired to the same id and keeps four stable wor
   assert.match(work,/sidebarHtml:''/);
   assert.doesNotMatch(work,/function workflowSidebar|>Следующее действие</);
   assert.match(work,/adapter\.saveMedia\(projectId,viewing\.id,kind,file\)/);
-  assert.match(work,/adapter\.complete\(projectId,\{viewingId:viewing\.id,confirmed:true,attachments:counts\.items\}\)/);
-  assert.match(work,/adapter\.reject\(projectId,\{reasonCode,comment\}\)/);
+  assert.match(work,/adapter\.complete\(projectId,continueCommand\(\{viewingId:viewing\.id,confirmed:true,attachments:counts\.items\}\)\)/);
+  assert.match(work,/adapter\.reject\(projectId,continueCommand\(\{reasonCode,comment\}\)\)/);
   assert.match(work,/const projectId=project\.id;await adapter\.startProposal\(projectId\)/);
   const cardFlow=work.slice(work.indexOf('function openCanonicalCard'),work.indexOf('function currentProject'));
   assert.doesNotMatch(cardFlow,/repo\.create|projectRepository\.create|clone\(/);
@@ -84,5 +89,8 @@ test('workflow rerenders preserve dirty controls, scroll and focus',()=>{
   const action=modal.slice(modal.indexOf('async function runWorkflowAction'),modal.indexOf('async function runWorkflowFile'));
   assert.doesNotMatch(action,/state\.busy = `workflow-[^\n]+\n\s*render\(\)/);
   assert.match(action,/restoreWorkflowUi\(ui\)/);
+  assert.match(modal,/function captureEmbeddedDraft\(name\)/);
+  assert.match(modal,/restoreEmbeddedDraft\('workflow', state\.embeddedDrafts\.workflow\)/);
+  assert.match(modal,/restoreEmbeddedDraft\('proposal', state\.embeddedDrafts\.proposal\)/);
 });
 

@@ -149,6 +149,69 @@ test('proposal handoff and rejection close work without changing or deleting the
   assert.deepEqual(calendar.listInWork([proposal,rejected]),[]);
 });
 
+test('proposal accompaniment is opt-in, preserves proposal data, and keeps the project on the KP stage',()=>{
+  const scheduled=schedule();
+  const completed=calendar.complete(scheduled,command('complete-for-proposal',{confirmed:true,attachments:[
+    {id:'initial-photo',kind:'photo',status:'uploaded',mimeType:'image/jpeg'},
+    {id:'initial-video',kind:'video',status:'uploaded',mimeType:'video/mp4'}
+  ]}),{now:'2026-09-27T12:10:00Z'});
+  const started=calendar.startProposal(completed,command('start-proposal-safe',{proposalId:'kp-safe'}),{now:'2026-09-27T12:11:00Z'});
+  const proposalData={status:'prepared',terms:{baseRentRate:1500,rentHolidayDays:30},pdfName:'KP-safe.pdf',email:{subject:'КП'}};
+  started.phase0.spaceCard.work.proposal=structuredClone(proposalData);
+  const assertProposalPreserved=value=>{
+    const work=value.phase0.spaceCard.work;
+    assert.equal(work.status,'closed');
+    assert.equal(work.stage,'proposal_handoff');
+    assert.equal(work.pipeline.status,'proposal_started');
+    assert.equal(work.pipeline.proposalId,'kp-safe');
+    assert.equal(work.pipeline.viewingId,'viewing-op-schedule','the original proposal viewing link must not be replaced');
+    assert.deepEqual(work.proposal,proposalData);
+  };
+
+  assert.throws(()=>calendar.markContacted(started,command('unsafe-contact',{contact:{email:'new@example.test'}}),{now:'2026-09-27T12:12:00Z'}),error=>error.code==='PROJECT_NOT_IN_WORK');
+  assert.throws(()=>calendar.schedule(started,command('unsafe-repeat',{assignedToId:'employee-1',startsAt:'2026-09-28T12:00:00Z'}),{now:'2026-09-27T12:12:00Z',projects:[started]}),error=>error.code==='PROJECT_NOT_IN_WORK');
+
+  const contacted=calendar.markContacted(started,command('proposal-contact',{preserveProposalStage:true,contact:{email:'new@example.test'}}),{now:'2026-09-27T12:12:00Z'});
+  assertProposalPreserved(contacted);
+  assert.equal(contacted.phase0.spaceCard.work.landlordContact.email,'new@example.test');
+  assert.equal(contacted.phase0.spaceCard.work.pipeline.accompanimentStatus,'contacted');
+
+  const repeated=calendar.schedule(contacted,command('proposal-repeat',{preserveProposalStage:true,viewingId:'proposal-repeat-viewing',assignedToId:'employee-2',startsAt:'2026-09-28T12:00:00Z',reminderMinutesBefore:[60]}),{now:'2026-09-27T12:13:00Z',projects:[contacted]});
+  assertProposalPreserved(repeated);
+  assert.equal(repeated.phase0.spaceCard.work.activeViewingId,'proposal-repeat-viewing');
+  assert.equal(repeated.phase0.spaceCard.work.pipeline.accompanimentViewingId,'proposal-repeat-viewing');
+  assert.equal(repeated.phase0.spaceCard.work.pipeline.accompanimentStatus,'viewing_scheduled');
+
+  const moved=calendar.reschedule(repeated,command('proposal-reschedule',{preserveProposalStage:true,viewingId:'proposal-repeat-viewing',startsAt:'2026-09-28T13:00:00Z'}),{now:'2026-09-27T12:14:00Z',projects:[repeated]});
+  assertProposalPreserved(moved);
+  assert.equal(moved.phase0.spaceCard.work.viewings.at(-1).startsAt,'2026-09-28T13:00:00.000Z');
+
+  const cancelled=calendar.cancel(moved,command('proposal-cancel',{preserveProposalStage:true,viewingId:'proposal-repeat-viewing'}),{now:'2026-09-27T12:15:00Z'});
+  assertProposalPreserved(cancelled);
+  assert.equal(cancelled.phase0.spaceCard.work.activeViewingId,null);
+  assert.equal(cancelled.phase0.spaceCard.work.pipeline.accompanimentViewingId,null);
+
+  const next=calendar.schedule(cancelled,command('proposal-repeat-two',{preserveProposalStage:true,viewingId:'proposal-repeat-two',assignedToId:'employee-2',startsAt:'2026-09-29T12:00:00Z'}),{now:'2026-09-27T12:16:00Z',projects:[cancelled]});
+  const repeatedMedia=[
+    {id:'repeat-photo',kind:'photo',status:'uploaded',mimeType:'image/jpeg'},
+    {id:'repeat-video',kind:'video',status:'uploaded',mimeType:'video/mp4'}
+  ];
+  const repeatCompleted=calendar.complete(next,command('proposal-complete-repeat',{preserveProposalStage:true,viewingId:'proposal-repeat-two',confirmed:true,attachments:repeatedMedia}),{now:'2026-09-29T12:01:00Z'});
+  assertProposalPreserved(repeatCompleted);
+  assert.equal(repeatCompleted.phase0.spaceCard.work.viewings.at(-1).status,'completed');
+  assert.equal(repeatCompleted.phase0.spaceCard.work.pipeline.accompanimentStatus,'viewing_completed');
+
+  const removed=calendar.removeAttachment(repeatCompleted,command('proposal-remove-media',{preserveProposalStage:true,viewingId:'proposal-repeat-two',attachmentId:'repeat-photo'}),{now:'2026-09-29T12:02:00Z'});
+  assertProposalPreserved(removed);
+  assert.equal(removed.phase0.spaceCard.work.viewings.at(-1).attachments.find(item=>item.id==='repeat-photo').status,'removed');
+
+  const rejected=calendar.reject(removed,command('proposal-reject',{preserveProposalStage:true,reasonCode:'not_suitable_tu',comment:'Не прошёл повторную проверку'}),{now:'2026-09-29T12:03:00Z'});
+  assert.equal(rejected.phase0.spaceCard.work.status,'closed');
+  assert.equal(rejected.phase0.spaceCard.work.stage,'rejected');
+  assert.equal(rejected.phase0.spaceCard.work.pipeline.status,'rejected');
+  assert.deepEqual(rejected.phase0.spaceCard.work.proposal,proposalData,'explicit rejection keeps the generated proposal record in history');
+});
+
 test('landlord contact and contacted state are saved in one canonical work object',()=>{
   const contacted=calendar.markContacted(project(),command('contact',{contact:{name:'Иван Петров',phone:'+7 999 000-00-00'}}),{now:AT});
   assert.equal(contacted.phase0.spaceCard.work.pipeline.status,'contacted');

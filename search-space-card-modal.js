@@ -20,6 +20,8 @@
     activeTab: 'object',
     workflowView: null,
     proposalView: null,
+    embeddedDrafts: { workflow: null, proposal: null },
+    embeddedDraftsReady: false,
     opener: null,
     busy: '',
     resolution: 'idle',
@@ -326,7 +328,7 @@
               <span class="ss-card-header-badge ss-card-header-badge-status" data-header-status hidden></span>
             </div>
           </div>
-          <p class="ss-card-visually-hidden" id="ss-card-subtitle">Единая карточка помещения: объект, сопровождение и история</p>
+          <p class="ss-card-visually-hidden" id="ss-card-subtitle">Единая карточка помещения: объект, сопровождение и коммерческое предложение</p>
           <a class="ss-card-header-link" data-listing-field-link target="_blank" rel="noopener noreferrer" hidden>Открыть объявление</a>
           <button class="ss-card-close" type="button" data-action="close" aria-label="Закрыть карточку">×</button>
         </header>
@@ -334,7 +336,6 @@
         <nav class="ss-card-tabs" role="tablist" aria-label="Разделы карточки помещения">
           <button type="button" role="tab" id="ss-card-tab-object" aria-controls="ss-card-panel-object" aria-selected="true" tabindex="0" data-card-tab="object">Объект</button>
           <button type="button" role="tab" id="ss-card-tab-workflow" aria-controls="ss-card-panel-workflow" aria-selected="false" aria-disabled="true" tabindex="-1" data-card-tab="workflow">Сопровождение</button>
-          <button type="button" role="tab" id="ss-card-tab-history" aria-controls="ss-card-panel-history" aria-selected="false" aria-disabled="true" tabindex="-1" data-card-tab="history">История</button>
           <button type="button" role="tab" id="ss-card-tab-proposal" aria-controls="ss-card-panel-proposal" aria-selected="false" aria-disabled="true" tabindex="-1" data-card-tab="proposal">КП</button>
         </nav>
 
@@ -407,10 +408,6 @@
 
               <section class="ss-card-tab-panel" id="ss-card-panel-workflow" role="tabpanel" aria-labelledby="ss-card-tab-workflow" data-card-panel="workflow" data-workflow-section hidden>
                 <div class="ss-card-workflow-content" data-workflow-content></div>
-              </section>
-
-              <section class="ss-card-tab-panel" id="ss-card-panel-history" role="tabpanel" aria-labelledby="ss-card-tab-history" data-card-panel="history" hidden>
-                <div class="ss-card-history-content" data-history-content></div>
               </section>
 
               <section class="ss-card-tab-panel" id="ss-card-panel-proposal" role="tabpanel" aria-labelledby="ss-card-tab-proposal" data-card-panel="proposal" data-proposal-section hidden>
@@ -638,7 +635,7 @@
   }
 
   function workflowEnabled() {
-    return state.context === 'in-work' && typeof state.callbacks.renderWorkflow === 'function';
+    return (state.context === 'in-work' || state.context === 'proposal') && typeof state.callbacks.renderWorkflow === 'function';
   }
 
   function proposalEnabled() {
@@ -662,7 +659,6 @@
     if (name === 'object') return true;
     if (name === 'workflow') return workflowEnabled();
     if (name === 'proposal') return proposalEnabled();
-    if (name === 'history') return workflowEnabled() || proposalEnabled();
     return false;
   }
 
@@ -680,21 +676,31 @@
     state.dialog.querySelectorAll('[data-card-panel]').forEach((panel) => {
       panel.hidden = panel.dataset.cardPanel !== state.activeTab;
     });
+    renderHeaderStatus();
     renderContextPanel();
     renderWorkflowFooterAction();
+  }
+
+  function renderHeaderStatus() {
+    const status = state.dialog && state.dialog.querySelector('[data-header-status]');
+    if (!status) return;
+    const workflowStatus = state.workflowView && text(state.workflowView.status);
+    const proposalStatus = state.proposalView && text(state.proposalView.status);
+    status.textContent = state.activeTab === 'workflow'
+      ? workflowStatus
+      : state.activeTab === 'proposal'
+        ? proposalStatus
+        : proposalStatus || workflowStatus || '';
+    status.hidden = !status.textContent;
   }
 
   function renderHeader() {
     const address = state.dialog.querySelector('[data-header-address]');
     const source = state.dialog.querySelector('[data-source-badge]');
-    const status = state.dialog.querySelector('[data-header-status]');
     address.textContent = state.draft.address || 'Адрес не указан';
     const provider = text(state.draft.sourceProvider).toLocaleUpperCase('ru-RU');
     source.textContent = state.draft.source === 'manual' ? 'Введено вручную' : `Получено из ${provider || 'источника'}`;
-    const workflowStatus = state.workflowView && text(state.workflowView.status);
-    const proposalStatus = state.proposalView && text(state.proposalView.status);
-    status.textContent = proposalStatus || workflowStatus || '';
-    status.hidden = !status.textContent;
+    renderHeaderStatus();
     setOrigin('coordinates', state.draft.geo && state.draft.geo.resolutionSource);
     setOrigin('cluster', state.draft.cluster && state.draft.cluster.resolutionSource);
     setOrigin('competitive', state.draft.competitive && state.draft.competitive.resolutionSource);
@@ -784,25 +790,6 @@
     };
   }
 
-  function renderHistory() {
-    const history = state.dialog.querySelector('[data-history-content]');
-    const view = state.proposalView || state.workflowView;
-    history.innerHTML = view && text(view.historyHtml);
-    if (!history.innerHTML) history.innerHTML = '<section class="in-work-panel"><h3>История</h3><p class="in-work-panel-intro">Действий пока нет.</p></section>';
-    history.querySelectorAll('button[disabled]').forEach((button) => { button.dataset.businessDisabled = 'true'; });
-    history.onclick = (event) => {
-      const button = event.target.closest('[data-action]');
-      if (!button) return;
-      event.stopPropagation();
-      runWorkflowAction(button);
-    };
-    history.onchange = (event) => {
-      if (!event.target.matches('input[type="file"]')) return;
-      event.stopPropagation();
-      runWorkflowFile(event.target);
-    };
-  }
-
   function captureWorkflowUi() {
     const selector = state.activeTab === 'proposal' ? '[data-proposal-content]' : '[data-workflow-content]';
     const content = state.dialog && state.dialog.querySelector(selector);
@@ -819,6 +806,31 @@
       selectionStart: active && typeof active.selectionStart === 'number' ? active.selectionStart : null,
       selectionEnd: active && typeof active.selectionEnd === 'number' ? active.selectionEnd : null
     };
+  }
+
+  function captureEmbeddedDraft(name) {
+    const content = state.dialog && state.dialog.querySelector(`[data-${name}-content]`);
+    if (!content) return null;
+    return Array.from(content.querySelectorAll('input:not([type="file"]), select, textarea')).map((control, index) => ({
+      index,
+      name: control.name,
+      type: control.type,
+      value: control.value,
+      checked: control.checked
+    }));
+  }
+
+  function restoreEmbeddedDraft(name, snapshot) {
+    if (!snapshot) return;
+    const content = state.dialog.querySelector(`[data-${name}-content]`);
+    if (!content) return;
+    const controls = Array.from(content.querySelectorAll('input:not([type="file"]), select, textarea'));
+    snapshot.forEach((saved) => {
+      const control = controls[saved.index];
+      if (!control || control.name !== saved.name || control.type !== saved.type) return;
+      if (control.type === 'radio' || control.type === 'checkbox') control.checked = saved.checked;
+      else control.value = saved.value;
+    });
   }
 
   function restoreWorkflowUi(snapshot) {
@@ -845,6 +857,10 @@
 
   function render() {
     if (!state.dialog || !state.draft) return;
+    if (state.embeddedDraftsReady) {
+      state.embeddedDrafts.workflow = captureEmbeddedDraft('workflow');
+      state.embeddedDrafts.proposal = captureEmbeddedDraft('proposal');
+    }
     state.evaluation = evaluate(state.draft);
     const listingUrl = safeHttpUrl(state.draft.listingUrl);
     const listingLink = state.dialog.querySelector('[data-listing-field-link]');
@@ -854,7 +870,9 @@
     renderEconomy(state.evaluation);
     renderWorkflow();
     renderProposal();
-    renderHistory();
+    restoreEmbeddedDraft('workflow', state.embeddedDrafts.workflow);
+    restoreEmbeddedDraft('proposal', state.embeddedDrafts.proposal);
+    state.embeddedDraftsReady = true;
     renderHeader();
     setActiveTab(state.activeTab);
     renderTakeAction();
@@ -1081,7 +1099,7 @@
       else if (action === 'go-workflow') setActiveTab('workflow', true);
       else if (action === 'go-proposal') setActiveTab('proposal', true);
       else if (button.matches('[data-workflow-footer-action]') && workflowEnabled()) runWorkflowAction(button);
-      else if (button.closest('[data-card-panel="workflow"], [data-card-panel="proposal"], [data-card-panel="history"], .ss-card-context')) runWorkflowAction(button);
+      else if (button.closest('[data-card-panel="workflow"], [data-card-panel="proposal"], .ss-card-context')) runWorkflowAction(button);
     });
     state.dialog.addEventListener('cancel', (event) => {
       event.preventDefault();
@@ -1133,6 +1151,8 @@
     state.activeTab = tabAvailable(text(options.callbacks.initialTab)) ? text(options.callbacks.initialTab) : 'object';
     state.workflowView = null;
     state.proposalView = null;
+    state.embeddedDrafts = { workflow: null, proposal: null };
+    state.embeddedDraftsReady = false;
     state.busy = '';
     state.resolution = 'idle';
     state.resolutionMessage = state.draft.cluster.status === 'inside'
@@ -1177,6 +1197,8 @@
     state.activeTab = 'object';
     state.workflowView = null;
     state.proposalView = null;
+    state.embeddedDrafts = { workflow: null, proposal: null };
+    state.embeddedDraftsReady = false;
     document.body.classList.remove('ss-card-modal-open');
   }
 

@@ -121,7 +121,7 @@ test('media remain editable after completion and can be removed individually',()
   assert.doesNotMatch(panel,/return''/);
   assert.match(panel,/complete\|\|new Date\(viewing\.startsAt\)/);
   assert.match(panel,/data-action="delete-media"/);
-  assert.match(app,/call\('removeAttachment',projectId,\{viewingId,attachmentId:mediaId\}\)/);
+  assert.match(app,/call\('removeAttachment',projectId,Object\.assign\(\{viewingId,attachmentId:mediaId\},options\)\)/);
   assert.match(app,/state\.pendingMedia\.delete\(viewingId\)/);
 });
 
@@ -152,13 +152,14 @@ test('canonical card exposes the complete in-work funnel only through the in-wor
 
 test('card funnel writes to the calendar domain and canonical attachment store without copying the project',()=>{
   const workflow=app.slice(app.indexOf('async function performCardWorkflowAction'),app.indexOf('function currentProject'));
-  assert.match(workflow,/adapter\.saveContact\(projectId,contact\)/);
-  assert.match(workflow,/adapter\.schedule\(projectId,command\)/);
-  assert.match(workflow,/adapter\.reschedule\(projectId,command\)/);
-  assert.match(workflow,/adapter\.complete\(projectId,\{viewingId:viewing\.id,confirmed:true,attachments:counts\.items\}\)/);
-  assert.match(workflow,/adapter\.reject\(projectId,\{reasonCode,comment\}\)/);
+  assert.match(workflow,/preserveProposalStage===true\?\{preserveProposalStage:true\}:\{\}/);
+  assert.match(workflow,/adapter\.saveContact\(projectId,contact,continuation\)/);
+  assert.match(workflow,/adapter\.schedule\(projectId,continueCommand\(command\)\)/);
+  assert.match(workflow,/adapter\.reschedule\(projectId,continueCommand\(command\)\)/);
+  assert.match(workflow,/adapter\.complete\(projectId,continueCommand\(\{viewingId:viewing\.id,confirmed:true,attachments:counts\.items\}\)\)/);
+  assert.match(workflow,/adapter\.reject\(projectId,continueCommand\(\{reasonCode,comment\}\)\)/);
   assert.match(workflow,/adapter\.saveMedia\(projectId,viewing\.id,kind,file\)/);
-  assert.match(workflow,/adapter\.deleteMedia\(projectId,viewingId,mediaId\)/);
+  assert.match(workflow,/adapter\.deleteMedia\(projectId,viewingId,mediaId,continuation\)/);
   assert.doesNotMatch(workflow,/repo\.create|projectRepository\.create/);
 });
 
