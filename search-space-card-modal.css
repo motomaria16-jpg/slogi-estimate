@@ -25,8 +25,6 @@ body.ss-card-modal-open { overflow: hidden; }
 .ss-card-header h2 { margin: 0; font-size: 27px; line-height: 1.1; font-weight: 400; letter-spacing: -.025em; }
 .ss-card-header-meta { min-width: 0; display: flex; align-items: center; gap: 7px; color: var(--ss-card-teal); font-size: 13px; }
 .ss-card-header-address { min-width: 0; max-width: 480px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ss-card-header-badge { padding: 4px 9px; border-radius: 999px; background: #eaf3ef; color: #2d675d; font-size: 11px; line-height: 1.2; white-space: nowrap; }
-.ss-card-header-badge-status { background: var(--ss-card-gold-soft); color: #765d25; }
 .ss-card-header-link { margin-left: auto; color: var(--ss-card-teal); font-size: 12px; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
 .ss-card-close { width: 38px; height: 38px; padding: 0; display: grid; flex: 0 0 auto; place-items: center; border: 1px solid var(--ss-card-line-strong); border-radius: 50%; background: var(--ss-card-surface); color: var(--ss-card-ink); font: inherit; font-size: 18px; cursor: pointer; }
 .ss-card-tabs { min-height: 41px; padding: 0 18px; display: flex; flex: 0 0 auto; align-items: stretch; gap: 8px; overflow-x: auto; border-bottom: 1px solid var(--ss-card-line); background: var(--ss-card-surface); scrollbar-width: thin; }
@@ -89,10 +87,6 @@ body.ss-card-modal-open { overflow: hidden; }
 .ss-card-context { min-height: 0; padding: 12px; align-self: start; position: sticky; top: 0; }
 .ss-card-context-section + .ss-card-context-section { margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--ss-card-line); }
 .ss-card-context-heading { display: flex; align-items: center; gap: 9px; }
-.ss-card-check-list { margin: 11px 0 0; padding: 0; display: grid; gap: 9px; list-style: none; }
-.ss-card-check-list li { display: grid; grid-template-columns: 13px 1fr; align-items: center; gap: 10px; color: var(--ss-card-ink); font-size: 12px; line-height: 1.35; }
-.ss-card-check-list li > span { width: 11px; height: 11px; border: 2px solid #b3bfbd; border-radius: 50%; background: transparent; }
-.ss-card-check-list li.ready > span { border-color: var(--ss-card-green); background: var(--ss-card-green); }
 .ss-card-next-button { width: 100%; min-height: 38px; margin-top: 10px; display: flex; align-items: center; justify-content: space-between; }
 .ss-card-context-reasons { margin: 10px 0 0; padding: 9px 9px 9px 24px; display: grid; gap: 4px; border-radius: 8px; background: #fff1ee; color: var(--ss-card-danger); font-size: 10px; line-height: 1.35; }
 .ss-card-workflow-content, .ss-card-proposal-content { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); align-items: stretch; gap: 8px; }
@@ -119,7 +113,7 @@ body.ss-card-modal-open { overflow: hidden; }
 .ss-card-context .in-work-panel + .in-work-panel { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--ss-card-line); }
 .ss-card-proposal-content .proposal-panel { min-width: 0; padding: 8px 9px; border-radius: 11px; }
 .ss-card-proposal-content, .ss-card-proposal-content .proposal-workflow-grid { align-items: start; }
-.ss-card-proposal-content .proposal-workflow-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.ss-card-proposal-content .proposal-workflow-grid { grid-template-columns: minmax(250px,.68fr) minmax(0,1.32fr); gap: 8px; }
 .ss-card-proposal-content .proposal-panel h3 { margin: 0; font-size: 14px; line-height: 1.3; font-weight: 500; }
 .ss-card-proposal-content .proposal-terms-grid label,
 .ss-card-proposal-content .proposal-email-field { min-height: 31px; font-size: 11px; font-weight: 500; }
@@ -173,7 +167,6 @@ body.ss-card-modal-open { overflow: hidden; }
   .ss-card-header h2 { font-size: 21px; }
   .ss-card-header-meta { gap: 4px; font-size: 11px; }
   .ss-card-header-address { max-width: min(56vw, 310px); }
-  .ss-card-header-badge { display: none; }
   .ss-card-header-link { font-size: 0; }
   .ss-card-header-link::before { content: 'Объявление'; font-size: 11px; }
   .ss-card-close { width: 34px; height: 34px; }

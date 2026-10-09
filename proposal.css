@@ -59,7 +59,7 @@ body.proposal-page.figma-shell-v76115>.object-context-bar{display:none!important
 .proposal-empty p{max-width:520px;margin:7px auto 15px;font-size:13px;line-height:1.5}
 
 /* The КП tab follows the same compact section rhythm as the common card. */
-.proposal-workflow-grid{display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);gap:8px}
+.proposal-workflow-grid{display:grid;grid-template-columns:minmax(250px,.68fr) minmax(0,1.32fr);gap:8px}
 .proposal-panel{min-width:0;padding:9px;border:1px solid var(--proposal-line);border-radius:11px;background:var(--proposal-paper)}
 .proposal-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
 .proposal-panel h3{margin:0;color:var(--proposal-text);font-size:14px;font-weight:500;line-height:1.3}

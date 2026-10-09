@@ -324,8 +324,6 @@
             <h2 id="ss-card-title">Карточка помещения</h2>
             <div class="ss-card-header-meta">
               <span class="ss-card-header-address" data-header-address>Адрес не указан</span>
-              <span class="ss-card-header-badge" data-source-badge></span>
-              <span class="ss-card-header-badge ss-card-header-badge-status" data-header-status hidden></span>
             </div>
           </div>
           <p class="ss-card-visually-hidden" id="ss-card-subtitle">Единая карточка помещения: объект, сопровождение и коммерческое предложение</p>
@@ -676,44 +674,16 @@
     state.dialog.querySelectorAll('[data-card-panel]').forEach((panel) => {
       panel.hidden = panel.dataset.cardPanel !== state.activeTab;
     });
-    renderHeaderStatus();
     renderContextPanel();
     renderWorkflowFooterAction();
   }
 
-  function renderHeaderStatus() {
-    const status = state.dialog && state.dialog.querySelector('[data-header-status]');
-    if (!status) return;
-    const workflowStatus = state.workflowView && text(state.workflowView.status);
-    const proposalStatus = state.proposalView && text(state.proposalView.status);
-    status.textContent = state.activeTab === 'workflow'
-      ? workflowStatus
-      : state.activeTab === 'proposal'
-        ? proposalStatus
-        : proposalStatus || workflowStatus || '';
-    status.hidden = !status.textContent;
-  }
-
   function renderHeader() {
     const address = state.dialog.querySelector('[data-header-address]');
-    const source = state.dialog.querySelector('[data-source-badge]');
     address.textContent = state.draft.address || 'Адрес не указан';
-    const provider = text(state.draft.sourceProvider).toLocaleUpperCase('ru-RU');
-    source.textContent = state.draft.source === 'manual' ? 'Введено вручную' : `Получено из ${provider || 'источника'}`;
-    renderHeaderStatus();
     setOrigin('coordinates', state.draft.geo && state.draft.geo.resolutionSource);
     setOrigin('cluster', state.draft.cluster && state.draft.cluster.resolutionSource);
     setOrigin('competitive', state.draft.competitive && state.draft.competitive.resolutionSource);
-  }
-
-  function checkItems() {
-    const checks = state.evaluation && state.evaluation.checks || {};
-    return [
-      { label: 'Кластер определён', ready: Boolean(checks.clusterInside) },
-      { label: 'Кластер свободен', ready: Boolean(checks.clusterFree) },
-      { label: 'ТОП-35', ready: Boolean(checks.clusterTop35) },
-      { label: 'Технические данные заполнены', ready: Boolean(checks.requiredComplete) }
-    ];
   }
 
   function renderContextPanel() {
@@ -730,14 +700,11 @@
     }
     context.hidden = false;
     layout.classList.remove('ss-card-layout-full');
-    const items = checkItems();
-    const reasons = state.evaluation && state.evaluation.reasons || [];
     const inWork = workflowEnabled();
     const inProposal = proposalEnabled();
     const action = inProposal ? 'go-proposal' : inWork ? 'go-workflow' : state.context === 'in-work' ? 'save' : 'take-to-work';
     const actionLabel = inProposal ? 'Перейти к КП' : inWork ? 'Перейти к сопровождению' : state.context === 'in-work' ? 'Добавить помещение в работу' : 'Добавить в «Помещение в работе»';
-    target.innerHTML = `<section class="ss-card-context-section"><div class="ss-card-context-heading"><span aria-hidden="true">✓</span><h3>Готовность</h3></div><ul class="ss-card-check-list">${items.map((item) => `<li class="${item.ready ? 'ready' : 'pending'}"><span aria-hidden="true"></span>${escapeHtml(item.label)}</li>`).join('')}</ul>${reasons.length ? `<ul class="ss-card-context-reasons">${reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join('')}</ul>` : ''}</section>
-      <section class="ss-card-context-section ss-card-next"><div class="ss-card-context-heading"><span aria-hidden="true">⚑</span><h3>Следующий этап</h3></div><button class="ss-card-button ss-card-button-primary ss-card-next-button" type="button" data-action="${action}">${actionLabel} <span aria-hidden="true">→</span></button></section>`;
+    target.innerHTML = `<section class="ss-card-context-section ss-card-next"><div class="ss-card-context-heading"><span aria-hidden="true">⚑</span><h3>Следующий этап</h3></div><button class="ss-card-button ss-card-button-primary ss-card-next-button" type="button" data-action="${action}">${actionLabel} <span aria-hidden="true">→</span></button></section>`;
   }
 
   function renderWorkflow() {

@@ -269,7 +269,7 @@ test('proposal unlocks without replacing the canonical card and keeps accompanim
     assert.equal(afterTabs.find(tab => tab.name === 'КП').disabled, 'false');
     assert.equal(afterTabs.find(tab => tab.name === 'КП').selected, 'true');
     assert.equal(await page.locator('[data-proposal-marker]').isVisible(), true);
-    assert.equal(await page.locator('[data-header-status]').textContent(), 'Подготовка КП');
+    assert.equal(await page.locator('[data-header-status], [data-source-badge]').count(), 0);
     await page.locator('[name="proposalDraft"]').fill('1500');
     const proposalGeometry = await page.evaluate(() => {
       const input = document.querySelector('[name="proposalDraft"]');
@@ -290,10 +290,9 @@ test('proposal unlocks without replacing the canonical card and keeps accompanim
     assert.equal(proposalGeometry.inputFont, '12px');
     assert.deepEqual([proposalGeometry.buttonWidth, proposalGeometry.buttonHeight, proposalGeometry.buttonFont], [170, 38, '13px']);
     assert.equal(proposalGeometry.statusFont, '10px');
-    assert.ok(Math.abs(proposalGeometry.columns[0] - proposalGeometry.columns[1]) < 1, 'КП columns must be equal');
+    assert.ok(proposalGeometry.columns[1] > proposalGeometry.columns[0] * 1.7, 'Пакет для арендодателя должен быть заметно шире коммерческих условий');
     await page.getByRole('tab', { name: 'Сопровождение' }).click();
     assert.equal(await page.locator('[data-workflow-marker]').isVisible(), true);
-    assert.equal(await page.locator('[data-header-status]').textContent(), 'Передано в КП');
     await page.locator('[name="workflowDraft"]').fill('Мария');
     await page.getByRole('button', { name: 'Обновить контакт' }).click();
     await page.waitForFunction(() => window.__proposalWorkflowAction && window.__proposalWorkflowAction.action === 'save-contact');
@@ -303,6 +302,8 @@ test('proposal unlocks without replacing the canonical card and keeps accompanim
     await page.getByRole('tab', { name: 'Сопровождение' }).click();
     assert.equal(await page.locator('[name="workflowDraft"]').inputValue(), 'Мария', 'workflow draft must survive tab switches');
     await page.getByRole('tab', { name: 'Объект' }).click();
+    assert.equal(await page.getByText('Готовность', { exact: true }).count(), 0);
+    assert.equal(await page.getByText('Следующий этап', { exact: true }).count(), 1);
     await page.locator('[name="rentMonthly"]').fill('250000');
     await page.getByRole('tab', { name: 'КП' }).click();
     assert.equal(await page.locator('[name="proposalDraft"]').inputValue(), '1500', 'КП draft must survive a canonical-card rerender');

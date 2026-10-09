@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {createRequire} from 'node:module';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 const html=read('proposal.html'),app=read('proposal-app.js'),documentBuilder=read('proposal-document.js'),shell=read('figma-shell-v76-1-15.js'),navigation=read('fast-navigation.js');
+const require=createRequire(import.meta.url),documentApi=require(path.join(root,'proposal-document.js'));
 
 test('KP page uses the persistent platform shell and the canonical card',()=>{
   assert.match(html,/id="proposal-main"/);
@@ -28,7 +30,7 @@ test('KP page uses the persistent platform shell and the canonical card',()=>{
   assert.doesNotMatch(app,/initialTab:'workflow'/);
 });
 
-test('KP workflow keeps all requested fields, PDF, lease, email and sent action',()=>{
+test('KP workflow keeps all requested fields, source-quality Word document, lease, email and sent action',()=>{
   assert.match(app,/name="rentFreeDays"/);
   assert.match(app,/name="baseRentRate"/);
   assert.match(app,/name="discountRentRate"/);
@@ -37,11 +39,23 @@ test('KP workflow keeps all requested fields, PDF, lease, email and sent action'
   assert.match(app,/Ставка на льготный период, ₽\/м²\/мес\./);
   assert.match(app,/Срок льготного периода, дней/);
   assert.match(app,/prepare-proposal/);
-  assert.match(app,/proposal-pdf/);
+  assert.match(app,/proposal-docx/);
+  assert.match(app,/download-docx/);
+  assert.match(app,/KP_Slogi_template\.docx/);
+  assert.doesNotMatch(app,/download-pdf|proposal-pdf/);
   assert.match(app,/lease-agreement-template\.docx/);
   assert.match(app,/name="emailBody"/);
   assert.match(app,/data-action="mark-sent"/);
   assert.match(app,/24\*60\*60\*1000/);
+});
+
+test('the original DOCX template and browser ZIP runtime are packaged',()=>{
+  assert.equal(fs.existsSync(path.join(root,'KP_Slogi_template.docx')),true);
+  assert.ok(fs.statSync(path.join(root,'KP_Slogi_template.docx')).size>20000);
+  assert.match(html,/pako-inflate\.min\.js/);
+  assert.match(html,/office-zip\.js/);
+  assert.match(documentBuilder,/word\/document\.xml/);
+  assert.match(documentBuilder,/function docxBlob/);
 });
 
 test('lease agreement is a packaged attachment',()=>{
@@ -49,8 +63,11 @@ test('lease agreement is a packaged attachment',()=>{
   assert.ok(fs.statSync(path.join(root,'lease-agreement-template.docx')).size>100000);
 });
 
-test('browser PDF rendering is self-contained and export-safe',()=>{
-  assert.match(documentBuilder,/function drawPdfPage\(page\)/);
-  assert.match(documentBuilder,/canvasJpeg\(drawPdfPage\(page\)\)/);
-  assert.doesNotMatch(documentBuilder,/<foreignObject|drawImage\(/);
+test('Word template filling escapes values and replaces every expected marker exactly once',()=>{
+  const paragraphs=Array.from({length:55},(_,index)=>index===9?'Москва & область <объект>':`Значение ${index}`);
+  const xml=`<w:document>${paragraphs.map((_value,index)=>`<w:p><w:r><w:t>[[SLOGI_P_${index}]]</w:t></w:r></w:p>`).join('')}</w:document>`;
+  const filled=documentApi.fillTemplateXml(xml,paragraphs);
+  assert.match(filled,/Москва &amp; область &lt;объект&gt;/);
+  assert.doesNotMatch(filled,/\[\[SLOGI_P_/);
+  assert.throws(()=>documentApi.fillTemplateXml(xml.replace('[[SLOGI_P_54]]',''),paragraphs),/SLOGI_P_54/);
 });

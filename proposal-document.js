@@ -41,6 +41,36 @@
     const termBoxes=[['Базовая арендная ставка',`${money(terms.baseRentRate)} ₽ / м² / мес.`],['Льготная ставка',`${money(terms.discountRentRate)} ₽ / м² / мес.`],['Льготный период',`${terms.discountPeriodDays} дней`],['Арендные каникулы',`${terms.rentFreeDays} дней`]];
     return`<section class="kp-page">${header()}<h1 class="kp-title">${span(paragraphs,0)}</h1><div class="kp-subtitle">${span(paragraphs,1)}</div><div class="kp-meta">${span(paragraphs,2)}</div><section class="kp-section"><div class="kp-heading"><span class="kp-number">01</span><h2>О нас</h2></div><p>${span(paragraphs,4)}</p><p>${span(paragraphs,5)}</p><p>${span(paragraphs,6)}</p></section><section class="kp-section"><div class="kp-heading"><span class="kp-number">02</span><h2>Интересующий объект</h2></div><div class="object-grid"><div class="kp-box"><div class="kp-label">${span(paragraphs,8)}</div><div class="kp-value">${span(paragraphs,9)}</div></div><div class="kp-box"><div class="kp-label">${span(paragraphs,10)}</div><div class="kp-value">${span(paragraphs,11)}</div></div><div class="kp-box"><div class="kp-label">${span(paragraphs,12)}</div><div class="kp-value">${span(paragraphs,13)}</div></div><div class="kp-box"><div class="kp-label">${span(paragraphs,14)}</div><div class="kp-value">${span(paragraphs,15)}</div></div></div></section><section class="kp-section"><div class="kp-heading"><span class="kp-number">03</span><h2>Коммерческие условия</h2></div><p>${span(paragraphs,17)}</p><div class="terms-grid terms-grid-four">${termBoxes.map(item=>`<div class="kp-box"><div class="kp-label">${esc(item[0])}</div><div class="kp-value">${esc(item[1])}</div></div>`).join('')}</div><p>${span(paragraphs,24)}</p></section>${footer()}</section><section class="kp-page">${header()}<section class="kp-section"><div class="kp-heading"><span class="kp-number">04</span><h2>Сроки ремонтных работ</h2></div><p>${span(paragraphs,26)}</p><table class="schedule-table"><thead><tr><th>${span(paragraphs,27)}</th><th>${span(paragraphs,28)}</th><th>${span(paragraphs,29)}</th></tr></thead><tbody>${[30,33,36,39].map(index=>`<tr><td>${span(paragraphs,index)}</td><td>${span(paragraphs,index+1)}</td><td>${span(paragraphs,index+2)}</td></tr>`).join('')}</tbody></table><p>${span(paragraphs,42)}</p></section><section class="kp-section"><div class="kp-heading"><span class="kp-number">05</span><h2>Почему сотрудничество с нами выгодно</h2></div><ul class="benefits">${[44,45,46,47,48].map(index=>`<li>${span(paragraphs,index)}</li>`).join('')}</ul></section><section class="kp-section"><div class="kp-heading"><span class="kp-number">06</span><h2>Следующий шаг</h2></div><p>${span(paragraphs,50)}</p><div class="signature"><p>${span(paragraphs,51)}<br>${span(paragraphs,52)}<br>${span(paragraphs,53)}<br>${span(paragraphs,54)}</p></div></section>${footer()}</section>`;
   }
+  function xmlEsc(value){return String(value==null?'':value).replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&apos;','"':'&quot;'}[char]));}
+  function fillTemplateXml(xml,paragraphs){
+    const values=Array.isArray(paragraphs)?paragraphs:[],slotCount=55;
+    if(values.length<slotCount)throw new Error('Шаблон КП получил неполный набор данных.');
+    let output=String(xml||'');
+    for(let index=0;index<slotCount;index++){
+      const marker=`[[SLOGI_P_${index}]]`,count=output.split(marker).length-1;
+      if(count!==1)throw new Error(`Маркер ${marker} должен встречаться в шаблоне ровно один раз.`);
+      output=output.replace(marker,xmlEsc(values[index]));
+    }
+    if(/\[\[SLOGI_P_\d+\]\]/.test(output))throw new Error('В документе остались незаполненные поля шаблона.');
+    return output;
+  }
+  function fillTemplateEntries(entries,paragraphs){
+    const decoder=new TextDecoder('utf-8'),encoder=new TextEncoder();let documentFound=false;
+    const result=(Array.isArray(entries)?entries:[]).map(entry=>{
+      const copy={name:entry.name,data:entry.data};
+      if(entry.name!=='word/document.xml')return copy;
+      documentFound=true;
+      copy.data=encoder.encode(fillTemplateXml(decoder.decode(entry.data),paragraphs));
+      return copy;
+    });
+    if(!documentFound)throw new Error('В шаблоне КП отсутствует word/document.xml.');
+    return result;
+  }
+  async function docxBlob(templateBuffer,paragraphs,zipApi){
+    if(!zipApi||typeof zipApi.unzip!=='function'||typeof zipApi.zip!=='function')throw new Error('Модуль создания Word-документа не загружен.');
+    const entries=await zipApi.unzip(templateBuffer),filled=fillTemplateEntries(entries,paragraphs),blob=await zipApi.zip(filled);
+    return blob.type==='application/vnd.openxmlformats-officedocument.wordprocessingml.document'?blob:new Blob([blob],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+  }
   function loadImage(url){return new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=reject;image.src=url;});}
   function canvasJpeg(canvas){return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('Не удалось отрисовать страницу КП.')),'image/jpeg',.94));}
   function concat(parts){const length=parts.reduce((sum,part)=>sum+part.length,0),output=new Uint8Array(length);let offset=0;parts.forEach(part=>{output.set(part,offset);offset+=part.length;});return output;}
@@ -108,5 +138,5 @@
     try{const images=[];for(const page of Array.from(host.querySelectorAll('.kp-page')))images.push(await canvasJpeg(drawPdfPage(page)));return pdfFromImages(images);}finally{host.remove();}
   }
 
-  return Object.freeze({buildParagraphs,pagesHtml,pdfBlob,pdfFromImages});
+  return Object.freeze({buildParagraphs,pagesHtml,pdfBlob,pdfFromImages,fillTemplateXml,fillTemplateEntries,docxBlob});
 });

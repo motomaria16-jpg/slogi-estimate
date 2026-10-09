@@ -56,12 +56,13 @@ test('three compact tabs, fixed shell and responsive card keep the approved inte
   assert.match(css,/\.ss-card-workflow-content, \.ss-card-proposal-content \{[^}]*grid-template-columns: repeat\(2,minmax\(0,1fr\)\)/);
   assert.match(css,/\.ss-card-layout\.ss-card-layout-full \{[^}]*grid-template-columns: minmax\(0,1fr\)/);
   assert.match(css,/\.ss-card-workflow-content \.in-work-field[^}]*grid-template-columns: 108px minmax\(0,1fr\)/);
-  assert.match(css,/\.ss-card-proposal-content \.proposal-workflow-grid \{[^}]*grid-template-columns: repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(css,/\.ss-card-proposal-content \.proposal-workflow-grid \{[^}]*grid-template-columns: minmax\(250px,\.68fr\) minmax\(0,1\.32fr\)/);
   assert.match(css,/\.ss-card-proposal-content, \.ss-card-proposal-content \.proposal-workflow-grid \{[^}]*align-items: start/);
   assert.match(css,/\.ss-card-proposal-content \.proposal-terms-grid input,[\s\S]*?height: 29px/);
   assert.match(css,/\.ss-card-proposal-content \.proposal-btn \{[^}]*width: 170px[^}]*height: 38px[^}]*font-size: 13px[^}]*font-weight: 500/);
   assert.match(css,/@media \(max-width: 820px\)[\s\S]+\.ss-card-layout \{ grid-template-columns: 1fr/);
   assert.match(css,/:focus-visible/);
+  assert.doesNotMatch(modal,/data-source-badge|data-header-status|>Готовность<|ss-card-check-list/);
 });
 
 test('the complete funnel remains wired to the same id and keeps four stable workflow panels',()=>{
