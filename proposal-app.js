@@ -5,7 +5,7 @@
   if(!S||!W||!cardModel||!cardModal||!listCard||!stage||!documentBuilder||!inWorkCard)return;
   const repo=S.projectRepository,$=id=>document.getElementById(id),all=(selector,root=document)=>Array.from(root.querySelectorAll(selector)),esc=S.esc;
   const state={projects:[],visible:[],filter:'',query:'',selectedId:''};
-  const PROPOSAL_TEMPLATE_FILE='KP_Slogi_template.docx',LEASE_FILE='lease-agreement-template.docx',LEASE_NAME='Типовой договор аренды нежилого помещения.docx';
+  const PROPOSAL_TEMPLATE_FILE='KP_Slogi_template.docx?v=76166',LEASE_FILE='lease-agreement-template.docx',LEASE_NAME='Типовой договор аренды нежилого помещения.docx';
   const now=()=>new Date().toISOString(),safe=value=>W.safeName(value||'КП');
   function workOf(project){return project&&project.phase0&&project.phase0.spaceCard&&project.phase0.spaceCard.work||{};}
   function proposalOf(project){return stage.proposalOf(project);}
@@ -60,9 +60,9 @@
   async function saveCanonicalCard(project,card){const current=repo.get(project.id);if(!current)throw new Error('Помещение не найдено.');const saved=await S.phase0Service.save(cardSaveDraft(current,card),{projectId:current.id,expectedRevision:current.phase0&&current.phase0.revision});reload();return saved;}
   async function prepareProposal(projectId,formData){
     const project=repo.get(projectId),input=formTerms(formData),checked=stage.validateTerms(input);if(!checked.valid)throw new Error(checked.errors[0]);
-    const draft=stage.emailDraft(project,workOf(project).landlordContact||{}),subject=input.emailSubject||draft.subject,body=input.emailBody||draft.body,paragraphs=documentBuilder.buildParagraphs(project,checked.terms,window.KP_TEMPLATE_PARAGRAPHS||[]),response=await fetch(PROPOSAL_TEMPLATE_FILE);
+    const draft=stage.emailDraft(project,workOf(project).landlordContact||{}),subject=input.emailSubject||draft.subject,body=input.emailBody||draft.body,fields=documentBuilder.buildFields(project,checked.terms),response=await fetch(PROPOSAL_TEMPLATE_FILE);
     if(!response.ok)throw new Error('Исходный Word-шаблон КП не найден.');
-    const blob=await documentBuilder.docxBlob(await response.arrayBuffer(),paragraphs,window.OfficeZip),docxName=`${safe('КП '+(project.address||project.id))}.docx`;
+    const blob=await documentBuilder.docxBlob(await response.arrayBuffer(),fields,window.OfficeZip),docxName=`${safe('КП '+(project.address||project.id))}.docx`;
     await W.saveAttachment(projectId,'proposal-docx',blob,docxName);
     const current=repo.get(projectId),prepared=repo.mutate(projectId,item=>stage.prepare(item,Object.assign({},checked.terms,{emailSubject:subject,emailBody:body,docxName,docxAttachmentType:'proposal-docx',leaseName:LEASE_NAME}),{now:now()}),current.phase0&&current.phase0.revision,'proposal-prepare');
     if(P)P.upsert('documentVersions',{id:`proposal-${projectId}`,projectId,type:'КП',name:docxName,version:'v1',status:'Актуальный',comment:'DOCX сформирован из исходного корпоративного шаблона'},'proposal-docx-prepared');

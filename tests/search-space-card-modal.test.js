@@ -229,7 +229,7 @@ test('markup is compact, accessible and uses one editable control per value', ()
   assert.match(CSS, /@media \(forced-colors: active\)/);
   assert.doesNotMatch(SOURCE, /Решение специалиста|data-readiness-title|data-reasons|data-take-help/);
   assert.match(SOURCE, /'take-to-work'/);
-  assert.match(SOURCE, /Добавить в «Помещение в работе»/);
+  assert.doesNotMatch(SOURCE, /Добавить в «Помещение в работе»/);
   assert.doesNotMatch(SOURCE, /data-action="take-to-work"\s+disabled/);
   assert.doesNotMatch(SOURCE, /name === 'onTakeToWork' && !state\.evaluation\.canTakeToWork/);
 });

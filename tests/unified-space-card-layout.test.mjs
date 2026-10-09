@@ -63,6 +63,7 @@ test('three compact tabs, fixed shell and responsive card keep the approved inte
   assert.match(css,/@media \(max-width: 820px\)[\s\S]+\.ss-card-layout \{ grid-template-columns: 1fr/);
   assert.match(css,/:focus-visible/);
   assert.doesNotMatch(modal,/data-source-badge|data-header-status|>Готовность<|ss-card-check-list/);
+  assert.doesNotMatch(modal,/>Следующий этап<|Перейти к сопровождению|Перейти к КП/);
 });
 
 test('the complete funnel remains wired to the same id and keeps four stable workflow panels',()=>{

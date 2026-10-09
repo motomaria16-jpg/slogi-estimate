@@ -54,9 +54,9 @@ test('browser editing keeps address spaces and defers calculated-field replaceme
     });
 
     for (const viewport of [
-      { width: 1280, height: 900, layoutColumns: 2, sectionColumns: 2 },
-      { width: 1024, height: 800, layoutColumns: 2, sectionColumns: 2 },
-      { width: 981, height: 800, layoutColumns: 2, sectionColumns: 2 },
+      { width: 1280, height: 900, layoutColumns: 1, sectionColumns: 2 },
+      { width: 1024, height: 800, layoutColumns: 1, sectionColumns: 2 },
+      { width: 981, height: 800, layoutColumns: 1, sectionColumns: 2 },
       { width: 681, height: 760, layoutColumns: 1, sectionColumns: 2 },
       { width: 375, height: 760, layoutColumns: 1, sectionColumns: 1 },
       { width: 320, height: 700, layoutColumns: 1, sectionColumns: 1 }
@@ -163,11 +163,8 @@ test('browser editing keeps address spaces and defers calculated-field replaceme
     await address.blur();
     assert.equal(await address.inputValue(), 'Москва, улица Академика Королёва, 12');
 
-    const takeButton = page.getByRole('button', { name: 'Добавить в «Помещение в работе»' });
-    assert.equal(await takeButton.isEnabled(), true, 'specialist CTA must remain enabled even after address invalidates automatic checks');
-    await takeButton.click();
-    assert.equal(await page.evaluate(() => Boolean(window.__takenSpaceCard)), true);
-    assert.equal(await page.evaluate(() => window.__takenEvaluation.canTakeToWork), false, 'eligibility remains diagnostic and does not disable the specialist action');
+    assert.equal(await page.getByRole('button', { name: 'Добавить в «Помещение в работе»' }).count(), 0, 'the card must not duplicate the list transition action');
+    assert.equal(await page.getByText('Следующий этап', { exact: true }).count(), 0);
   } finally {
     await browser.close();
   }
@@ -303,7 +300,8 @@ test('proposal unlocks without replacing the canonical card and keeps accompanim
     assert.equal(await page.locator('[name="workflowDraft"]').inputValue(), 'Мария', 'workflow draft must survive tab switches');
     await page.getByRole('tab', { name: 'Объект' }).click();
     assert.equal(await page.getByText('Готовность', { exact: true }).count(), 0);
-    assert.equal(await page.getByText('Следующий этап', { exact: true }).count(), 1);
+    assert.equal(await page.getByText('Следующий этап', { exact: true }).count(), 0);
+    assert.equal(await page.locator('.ss-card-context:visible').count(), 0);
     await page.locator('[name="rentMonthly"]').fill('250000');
     await page.getByRole('tab', { name: 'КП' }).click();
     assert.equal(await page.locator('[name="proposalDraft"]').inputValue(), '1500', 'КП draft must survive a canonical-card rerender');

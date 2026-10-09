@@ -64,10 +64,21 @@ test('lease agreement is a packaged attachment',()=>{
 });
 
 test('Word template filling escapes values and replaces every expected marker exactly once',()=>{
-  const paragraphs=Array.from({length:55},(_,index)=>index===9?'Москва & область <объект>':`Значение ${index}`);
-  const xml=`<w:document>${paragraphs.map((_value,index)=>`<w:p><w:r><w:t>[[SLOGI_P_${index}]]</w:t></w:r></w:p>`).join('')}</w:document>`;
-  const filled=documentApi.fillTemplateXml(xml,paragraphs);
+  const fields=Object.fromEntries(documentApi.FIELD_NAMES.map(name=>[name,name==='ADDRESS'?'Москва & область <объект>':`Значение ${name}`]));
+  const xml=`<w:document>${documentApi.FIELD_NAMES.map(name=>`<w:p><w:r><w:rPr><w:highlight w:val="yellow"/></w:rPr><w:t>[[SLOGI_FIELD_${name}]]</w:t></w:r></w:p>`).join('')}</w:document>`;
+  const filled=documentApi.fillTemplateXml(xml,fields);
   assert.match(filled,/Москва &amp; область &lt;объект&gt;/);
-  assert.doesNotMatch(filled,/\[\[SLOGI_P_/);
-  assert.throws(()=>documentApi.fillTemplateXml(xml.replace('[[SLOGI_P_54]]',''),paragraphs),/SLOGI_P_54/);
+  assert.doesNotMatch(filled,/\[\[SLOGI_FIELD_/);
+  assert.doesNotMatch(filled,/<w:highlight/);
+  assert.throws(()=>documentApi.fillTemplateXml(xml.replace('[[SLOGI_FIELD_CONTACTS]]',''),fields),/SLOGI_FIELD_CONTACTS/);
+});
+
+test('Word fields fill every highlighted business slot without inventing empty placeholders',()=>{
+  const fields=documentApi.buildFields({address:'Москва, Тестовая улица, 1',area:125,floor:1,phase0:{spaceCard:{separateEntrance:'yes',work:{landlordContact:{name:'Мария',phone:'+7 900 000-00-00',email:'maria@example.ru'}}}}},{rentFreeDays:120,baseRentRate:2500,discountRentRate:2000,discountPeriodDays:20});
+  assert.equal(Object.keys(fields).length,documentApi.FIELD_NAMES.length);
+  assert.equal(fields.ADDRESS,'Москва, Тестовая улица, 1');
+  assert.equal(fields.AREA,'125 м²');
+  assert.match(fields.FLOOR_ENTRANCE,/1 этаж, отдельный вход — да/);
+  assert.match(fields.CONTACTS,/maria@example\.ru/);
+  for(const name of documentApi.FIELD_NAMES)assert.ok(String(fields[name]).trim(),name);
 });

@@ -698,13 +698,9 @@
       target.innerHTML = sidebar || '';
       return;
     }
-    context.hidden = false;
-    layout.classList.remove('ss-card-layout-full');
-    const inWork = workflowEnabled();
-    const inProposal = proposalEnabled();
-    const action = inProposal ? 'go-proposal' : inWork ? 'go-workflow' : state.context === 'in-work' ? 'save' : 'take-to-work';
-    const actionLabel = inProposal ? 'Перейти к КП' : inWork ? 'Перейти к сопровождению' : state.context === 'in-work' ? 'Добавить помещение в работу' : 'Добавить в «Помещение в работе»';
-    target.innerHTML = `<section class="ss-card-context-section ss-card-next"><div class="ss-card-context-heading"><span aria-hidden="true">⚑</span><h3>Следующий этап</h3></div><button class="ss-card-button ss-card-button-primary ss-card-next-button" type="button" data-action="${action}">${actionLabel} <span aria-hidden="true">→</span></button></section>`;
+    context.hidden = true;
+    layout.classList.add('ss-card-layout-full');
+    target.innerHTML = '';
   }
 
   function renderWorkflow() {

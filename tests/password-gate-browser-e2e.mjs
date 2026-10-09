@@ -192,9 +192,7 @@ async function activeFastFrame(device,requiredSelector='#cian-main'){
 async function assertDirectNavigationFreshness(device){
   let search=await activeFastFrame(device);
   const source='cian:1',card=search.locator(`[data-listing-card="${source}"]`);
-  await card.locator('.cian-card-open').click();
-  const modal=search.getByRole('dialog',{name:'Карточка помещения'});await modal.waitFor();
-  await modal.getByRole('button',{name:'Добавить в «Помещение в работе»'}).click();
+  await card.locator('.cian-take-work').click();
   await search.waitForFunction(id=>!document.querySelector(`[data-listing-card="${id}"]`),source);
   const projectId=await search.evaluate(externalId=>window.SlogiPro.readLocations().find(project=>String(project.phase0&&project.phase0.externalId||'')===externalId&&project.phase0&&project.phase0.spaceCard&&project.phase0.spaceCard.work&&project.phase0.spaceCard.work.status==='in_work')?.id||'','1');
   assert.ok(projectId,'take-to-work creates a canonical project id');
@@ -281,13 +279,13 @@ async function assertAvailableSpace(device,label){
   await competitive.waitFor({state:'hidden'});
   await view.locator('#available-add-space').click();
   const manualCard=view.getByRole('dialog',{name:'Карточка помещения'});await manualCard.waitFor();
-  assert.equal(await manualCard.getByRole('button',{name:'Добавить в «Помещение в работе»'}).isDisabled(),false,label+': manual decision remains available with an eligibility snapshot');
+  assert.equal(await manualCard.getByRole('button',{name:'Добавить в «Помещение в работе»'}).count(),0,label+': card does not duplicate the transition action');
   const modalMetrics=await manualCard.evaluate(node=>{const rect=node.getBoundingClientRect(),buttons=[...node.querySelectorAll('button')].filter(button=>getComputedStyle(button).display!=='none');return{left:rect.left,right:rect.right,width:rect.width,viewport:document.documentElement.clientWidth,overflow:Math.max(0,node.scrollWidth-node.clientWidth),font:Number.parseFloat(getComputedStyle(node).fontSize),shortButtons:buttons.filter(button=>button.getBoundingClientRect().height<33.5).map(button=>button.textContent.trim())};});
   assert.ok(modalMetrics.left>=-1&&modalMetrics.right<=modalMetrics.viewport+1,label+': modal fits viewport');assert.equal(modalMetrics.overflow,0,label+': modal horizontal overflow');assert.ok(modalMetrics.font>=16,label+': modal readable font');assert.deepEqual(modalMetrics.shortButtons,[],label+': modal touch targets');
   await manualCard.getByRole('button',{name:'Закрыть карточку'}).click();
   await view.locator('.cian-card-open').first().click();
   const parsedCard=view.getByRole('dialog',{name:'Карточка помещения'});await parsedCard.waitFor();
-  assert.match(await parsedCard.locator('[name="address"]').inputValue(),/Москва/);assert.equal(await parsedCard.getByRole('button',{name:'Добавить в «Помещение в работе»'}).isDisabled(),false,label+': parsed card preserves the manual-decision action');
+  assert.match(await parsedCard.locator('[name="address"]').inputValue(),/Москва/);assert.equal(await parsedCard.getByRole('button',{name:'Добавить в «Помещение в работе»'}).count(),0,label+': parsed card does not duplicate the transition action');
   await parsedCard.getByRole('button',{name:'Закрыть карточку'}).click();
   const removedId=await view.locator('[data-listing-card]').first().getAttribute('data-listing-card');
   device.page.once('dialog',dialog=>dialog.accept());

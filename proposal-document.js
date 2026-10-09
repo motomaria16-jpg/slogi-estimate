@@ -8,6 +8,59 @@
 
   const esc=value=>String(value==null?'':value).replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
   const money=value=>Number(value).toLocaleString('ru-RU',{maximumFractionDigits:2});
+  const FIELD_NAMES=Object.freeze(['META','ADDRESS','AREA','FLOOR_ENTRANCE','BASE_RATE','BASE_NOTE','RENT_FREE_DAYS','DISCOUNT_RATE','DISCOUNT_NOTE','DISCOUNT_PERIOD_DAYS','REPAIR_STAGE_1','REPAIR_STAGE_2','REPAIR_STAGE_3','REPAIR_STAGE_4','REPAIR_TOTAL','SIGNATORY','CONTACTS']);
+  const valueText=value=>String(value==null?'':value).trim();
+  const first=(...values)=>values.find(value=>value!==undefined&&value!==null&&valueText(value)!=='');
+  const proposalCard=project=>project&&project.phase0&&project.phase0.spaceCard||{};
+  const proposalContact=project=>proposalCard(project).work&&proposalCard(project).work.landlordContact||{};
+  function triStateText(value){
+    if(value===true||['yes','да','true','1'].includes(valueText(value).toLowerCase()))return'да';
+    if(value===false||['no','нет','false','0'].includes(valueText(value).toLowerCase()))return'нет';
+    return'не указано';
+  }
+  function durationDays(row){
+    if(!row||!row.start||!row.end)return 0;
+    const start=new Date(row.start),end=new Date(row.end);
+    if(Number.isNaN(start.getTime())||Number.isNaN(end.getTime())||end<start)return 0;
+    return Math.max(1,Math.ceil((end-start)/86400000)+1);
+  }
+  function buildFields(project={},terms={}){
+    const card=proposalCard(project),phase=project.phase0||{},contact=proposalContact(project),today=new Date().toLocaleDateString('ru-RU');
+    const address=valueText(first(project.address,card.address,phase.address))||'Адрес уточняется';
+    const recipient=valueText(first(contact.name,contact.organization))||'Арендодатель';
+    const area=first(project.area,card.area,phase.area,projectParam(project,/площад/i));
+    const floor=first(project.floor,phase.floor,card.floor);
+    const entrance=first(card.separateEntrance,project.separateEntrance,phase.separateEntrance);
+    const floorText=floor===undefined||floor===null||valueText(floor)===''?'этаж не указан':`${valueText(floor)} этаж`;
+    const gantt=Array.isArray(project.gantt)?project.gantt:[];
+    const stageDurations=[0,1,2,3].map(index=>{const days=durationDays(gantt[index]);return days?`${Math.max(1,Math.ceil(days/7))} нед.`:'срок уточняется';});
+    const datedRows=gantt.map(durationDays).filter(Boolean),totalDays=datedRows.reduce((sum,days)=>sum+days,0);
+    const totalDuration=totalDays?`${Math.max(1,Math.ceil(totalDays/30))} мес.`:'уточняется после согласования графика';
+    const taxNote=valueText(terms.taxUtilitiesNote)||'НДС и коммунальные услуги — по условиям договора';
+    const signatoryName=valueText(first(project.signatory,project.responsibleName));
+    const signatoryPosition=valueText(first(project.signatoryPosition,project.responsiblePosition));
+    const signatory=[signatoryName,signatoryPosition].filter(Boolean).join(', ')||'Команда «СЛОГИ»';
+    const contacts=[first(project.phone,contact.phone),first(project.email,contact.email),project.site].map(valueText).filter(Boolean).join('   ·   ')||'Контактные данные предоставляются по запросу';
+    return Object.freeze({
+      META:`Дата: ${today}     Кому: ${recipient}     Объект: ${address}`,
+      ADDRESS:address,
+      AREA:area===undefined||area===null||valueText(area)===''?'не указана':`${valueText(area)} м²`,
+      FLOOR_ENTRANCE:`${floorText}, отдельный вход — ${triStateText(entrance)}`,
+      BASE_RATE:money(terms.baseRentRate),
+      BASE_NOTE:taxNote,
+      RENT_FREE_DAYS:String(terms.rentFreeDays),
+      DISCOUNT_RATE:money(terms.discountRentRate),
+      DISCOUNT_NOTE:taxNote,
+      DISCOUNT_PERIOD_DAYS:String(terms.discountPeriodDays),
+      REPAIR_STAGE_1:stageDurations[0],
+      REPAIR_STAGE_2:stageDurations[1],
+      REPAIR_STAGE_3:stageDurations[2],
+      REPAIR_STAGE_4:stageDurations[3],
+      REPAIR_TOTAL:totalDuration,
+      SIGNATORY:signatory,
+      CONTACTS:contacts
+    });
+  }
   function projectParam(project,pattern){
     const params=project&&project.estimateModel&&project.estimateModel.params||project&&project.model&&project.model.params||[];
     const state=project&&project.estimateState||project&&project.state||{};
@@ -42,33 +95,36 @@
     return`<section class="kp-page">${header()}<h1 class="kp-title">${span(paragraphs,0)}</h1><div class="kp-subtitle">${span(paragraphs,1)}</div><div class="kp-meta">${span(paragraphs,2)}</div><section class="kp-section"><div class="kp-heading"><span class="kp-number">01</span><h2>О нас</h2></div><p>${span(paragraphs,4)}</p><p>${span(paragraphs,5)}</p><p>${span(paragraphs,6)}</p></section><section class="kp-section"><div class="kp-heading"><span class="kp-number">02</span><h2>Интересующий объект</h2></div><div class="object-grid"><div class="kp-box"><div class="kp-label">${span(paragraphs,8)}</div><div class="kp-value">${span(paragraphs,9)}</div></div><div class="kp-box"><div class="kp-label">${span(paragraphs,10)}</div><div class="kp-value">${span(paragraphs,11)}</div></div><div class="kp-box"><div class="kp-label">${span(paragraphs,12)}</div><div class="kp-value">${span(paragraphs,13)}</div></div><div class="kp-box"><div class="kp-label">${span(paragraphs,14)}</div><div class="kp-value">${span(paragraphs,15)}</div></div></div></section><section class="kp-section"><div class="kp-heading"><span class="kp-number">03</span><h2>Коммерческие условия</h2></div><p>${span(paragraphs,17)}</p><div class="terms-grid terms-grid-four">${termBoxes.map(item=>`<div class="kp-box"><div class="kp-label">${esc(item[0])}</div><div class="kp-value">${esc(item[1])}</div></div>`).join('')}</div><p>${span(paragraphs,24)}</p></section>${footer()}</section><section class="kp-page">${header()}<section class="kp-section"><div class="kp-heading"><span class="kp-number">04</span><h2>Сроки ремонтных работ</h2></div><p>${span(paragraphs,26)}</p><table class="schedule-table"><thead><tr><th>${span(paragraphs,27)}</th><th>${span(paragraphs,28)}</th><th>${span(paragraphs,29)}</th></tr></thead><tbody>${[30,33,36,39].map(index=>`<tr><td>${span(paragraphs,index)}</td><td>${span(paragraphs,index+1)}</td><td>${span(paragraphs,index+2)}</td></tr>`).join('')}</tbody></table><p>${span(paragraphs,42)}</p></section><section class="kp-section"><div class="kp-heading"><span class="kp-number">05</span><h2>Почему сотрудничество с нами выгодно</h2></div><ul class="benefits">${[44,45,46,47,48].map(index=>`<li>${span(paragraphs,index)}</li>`).join('')}</ul></section><section class="kp-section"><div class="kp-heading"><span class="kp-number">06</span><h2>Следующий шаг</h2></div><p>${span(paragraphs,50)}</p><div class="signature"><p>${span(paragraphs,51)}<br>${span(paragraphs,52)}<br>${span(paragraphs,53)}<br>${span(paragraphs,54)}</p></div></section>${footer()}</section>`;
   }
   function xmlEsc(value){return String(value==null?'':value).replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&apos;','"':'&quot;'}[char]));}
-  function fillTemplateXml(xml,paragraphs){
-    const values=Array.isArray(paragraphs)?paragraphs:[],slotCount=55;
-    if(values.length<slotCount)throw new Error('Шаблон КП получил неполный набор данных.');
+  function fillTemplateXml(xml,fields){
+    const values=fields&&typeof fields==='object'&&!Array.isArray(fields)?fields:{};
     let output=String(xml||'');
-    for(let index=0;index<slotCount;index++){
-      const marker=`[[SLOGI_P_${index}]]`,count=output.split(marker).length-1;
+    FIELD_NAMES.forEach(name=>{
+      const marker=`[[SLOGI_FIELD_${name}]]`,count=output.split(marker).length-1;
       if(count!==1)throw new Error(`Маркер ${marker} должен встречаться в шаблоне ровно один раз.`);
-      output=output.replace(marker,xmlEsc(values[index]));
-    }
-    if(/\[\[SLOGI_P_\d+\]\]/.test(output))throw new Error('В документе остались незаполненные поля шаблона.');
+      if(valueText(values[name])==='')throw new Error(`Поле ${name} не заполнено.`);
+      output=output.replace(marker,xmlEsc(values[name]));
+    });
+    output=output.replace(/<w:highlight\b(?=[^>]*\bw:val=(?:"yellow"|'yellow'))[^>]*(?:\/>|>[\s\S]*?<\/w:highlight>)/gi,'');
+    if(/\[\[SLOGI_FIELD_[A-Z0-9_]+\]\]/.test(output))throw new Error('В документе остались незаполненные поля шаблона.');
+    if(/<w:highlight\b(?=[^>]*\bw:val=(?:"yellow"|'yellow'))/i.test(output))throw new Error('В документе осталось жёлтое выделение полей.');
+    if(/\[(?:ДД|ФИО|адрес|__|ХХ|этаж|Имя|должность|телефон|email|сайт)[^\]]*\]/i.test(output))throw new Error('В документе остались незаполненные поля исходного шаблона.');
     return output;
   }
-  function fillTemplateEntries(entries,paragraphs){
+  function fillTemplateEntries(entries,fields){
     const decoder=new TextDecoder('utf-8'),encoder=new TextEncoder();let documentFound=false;
     const result=(Array.isArray(entries)?entries:[]).map(entry=>{
       const copy={name:entry.name,data:entry.data};
       if(entry.name!=='word/document.xml')return copy;
       documentFound=true;
-      copy.data=encoder.encode(fillTemplateXml(decoder.decode(entry.data),paragraphs));
+      copy.data=encoder.encode(fillTemplateXml(decoder.decode(entry.data),fields));
       return copy;
     });
     if(!documentFound)throw new Error('В шаблоне КП отсутствует word/document.xml.');
     return result;
   }
-  async function docxBlob(templateBuffer,paragraphs,zipApi){
+  async function docxBlob(templateBuffer,fields,zipApi){
     if(!zipApi||typeof zipApi.unzip!=='function'||typeof zipApi.zip!=='function')throw new Error('Модуль создания Word-документа не загружен.');
-    const entries=await zipApi.unzip(templateBuffer),filled=fillTemplateEntries(entries,paragraphs),blob=await zipApi.zip(filled);
+    const entries=await zipApi.unzip(templateBuffer),filled=fillTemplateEntries(entries,fields),blob=await zipApi.zip(filled);
     return blob.type==='application/vnd.openxmlformats-officedocument.wordprocessingml.document'?blob:new Blob([blob],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
   }
   function loadImage(url){return new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=reject;image.src=url;});}
@@ -138,5 +194,5 @@
     try{const images=[];for(const page of Array.from(host.querySelectorAll('.kp-page')))images.push(await canvasJpeg(drawPdfPage(page)));return pdfFromImages(images);}finally{host.remove();}
   }
 
-  return Object.freeze({buildParagraphs,pagesHtml,pdfBlob,pdfFromImages,fillTemplateXml,fillTemplateEntries,docxBlob});
+  return Object.freeze({FIELD_NAMES,buildFields,buildParagraphs,pagesHtml,pdfBlob,pdfFromImages,fillTemplateXml,fillTemplateEntries,docxBlob});
 });
