@@ -80,6 +80,8 @@ test('calendar operations are isolated behind SlogiWorkCalendar service adapter'
   assert.match(app,/operationId:operationId\(method\)/);
   assert.match(app,/reminderMinutesBefore/);
   assert.match(app,/assignedToId/);
+  assert.match(app,/input name="assignedToName" type="text"/);
+  assert.doesNotMatch(app,/select name="assignedToId"/);
 });
 
 test('refusal has only the two exact reasons and requires a comment',()=>{

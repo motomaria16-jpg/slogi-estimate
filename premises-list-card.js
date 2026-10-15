@@ -54,7 +54,8 @@
 
   function render(options) {
     const value = options && typeof options === 'object' ? options : {};
-    const title = value.title || value.address || 'Коммерческое помещение';
+    const address = String(value.address || '').trim();
+    const title = String(value.title || address || 'Коммерческое помещение').trim();
     const metrics = Array.isArray(value.metrics) && value.metrics.length ? value.metrics : [
       area(value.area), floor(value.floor, value.totalFloors), ceiling(value.ceilingHeight)
     ];
@@ -66,7 +67,7 @@
       `<button class="premises-card__open cian-card-open${openClass ? ` ${esc(openClass)}` : ''}" type="button"${attributes(value.openAttributes)} aria-label="${esc(value.openLabel || `Открыть карточку ${title}`)}">` +
         '<div class="premises-card__main cian-card-main">' +
           `<div class="premises-card__badges cian-card-top">${badgesHtml(value.badges)}</div>` +
-          `<h3>${esc(title)}</h3><p class="premises-card__address cian-address">${esc(value.address || 'Адрес не указан')}</p>` +
+          `<h3>${esc(title)}</h3>${address && address !== title ? `<p class="premises-card__address cian-address">${esc(address)}</p>` : ''}` +
           `<div class="premises-card__metrics cian-card-metrics">${metrics.map(metric => `<span>${esc(metric)}</span>`).join('')}</div>` +
         '</div>' +
         `<div class="premises-card__price cian-card-price"><strong>${esc(money(value.rentMonthly))}</strong><span>${rentPerSqm == null ? 'Цена за м² не рассчитана' : `${esc(money(rentPerSqm))} / м²`}</span></div>` +

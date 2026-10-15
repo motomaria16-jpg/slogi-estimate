@@ -45,12 +45,13 @@ test('legacy in_work cards migrate without copying the canonical card or changin
 });
 
 test('schedule creates one active Moscow viewing and deterministic in-app reminders',()=>{
-  const saved=schedule();
+  const saved=schedule(project(),{assignedToName:'Мария Козлова'});
   const work=saved.phase0.spaceCard.work,viewing=work.viewings[0];
   assert.equal(work.pipeline.status,'viewing_scheduled');
   assert.equal(work.stage,'viewing_scheduled');
   assert.equal(work.activeViewingId,'viewing-op-schedule');
   assert.deepEqual({spaceCardId:viewing.spaceCardId,assignedToId:viewing.assignedToId,timeZone:viewing.timeZone,status:viewing.status},{spaceCardId:'space-1',assignedToId:'employee-1',timeZone:'Europe/Moscow',status:'scheduled'});
+  assert.equal(viewing.assignedToName,'Мария Козлова');
   assert.equal(viewing.endsAt,'2026-09-27T13:00:00.000Z');
   assert.deepEqual(viewing.reminders.map(item=>[item.minutesBefore,item.remindAt]),[[1440,'2026-09-26T12:00:00.000Z'],[60,'2026-09-27T11:00:00.000Z']]);
   assert.throws(()=>calendar.schedule(saved,command('second',{assignedToId:'employee-1',startsAt:'2026-09-28T12:00:00Z'})),error=>error.code==='ACTIVE_VIEWING_EXISTS');

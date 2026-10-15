@@ -31,6 +31,27 @@ test('действия находятся после информационно�
   assert.match(css,/min-height:34px!important/);
 });
 
+test('адрес используется как заголовок без дублирования отдельной строкой',()=>{
+  const address='Москва, Сумской проезд, 8к3';
+  const html=card.render({...base,title:address,address});
+  assert.match(html,new RegExp(`<h3>${address}</h3>`));
+  assert.doesNotMatch(html,/premises-card__address/);
+});
+
+test('в списках остаются только кластер, место и статус',()=>{
+  const searchSource=fs.readFileSync(new URL('../cian-workspace.js',import.meta.url),'utf8');
+  const workSource=fs.readFileSync(new URL('../in-work-app.js',import.meta.url),'utf8');
+  const searchCard=searchSource.slice(searchSource.indexOf('function card(item)'),searchSource.indexOf('function workBlockTitle'));
+  const workCard=workSource.slice(workSource.indexOf('function cardHtml(project)'),workSource.indexOf('function renderList'));
+  assert.match(searchCard,/title:item\.address\|\|'Адрес не указан'/);
+  assert.match(searchCard,/badges:\[\{text:clusterLabel\(item\)\},\{text:rank!=null\?rank\+' место'/);
+  assert.match(searchCard,/\{text:statusLabel,tone:'status'\}/);
+  assert.doesNotMatch(searchCard,/sourceLabel|freshnessAt|Обновлено|Вручную|ЦИАН/);
+  assert.match(workCard,/title:projectTitle\(project\)/);
+  assert.match(workCard,/badges:\[\{text:clusterLabel\(project,card\)\},\{text:rank!=null\?rank\+' место'/);
+  assert.doesNotMatch(workCard,/contextHtml|card\.source|updatedAt|Обновлено|Вручную|ЦИАН/);
+});
+
 test('общий стиль не возвращает боковую колонку действий и большие кнопки',()=>{
   const css=fs.readFileSync(new URL('../premises-list-card.css',import.meta.url),'utf8');
   assert.doesNotMatch(css,/\.premises-card\{[^}]*grid-template-columns:minmax\(0,1fr\)\s+minmax/);

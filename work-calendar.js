@@ -104,6 +104,7 @@
       id,
       spaceCardId:text(spaceCardId||source.spaceCardId),
       assignedToId:text(source.assignedToId),
+      assignedToName:text(source.assignedToName),
       startsAt,
       endsAt,
       timeZone:TIME_ZONE,
@@ -254,7 +255,7 @@
     const interval=viewingInterval(command),at=nowIso(context.now),id=text(command.viewingId)||`viewing-${state.operation}`;
     if(state.work.viewings.some(viewing=>viewing.id===id))throw new WorkCalendarError('Viewing id already exists.','DUPLICATE_VIEWING_ID',{viewingId:id});
     const viewing={
-      id,spaceCardId:state.project.id,assignedToId,startsAt:interval.startsAt,endsAt:interval.endsAt,timeZone:TIME_ZONE,status:'scheduled',
+      id,spaceCardId:state.project.id,assignedToId,assignedToName:text(command.assignedToName),startsAt:interval.startsAt,endsAt:interval.endsAt,timeZone:TIME_ZONE,status:'scheduled',
       address:text(command.address||state.project.address||state.project.phase0.spaceCard.address),notes:text(command.notes),attachments:[],
       createdAt:at,createdById:text(command.actorId),updatedAt:at,updatedById:text(command.actorId)
     };
@@ -274,11 +275,11 @@
   function reschedule(project,command={},context={}){
     const state=prepare(project,command);if(state.replayed)return state.project;
     if(terminal(state.status)&&!state.preserveProposalStage)throw new WorkCalendarError('Closed project cannot be rescheduled.','PIPELINE_CLOSED',{status:state.status});
-    const viewing=activeViewing(state,command),assignedToId=text(command.assignedToId||viewing.assignedToId);
+    const viewing=activeViewing(state,command),assignedToId=text(command.assignedToId||viewing.assignedToId),assignedToName=text(command.assignedToName||viewing.assignedToName);
     if(!assignedToId)throw new WorkCalendarError('assignedToId is required.','ASSIGNEE_REQUIRED');
-    const interval=viewingInterval(command,viewing),at=nowIso(context.now),candidate=Object.assign({},viewing,interval,{assignedToId});
+    const interval=viewingInterval(command,viewing),at=nowIso(context.now),candidate=Object.assign({},viewing,interval,{assignedToId,assignedToName});
     assertNoOverlap(context.projects,candidate,{excludeProjectId:state.project.id,excludeViewingId:viewing.id});
-    viewing.assignedToId=assignedToId;viewing.startsAt=interval.startsAt;viewing.endsAt=interval.endsAt;viewing.updatedAt=at;viewing.updatedById=text(command.actorId);
+    viewing.assignedToId=assignedToId;viewing.assignedToName=assignedToName;viewing.startsAt=interval.startsAt;viewing.endsAt=interval.endsAt;viewing.updatedAt=at;viewing.updatedById=text(command.actorId);
     if(Object.prototype.hasOwnProperty.call(command,'notes'))viewing.notes=text(command.notes);
     viewing.reminders=buildReminders(viewing.id,viewing.startsAt,command.reminderMinutesBefore||viewing.reminders.map(item=>item.minutesBefore));
     state.work.activeViewingId=viewing.id;setOperationalPipeline(state,'viewing_scheduled',at,{viewingId:viewing.id});
@@ -370,7 +371,7 @@
       card.work.viewings.filter(viewing=>viewing.status==='scheduled').forEach(viewing=>{
         if(new Date(viewing.startsAt).getTime()<=point)return;
         viewing.reminders.filter(reminder=>reminder.status==='pending'&&new Date(reminder.remindAt).getTime()<=point).forEach(reminder=>due.push({
-          id:reminder.id,projectId:project.id,spaceCardId:card.id,viewingId:viewing.id,assignedToId:viewing.assignedToId,startsAt:viewing.startsAt,remindAt:reminder.remindAt,minutesBefore:reminder.minutesBefore,address:viewing.address||card.address||project.address||''
+          id:reminder.id,projectId:project.id,spaceCardId:card.id,viewingId:viewing.id,assignedToId:viewing.assignedToId,assignedToName:viewing.assignedToName,startsAt:viewing.startsAt,remindAt:reminder.remindAt,minutesBefore:reminder.minutesBefore,address:viewing.address||card.address||project.address||''
         }));
       });
     });

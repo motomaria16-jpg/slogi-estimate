@@ -148,12 +148,11 @@
 
   function card(item){
     const id=esc(spaceKey(item)),cardData=item._card||cardForListing(item),gate=spaceCardModel.evaluate(cardData),inWork=cardData.work&&cardData.work.status==='in_work';
-    const title=esc(item.title||item.address||'Коммерческое помещение');
-    const dateLabel=item.freshnessKind==='published'?'Опубликовано':'Обновлено',sourceLabel=cardData.source==='manual'?'Вручную':'ЦИАН',rank=cardData.competitive.rank;
+    const title=esc(item.address||'Адрес не указан'),rank=cardData.competitive.rank,statusLabel=inWork?'В работе':'Новое';
     const blocked=workBlockTitle(gate);
     return premisesCard.render({
-      selected:selectedListingId===spaceKey(item),articleClass:'cian-listing-card',articleAttributes:{'data-listing-card':id},openClass:'cian-card-open',openAttributes:{'data-listing-id':id},title:item.title||item.address||'Коммерческое помещение',address:item.address,
-      badges:[{text:sourceLabel},{text:clusterLabel(item)},{text:rank!=null?rank+' место':'',tone:cardData.competitive.isTop35?'ready':'danger'},{text:item.freshnessAt?dateLabel+' '+formatDate(item.freshnessAt):'',tone:'fresh'}],
+      selected:selectedListingId===spaceKey(item),articleClass:'cian-listing-card',articleAttributes:{'data-listing-card':id},openClass:'cian-card-open',openAttributes:{'data-listing-id':id},title:item.address||'Адрес не указан',address:item.address,
+      badges:[{text:clusterLabel(item)},{text:rank!=null?rank+' место':'',tone:cardData.competitive.isTop35?'ready':'danger'},{text:statusLabel,tone:'status'}],
       area:item.area,floor:item.floor,totalFloors:item.totalFloors,ceilingHeight:item.ceilingHeight,rentMonthly:item.rentMonthly,pricePerSqm:item.pricePerSquareMeter,actionsClass:'cian-card-actions',actionsLabel:'Действия с помещением в поиске',
       actionsHtml:`<button class="cian-button cian-take-work" type="button" data-take-space="${id}" ${gate.canTakeToWork?'':'disabled'} title="${esc(gate.canTakeToWork?'Все условия выполнены':blocked)}">${inWork?'В работе':'Взять в работу'}</button><button class="cian-button secondary cian-remove-listing" type="button" data-remove-space="${id}" aria-label="Удалить ${title}">Удалить</button>`
     });
@@ -220,7 +219,7 @@
     spaceCardModal.open({initial:item._card||cardForListing(item),...callbacks,opener:trigger});
   }
   function openManualSpace(){
-    const item={source:'manual',externalId:'',listingUrl:'',title:'Помещение, добавленное вручную',address:'',latitude:null,longitude:null,area:null,rentMonthly:null,ceilingHeight:null,clusterStatus:'not_computed'},initial=spaceCardModel.normalize({source:'manual',listingUrl:'',geo:{lat:null,lng:null},cluster:{status:'not_computed',matched:false,hasSlogiCenter:null},competitive:{rating:null,rank:null,averageRentPerSqm:null},separateEntrance:null,hasWindows:null,windowsOpen:null,ceilingHeightConfirmed:null,repair:null});let geo=null,current=item;
+    const item={source:'manual',externalId:'',listingUrl:'',title:'',address:'',latitude:null,longitude:null,area:null,rentMonthly:null,ceilingHeight:null,clusterStatus:'not_computed'},initial=spaceCardModel.normalize({source:'manual',listingUrl:'',geo:{lat:null,lng:null},cluster:{status:'not_computed',matched:false,hasSlogiCenter:null},competitive:{rating:null,rank:null,averageRentPerSqm:null},separateEntrance:null,hasWindows:null,windowsOpen:null,ceilingHeightConfirmed:null,repair:null});let geo=null,current=item;
     spaceCardModal.open({initial,onResolveAddress:async draft=>{const result=await phase0Service().resolveSpaceAddress(draft.address);geo=result.geo;return{address:result.address,geo:result.geo?{lat:result.geo.lat,lng:result.geo.lng,resolutionSource:'automatic'}:null,cluster:result.cluster,competitive:result.competitive};},onSave:async draft=>{const saved=await saveSpace(current,draft,geo);current=projectToItem(saved);toast('Помещение добавлено в общий список.');return{card:cardForProject(saved)};},onTakeToWork:async draft=>{const saved=await takeSpace(current,draft,geo);current=projectToItem(saved);return{card:cardForProject(saved)};}});
   }
 
