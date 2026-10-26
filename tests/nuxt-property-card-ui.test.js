@@ -33,7 +33,8 @@ test('workflow progress strip is removed and the shared layout stays compact and
   assert.match(css, /strong, b \{ font-weight: 400; \}/)
   assert.match(css, /\.workflow-card \{ min-height: 0; \}/)
   assert.match(css, /\.form-row \{[^}]*min-height: 46px/)
-  assert.match(css, /\.property-body \{[^}]*padding: 10px 12px/)
+  assert.match(css, /\.property-dialog \{[^}]*height: auto;[^}]*max-height: calc\(100vh - 32px\)/)
+  assert.match(css, /\.property-body \{[^}]*padding: 8px/)
 })
 
 test('mobile layouts fit controls, keep compact cards and avoid oversized maps', () => {

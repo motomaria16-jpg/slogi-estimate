@@ -63,6 +63,7 @@ function versionedTarget(destination: string) {
     </nav>
     <button class="sidebar-assistant" type="button" aria-label="Открыть ИИ-помощника" title="Открыть ИИ-помощника" @click="openAssistant">
       <img src="/legacy/ai-assistant-owl.png" alt="" aria-hidden="true" />
+      <span>Нужна помощь?</span>
     </button>
   </aside>
 </template>
