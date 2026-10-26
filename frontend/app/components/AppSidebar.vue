@@ -1,5 +1,7 @@
 <script setup lang="ts">
 const route = useRoute()
+const runtimeConfig = useRuntimeConfig()
+const buildVersion = String((runtimeConfig.app as { buildId?: string }).buildId || '')
 const groups = [
   {
     label: 'Поиск помещения',
@@ -30,11 +32,18 @@ function active(path: string) {
   const section = new URLSearchParams(query).get('section')
   return !section || route.query.section === section
 }
+
+function versionedTarget(destination: string) {
+  const [path, search = ''] = destination.split('?')
+  const query = Object.fromEntries(new URLSearchParams(search))
+  if (buildVersion) query.build = buildVersion
+  return { path, query }
+}
 </script>
 
 <template>
   <aside class="sidebar" aria-label="Основное меню">
-    <NuxtLink class="brand" to="/available-spaces.html" aria-label="СЛОГИ — главная">
+    <NuxtLink class="brand" :to="versionedTarget('/available-spaces.html')" aria-label="СЛОГИ — главная">
       <span v-for="(letter, index) in ['С', 'Л', 'О', 'Г', 'И']" :key="letter" :class="`brand-letter brand-letter-${index + 1}`">{{ letter }}</span>
     </NuxtLink>
     <nav class="sidebar-nav">
@@ -43,7 +52,7 @@ function active(path: string) {
         <NuxtLink
           v-for="link in group.links"
           :key="link.to"
-          :to="link.to"
+          :to="versionedTarget(link.to)"
           class="sidebar-link"
           :class="{ active: active(link.to) }"
         >

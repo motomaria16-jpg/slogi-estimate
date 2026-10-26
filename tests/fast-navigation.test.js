@@ -195,6 +195,8 @@ test('host wiring keeps the fail-closed gate first, isolates runtimes, and pause
     assert.match(layout,/<AppSidebar \/>[\s\S]*<slot \/>/);
     assert.match(sidebar,/<NuxtLink/);
     assert.doesNotMatch(sidebar,/window\.location|location\.href/);
+    assert.match(sidebar,/function versionedTarget\(destination: string\)/);
+    assert.match(sidebar,/query\.build = buildVersion/);
     const configIndex=runtime.indexOf("'phase0-config.js'"),sharedIndex=runtime.indexOf("'shared-workspace.js'");
     assert.ok(configIndex>=0&&sharedIndex>configIndex);
     assert.match(runtime,/for \(const scriptFile of legacyScripts\)\s*\{\s*await loadScript\(scriptFile\)/);
