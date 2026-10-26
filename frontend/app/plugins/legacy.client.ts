@@ -43,7 +43,10 @@ export default defineNuxtPlugin((nuxtApp) => {
   const error = useState<string>('slogi-runtime-error', () => '')
 
   function restoreGrantedAccess() {
-    if (window.SlogiCloud?.ready === true) {
+    if (
+      window.SlogiCloud?.ready === true
+      && document.documentElement.getAttribute('data-slogi-access') !== 'granted'
+    ) {
       document.documentElement.setAttribute('data-slogi-access', 'granted')
     }
   }
