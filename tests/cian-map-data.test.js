@@ -234,8 +234,10 @@ test('server geocoder forwards configured bounds and selects by precision then p
 
 test('Nuxt map uses the canonical collection and exposes bounded loading and error states',()=>{
   const page=fs.readFileSync(path.join(ROOT,'frontend','app','pages','available-spaces.html.vue'),'utf8');
+  const workPage=fs.readFileSync(path.join(ROOT,'frontend','app','pages','in-work.html.vue'),'utf8');
   const map=fs.readFileSync(path.join(ROOT,'frontend','app','components','PremisesMap.client.vue'),'utf8');
   assert.match(page,/<PremisesMap :items="items"/);
+  assert.match(workPage,/<PremisesMap :items="visible"[^>]+show-clusters/,'work premises must display the same cluster layer');
   assert.match(map,/v-if="state === 'loading'"/);
   assert.match(map,/v-else-if="state === 'error'"/);
   assert.match(map,/Карта временно недоступна/);

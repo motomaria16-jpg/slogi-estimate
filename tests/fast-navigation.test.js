@@ -199,6 +199,10 @@ test('host wiring keeps the fail-closed gate first, isolates runtimes, and pause
     assert.match(sidebar,/query\.build = buildVersion/);
     const configIndex=runtime.indexOf("'phase0-config.js'"),sharedIndex=runtime.indexOf("'shared-workspace.js'");
     assert.ok(configIndex>=0&&sharedIndex>configIndex);
+    assert.match(runtime,/nuxtApp\.hook\('app:mounted', async \(\) =>/,'legacy runtime must start only after hydration has completed');
+    assert.match(runtime,/new MutationObserver\(restoreGrantedAccess\)/,'head updates must not leave an authenticated route hidden');
+    assert.match(runtime,/nuxtApp\.hook\('page:finish', restoreGrantedAccess\)/,'client navigation must restore an already granted access state after head updates');
+    assert.match(runtime,/window\.SlogiCloud\?\.ready === true[\s\S]*data-slogi-access/,'access restoration must never bypass an ungranted gate');
     assert.match(runtime,/for \(const scriptFile of legacyScripts\)\s*\{\s*await loadScript\(scriptFile\)/);
     assert.match(runtime,/slogi:runtime-ready/);
     return;

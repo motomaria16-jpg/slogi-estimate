@@ -35,7 +35,7 @@ function idOf(item: any) { return String(item.id) }
           <div v-else-if="!visible.length" class="empty-state"><span>⌕</span><h2>Ничего не найдено</h2><p>Измените фильтры или добавьте помещение.</p></div>
           <div v-else class="premises-list"><PremisesCard v-for="project in visible" :key="project.id" :item="project" context="in-work" :selected="selectedId === project.id" @open="open" @primary="schedule" @reject="reject" /></div>
         </div>
-        <aside class="map-panel"><div class="panel-heading"><h2>Карта</h2><span class="count-chip">{{ visible.length }} {{ visible.length === 1 ? 'точка' : 'точек' }}</span></div><ClientOnly><PremisesMap :items="visible" :selected-id="selectedId" @select="selectedId = $event" /></ClientOnly><p class="panel-note">Выберите точку или карточку, чтобы связать объект со списком.</p></aside>
+        <aside class="map-panel"><div class="panel-heading"><h2>Карта</h2><span class="count-chip">{{ visible.length }} {{ visible.length === 1 ? 'точка' : 'точек' }}</span></div><ClientOnly><PremisesMap :items="visible" :selected-id="selectedId" show-clusters @select="selectedId = $event" /></ClientOnly><p class="panel-note">Все кластеры и помещения в работе показаны на одной карте.</p></aside>
       </section>
     </template>
     <WorkCalendarPanel v-else :projects="projects" />

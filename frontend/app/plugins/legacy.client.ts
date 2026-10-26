@@ -38,17 +38,31 @@ function loadScript(file: string) {
   })
 }
 
-export default defineNuxtPlugin(async () => {
+export default defineNuxtPlugin((nuxtApp) => {
   const ready = useState<boolean>('slogi-runtime-ready', () => false)
   const error = useState<string>('slogi-runtime-error', () => '')
-  try {
-    for (const scriptFile of legacyScripts) {
-      await loadScript(scriptFile)
+
+  function restoreGrantedAccess() {
+    if (window.SlogiCloud?.ready === true) {
+      document.documentElement.setAttribute('data-slogi-access', 'granted')
     }
-    ready.value = true
-    window.dispatchEvent(new CustomEvent('slogi:runtime-ready'))
-  } catch (reason) {
-    error.value = reason instanceof Error ? reason.message : 'Не удалось запустить приложение.'
-    console.error(reason)
   }
+
+  const accessObserver = new MutationObserver(restoreGrantedAccess)
+  accessObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-slogi-access'] })
+  nuxtApp.hook('page:finish', restoreGrantedAccess)
+
+  nuxtApp.hook('app:mounted', async () => {
+    try {
+      for (const scriptFile of legacyScripts) {
+        await loadScript(scriptFile)
+      }
+      ready.value = true
+      restoreGrantedAccess()
+      window.dispatchEvent(new CustomEvent('slogi:runtime-ready'))
+    } catch (reason) {
+      error.value = reason instanceof Error ? reason.message : 'Не удалось запустить приложение.'
+      console.error(reason)
+    }
+  })
 })
