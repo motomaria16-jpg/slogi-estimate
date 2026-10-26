@@ -42,26 +42,12 @@ export default defineNuxtPlugin((nuxtApp) => {
   const ready = useState<boolean>('slogi-runtime-ready', () => false)
   const error = useState<string>('slogi-runtime-error', () => '')
 
-  function restoreGrantedAccess() {
-    if (
-      window.SlogiCloud?.ready === true
-      && document.documentElement.getAttribute('data-slogi-access') !== 'granted'
-    ) {
-      document.documentElement.setAttribute('data-slogi-access', 'granted')
-    }
-  }
-
-  const accessObserver = new MutationObserver(restoreGrantedAccess)
-  accessObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-slogi-access'] })
-  nuxtApp.hook('page:finish', restoreGrantedAccess)
-
   nuxtApp.hook('app:mounted', async () => {
     try {
       for (const scriptFile of legacyScripts) {
         await loadScript(scriptFile)
       }
       ready.value = true
-      restoreGrantedAccess()
       window.dispatchEvent(new CustomEvent('slogi:runtime-ready'))
     } catch (reason) {
       error.value = reason instanceof Error ? reason.message : 'Не удалось запустить приложение.'

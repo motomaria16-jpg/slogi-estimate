@@ -1,0 +1,1 @@
+import{M as e,T as t,nt as n,q as r}from"./Dotwf2UJ.js";import{u as i}from"./BzLsXE-2.js";var a=e({__name:`index`,async setup(e){let a,o;return[a,o]=n(()=>i(`/available-spaces.html`,{replace:!0})),await a,o(),(e,n)=>(r(),t(`span`))}});export{a as default};

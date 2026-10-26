@@ -190,8 +190,9 @@ test('view load failure falls back to a clean full-document URL',async()=>{
 test('host wiring keeps the fail-closed gate first, isolates runtimes, and pauses hidden reminders',()=>{
   const nuxtConfigPath=path.join(ROOT,'frontend','nuxt.config.ts');
   if(fs.existsSync(nuxtConfigPath)){
-    const config=read('frontend/nuxt.config.ts'),layout=read('frontend/app/layouts/default.vue'),sidebar=read('frontend/app/components/AppSidebar.vue'),runtime=read('frontend/app/plugins/legacy.client.ts');
-    assert.match(config,/'data-slogi-access': 'pending'/);
+    const config=read('frontend/nuxt.config.ts'),layout=read('frontend/app/layouts/default.vue'),sidebar=read('frontend/app/components/AppSidebar.vue'),runtime=read('frontend/app/plugins/legacy.client.ts'),gate=read('frontend/server/plugins/access-gate.ts');
+    assert.doesNotMatch(config,/data-slogi-access/,'Nuxt head must not reapply the pending access state during client navigation');
+    assert.match(gate,/html\.htmlAttrs\.push\('data-slogi-access="pending"'\)/,'the fail-closed marker must be emitted only while rendering the initial document');
     assert.match(layout,/<AppSidebar \/>[\s\S]*<slot \/>/);
     assert.match(sidebar,/<NuxtLink/);
     assert.doesNotMatch(sidebar,/window\.location|location\.href/);
@@ -200,10 +201,7 @@ test('host wiring keeps the fail-closed gate first, isolates runtimes, and pause
     const configIndex=runtime.indexOf("'phase0-config.js'"),sharedIndex=runtime.indexOf("'shared-workspace.js'");
     assert.ok(configIndex>=0&&sharedIndex>configIndex);
     assert.match(runtime,/nuxtApp\.hook\('app:mounted', async \(\) =>/,'legacy runtime must start only after hydration has completed');
-    assert.match(runtime,/new MutationObserver\(restoreGrantedAccess\)/,'head updates must not leave an authenticated route hidden');
-    assert.match(runtime,/nuxtApp\.hook\('page:finish', restoreGrantedAccess\)/,'client navigation must restore an already granted access state after head updates');
-    assert.match(runtime,/window\.SlogiCloud\?\.ready === true[\s\S]*data-slogi-access/,'access restoration must never bypass an ungranted gate');
-    assert.match(runtime,/getAttribute\('data-slogi-access'\) !== 'granted'/,'access observer must not trigger itself forever by rewriting the same granted value');
+    assert.doesNotMatch(runtime,/MutationObserver|page:finish|restoreGrantedAccess/,'the runtime must not create an access-attribute feedback loop');
     assert.match(runtime,/for \(const scriptFile of legacyScripts\)\s*\{\s*await loadScript\(scriptFile\)/);
     assert.match(runtime,/slogi:runtime-ready/);
     return;

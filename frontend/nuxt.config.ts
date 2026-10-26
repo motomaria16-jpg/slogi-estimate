@@ -6,7 +6,7 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
   app: {
     head: {
-      htmlAttrs: { lang: 'ru', 'data-slogi-access': 'pending' },
+      htmlAttrs: { lang: 'ru' },
       titleTemplate: '%s — СЛОГИ',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
