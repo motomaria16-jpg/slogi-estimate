@@ -88,6 +88,15 @@ try {
   await page.waitForFunction(() => window.SlogiCloud?.ready === true)
   assert.equal(await page.locator('html').getAttribute('data-slogi-access'), 'granted')
   assert.equal(await page.evaluate(() => new Promise(resolveTimer => setTimeout(() => resolveTimer('responsive'), 30))), 'responsive')
+  assert.equal(await page.locator('.sidebar-assistant img').count(), 1)
+  await capture('desktop-assistant-owl.png')
+  await page.getByRole('button', { name: 'Открыть ИИ-помощника' }).click()
+  await page.getByRole('heading', { name: 'ИИ-помощник' }).waitFor()
+  await page.getByRole('button', { name: 'Как подготовить КП?' }).click()
+  await page.getByText('Вкладка «КП» становится доступна после завершения просмотра и добавления фото и видео.').waitFor()
+  await capture('desktop-assistant-open.png')
+  await page.locator('.ai-assistant-header').getByRole('button', { name: 'Закрыть' }).click()
+  await page.locator('.ai-assistant-panel').waitFor({ state: 'detached' })
   await page.setViewportSize({ width: 375, height: 760 })
   const mobileSearch = await page.evaluate(() => ({
     documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,

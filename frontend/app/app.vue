@@ -3,5 +3,6 @@
     <NuxtPage />
   </NuxtLayout>
   <PropertyCardModal />
+  <AiAssistantPanel />
   <AppToast />
 </template>

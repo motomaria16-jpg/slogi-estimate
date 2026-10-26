@@ -37,6 +37,7 @@ const files = [
   'KP_Slogi_template.docx',
   'lease-agreement-template.docx',
   'documents-owl-approved-v2.png',
+  'ai-assistant-owl.png',
   'favicon.svg',
   'favicon-32.png',
   'apple-touch-icon.png'

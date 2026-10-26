@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const route = useRoute()
 const runtimeConfig = useRuntimeConfig()
+const { open: openAssistant } = useAiAssistant()
 const buildVersion = String((runtimeConfig.app as { buildId?: string }).buildId || '')
 const groups = [
   {
@@ -60,9 +61,8 @@ function versionedTarget(destination: string) {
         </NuxtLink>
       </section>
     </nav>
-    <aside class="sidebar-help">
-      <img src="/legacy/documents-owl-approved-v2.png" alt="" />
-      <div><strong>Нужна помощь?</strong><span>Мы на связи!</span><button type="button">Связаться</button></div>
-    </aside>
+    <button class="sidebar-assistant" type="button" aria-label="Открыть ИИ-помощника" title="Открыть ИИ-помощника" @click="openAssistant">
+      <img src="/legacy/ai-assistant-owl.png" alt="" aria-hidden="true" />
+    </button>
   </aside>
 </template>
