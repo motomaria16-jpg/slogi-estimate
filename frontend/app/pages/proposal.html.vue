@@ -21,10 +21,17 @@ function open(project: any) { selectedId.value = project.id; openProject(project
   <div class="page">
     <header class="page-header"><div class="page-title-line"><h1>КП</h1><span class="count-chip">{{ proposalProjects.length }} {{ proposalProjects.length === 1 ? 'объект' : 'объектов' }}</span></div></header>
     <section class="filter-bar"><label class="search-field"><span>⌕</span><input v-model="query" type="search" placeholder="Поиск по адресу, кластеру или контакту" /></label><div class="filter-chips"><button v-for="item in filters" :key="item.key" :class="{ active: filter === item.key }" @click="filter = item.key">{{ item.label }}</button></div></section>
-    <section class="single-list-panel">
-      <AppLoading v-if="!ready" />
-      <div v-else-if="!visible.length" class="empty-state"><span>⌕</span><h2>Помещений на этапе КП пока нет</h2><p>После завершения просмотра нажмите «Сформировать КП» в карточке помещения.</p><NuxtLink class="button primary" to="/in-work.html">Перейти в «Помещения в работе»</NuxtLink></div>
-      <div v-else class="premises-list"><PremisesCard v-for="project in visible" :key="project.id" :item="project" context="proposal" :selected="selectedId === project.id" @open="open" @primary="open" /></div>
+    <section class="split-workspace">
+      <div class="list-panel">
+        <AppLoading v-if="!ready" />
+        <div v-else-if="!visible.length" class="empty-state"><span>⌕</span><h2>Помещений на этапе КП пока нет</h2><p>После завершения просмотра нажмите «Сформировать КП» в карточке помещения.</p><NuxtLink class="button primary" to="/in-work.html">Перейти в «Помещения в работе»</NuxtLink></div>
+        <div v-else class="premises-list"><PremisesCard v-for="project in visible" :key="project.id" :item="project" context="proposal" :selected="selectedId === project.id" @open="open" @primary="open" /></div>
+      </div>
+      <aside class="map-panel">
+        <div class="panel-heading"><div><h2>Расположение</h2><p>Объекты на этапе КП</p></div><span class="count-chip">{{ visible.length }} {{ visible.length === 1 ? 'точка' : 'точек' }}</span></div>
+        <ClientOnly><PremisesMap :items="visible" :selected-id="selectedId" show-clusters @select="selectedId = $event" /></ClientOnly>
+        <p class="panel-note">Все кластеры и помещения на этапе КП показаны на одной карте.</p>
+      </aside>
     </section>
   </div>
 </template>

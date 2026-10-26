@@ -122,7 +122,7 @@ async function markSent() {
       <div class="card-heading"><h3>Пакет для арендодателя</h3><span class="badge status">{{ documentReady ? 'Готов к отправке' : 'Сначала подготовьте КП' }}</span></div>
       <div class="document-buttons"><button class="document-file" :disabled="!documentReady" @click="downloadProposal"><span>DOCX</span><strong>{{ proposal.docxName || 'Коммерческое предложение.docx' }}</strong></button><button class="document-file" @click="downloadLease"><span>DOCX</span><strong>Типовой договор аренды.docx</strong></button></div>
       <label class="stacked-field"><span>Тема письма</span><input v-model="terms.emailSubject" :disabled="!documentReady" /></label>
-      <label class="stacked-field"><span>Текст письма</span><textarea v-model="terms.emailBody" rows="8" :disabled="!documentReady" /></label>
+      <label class="stacked-field"><span>Текст письма</span><textarea v-model="terms.emailBody" rows="4" :disabled="!documentReady" /></label>
       <div class="package-actions"><button class="button compact" :disabled="!documentReady" @click="copyEmail">Копировать письмо</button><button class="button compact" :disabled="!documentReady" @click="openEmail">Открыть письмо</button><button class="button accent compact" :disabled="!documentReady || proposal.status === 'sent'" @click="markSent">КП отправлено</button></div>
       <p v-if="proposal.status === 'sent'" class="success-note">Отправка зафиксирована {{ formatDate(proposal.sentAt, true) }}. Контрольная связь запланирована на {{ formatDate(proposal.followUpDueAt, true) }}.</p>
     </section>

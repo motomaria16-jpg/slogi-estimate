@@ -235,9 +235,12 @@ test('server geocoder forwards configured bounds and selects by precision then p
 test('Nuxt map uses the canonical collection and exposes bounded loading and error states',()=>{
   const page=fs.readFileSync(path.join(ROOT,'frontend','app','pages','available-spaces.html.vue'),'utf8');
   const workPage=fs.readFileSync(path.join(ROOT,'frontend','app','pages','in-work.html.vue'),'utf8');
+  const proposalPage=fs.readFileSync(path.join(ROOT,'frontend','app','pages','proposal.html.vue'),'utf8');
   const map=fs.readFileSync(path.join(ROOT,'frontend','app','components','PremisesMap.client.vue'),'utf8');
   assert.match(page,/<PremisesMap :items="items"/);
   assert.match(workPage,/<PremisesMap :items="visible"[^>]+show-clusters/,'work premises must display the same cluster layer');
+  assert.match(proposalPage,/<PremisesMap :items="visible"[^>]+show-clusters/,'proposal premises must display the same cluster layer');
+  assert.match(proposalPage,/class="split-workspace"[\s\S]*class="list-panel"[\s\S]*class="map-panel"/);
   assert.match(map,/v-if="state === 'loading'"/);
   assert.match(map,/v-else-if="state === 'error'"/);
   assert.match(map,/Карта временно недоступна/);
@@ -255,7 +258,7 @@ test('search layout keeps compact hero, map controls in heading and card actions
     assert.match(page,/<PremisesCard v-for="item in items"/);
     assert.match(page,/<PremisesMap :items="items"/);
     assert.match(css,/\.split-workspace \{ display: grid; grid-template-columns: minmax\(0, 1\.45fr\) minmax\(380px, \.95fr\)/);
-    assert.match(css,/\.premises-row__actions \{[^}]*min-height: 42px/);
+    assert.match(css,/\.premises-row__actions \{[^}]*min-height: 38px/);
     assert.match(css,/\.split-workspace \{[^}]*align-items: start;[^}]*min-height: 0/);
     assert.match(css,/\.single-list-panel \{ min-height: 0/);
     return;

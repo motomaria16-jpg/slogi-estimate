@@ -146,6 +146,10 @@ try {
   assert.equal(await page.getByRole('button', { name: 'Сопровождение' }).isEnabled(), true)
   assert.equal(await page.locator('.property-tabs button').filter({ hasText: 'КП' }).isEnabled(), false)
   assert.equal(await page.locator('.pipeline-steps').count(), 0)
+  const desktopObjectDialog = await page.locator('.property-dialog').boundingBox()
+  assert.ok(desktopObjectDialog.width <= 1281)
+  assert.ok(desktopObjectDialog.height < 760)
+  await capture('desktop-property-object.png')
   await page.setViewportSize({ width: 375, height: 760 })
   const mobileObject = await page.locator('.property-card').evaluate(card => ({
     overflow: card.scrollWidth - card.clientWidth,
@@ -205,6 +209,15 @@ try {
   assert.equal(await proposalTab.isEnabled(), true)
   await proposalTab.click()
   await page.getByRole('heading', { name: 'Коммерческие условия' }).waitFor()
+  const desktopProposalCard = await page.locator('.property-card').evaluate(card => {
+    const terms = card.querySelector('.proposal-terms').getBoundingClientRect()
+    const packageCard = card.querySelector('.proposal-package').getBoundingClientRect()
+    return { overflow: card.scrollWidth - card.clientWidth, termsHeight: terms.height, packageHeight: packageCard.height }
+  })
+  assert.ok(desktopProposalCard.overflow <= 1)
+  assert.ok(Math.abs(desktopProposalCard.termsHeight - desktopProposalCard.packageHeight) <= 1)
+  assert.ok((await page.locator('.property-dialog').boundingBox()).height < 660)
+  await capture('desktop-property-proposal.png')
   await page.setViewportSize({ width: 375, height: 760 })
   const mobileCard = await page.locator('.property-card').evaluate(card => ({
     overflow: card.scrollWidth - card.clientWidth,
@@ -251,6 +264,26 @@ try {
   assert.ok(mobileCalendar.toolbarWidth <= 357)
   await capture('mobile-calendar.png')
   await page.setViewportSize({ width: 1440, height: 900 })
+
+  await page.evaluate(() => {
+    const [project] = JSON.parse(localStorage.getItem('slogi_locations_v1') || '[]')
+    project.phase0.revision += 1
+    project.phase0.spaceCard.work.pipeline.status = 'proposal_started'
+    project.phase0.spaceCard.work.proposal = { status: 'draft' }
+    localStorage.setItem('slogi_locations_v1', JSON.stringify([project]))
+    window.dispatchEvent(new CustomEvent('slogi:locations-updated'))
+  })
+  await Promise.all([
+    page.waitForURL(/\/proposal\.html/),
+    page.locator('.sidebar a').filter({ hasText: 'КП' }).click(),
+  ])
+  await page.getByRole('heading', { name: 'КП' }).waitFor()
+  await page.getByText('Москва, тестовое помещение', { exact: true }).waitFor()
+  assert.equal(await page.locator('.proposal-workflow').count(), 0)
+  assert.equal(await page.locator('.split-workspace').count(), 1)
+  assert.equal(await page.locator('.map-panel').count(), 1)
+  assert.equal(await page.locator('.map-cluster-toggle').count(), 1)
+  await capture('desktop-proposal-page.png')
 
   await Promise.all([
     page.waitForURL(/\/available-spaces\.html/),
