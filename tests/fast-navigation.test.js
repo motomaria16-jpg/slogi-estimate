@@ -197,7 +197,7 @@ test('host wiring keeps the fail-closed gate first, isolates runtimes, and pause
     assert.doesNotMatch(sidebar,/window\.location|location\.href/);
     const configIndex=runtime.indexOf("'phase0-config.js'"),sharedIndex=runtime.indexOf("'shared-workspace.js'");
     assert.ok(configIndex>=0&&sharedIndex>configIndex);
-    assert.match(runtime,/for \(const file of legacyScripts\) await loadScript\(file\)/);
+    assert.match(runtime,/for \(const scriptFile of legacyScripts\)\s*\{\s*await loadScript\(scriptFile\)/);
     assert.match(runtime,/slogi:runtime-ready/);
     return;
   }

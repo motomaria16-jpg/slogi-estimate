@@ -42,7 +42,9 @@ export default defineNuxtPlugin(async () => {
   const ready = useState<boolean>('slogi-runtime-ready', () => false)
   const error = useState<string>('slogi-runtime-error', () => '')
   try {
-    for (const file of legacyScripts) await loadScript(file)
+    for (const scriptFile of legacyScripts) {
+      await loadScript(scriptFile)
+    }
     ready.value = true
     window.dispatchEvent(new CustomEvent('slogi:runtime-ready'))
   } catch (reason) {
