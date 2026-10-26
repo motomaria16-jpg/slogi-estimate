@@ -6,23 +6,23 @@ const groups = [
   {
     label: 'Поиск помещения',
     links: [
-      { to: '/available-spaces.html', label: 'Поиск помещения', icon: '⌕' },
-      { to: '/in-work.html', label: 'Помещения в работе', icon: '▥' },
-      { to: '/proposal.html', label: 'КП', icon: '▤' },
-      { to: '/under-development.html?section=approvals', label: 'Согласование', icon: '▤' }
+      { to: '/available-spaces.html', label: 'Поиск помещения', shortLabel: 'Поиск', icon: '⌕' },
+      { to: '/in-work.html', label: 'Помещения в работе', shortLabel: 'В работе', icon: '▥' },
+      { to: '/proposal.html', label: 'КП', shortLabel: 'КП', icon: '▤' },
+      { to: '/under-development.html?section=approvals', label: 'Согласование', shortLabel: 'Согласование', icon: '▤' }
     ]
   },
   {
     label: 'Ремонт',
     links: [
-      { to: '/under-development.html?section=documents', label: 'Формирование документов для ремонта', icon: '▤' },
-      { to: '/under-development.html?section=repair', label: 'Процесс ремонта', icon: '⌁' },
-      { to: '/under-development.html?section=handover', label: 'Выход из ремонта', icon: '⌁' }
+      { to: '/under-development.html?section=documents', label: 'Формирование документов для ремонта', shortLabel: 'Документы', icon: '▤' },
+      { to: '/under-development.html?section=repair', label: 'Процесс ремонта', shortLabel: 'Ремонт', icon: '⌁' },
+      { to: '/under-development.html?section=handover', label: 'Выход из ремонта', shortLabel: 'Выход', icon: '⌁' }
     ]
   },
   {
     label: '',
-    links: [{ to: '/under-development.html?section=objects', label: 'Мои объекты', icon: '▥' }]
+    links: [{ to: '/under-development.html?section=objects', label: 'Мои объекты', shortLabel: 'Объекты', icon: '▥' }]
   }
 ]
 
@@ -56,7 +56,7 @@ function versionedTarget(destination: string) {
           class="sidebar-link"
           :class="{ active: active(link.to) }"
         >
-          <span aria-hidden="true">{{ link.icon }}</span><span>{{ link.label }}</span>
+          <span aria-hidden="true">{{ link.icon }}</span><span class="sidebar-link-label">{{ link.label }}</span><span class="sidebar-link-short">{{ link.shortLabel }}</span>
         </NuxtLink>
       </section>
     </nav>

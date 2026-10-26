@@ -35,3 +35,14 @@ test('workflow progress strip is removed and the shared layout stays compact and
   assert.match(css, /\.form-row \{[^}]*min-height: 46px/)
   assert.match(css, /\.property-body \{[^}]*padding: 10px 12px/)
 })
+
+test('mobile layouts fit controls, keep compact cards and avoid oversized maps', () => {
+  const css = read('frontend/app/assets/css/main.css')
+  const mobile = css.slice(css.indexOf('@media (max-width: 620px)'), css.indexOf('@media (prefers-reduced-motion'))
+  assert.match(mobile, /\.map-stage \{ height: 270px; min-height: 270px/)
+  assert.match(mobile, /\.property-tabs \{ display: grid; grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/)
+  assert.match(mobile, /\.form-row, \.proposal-terms \.form-row \{ grid-template-columns: minmax\(104px/)
+  assert.match(mobile, /\.document-buttons \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/)
+  assert.match(mobile, /\.calendar-days\.is-week, \.calendar-days\.is-month \{ grid-template-columns: 1fr; overflow-x: visible/)
+  assert.match(mobile, /\.premises-row__actions \{ display: grid; grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/)
+})

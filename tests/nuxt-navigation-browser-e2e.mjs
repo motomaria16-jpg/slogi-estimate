@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
-import { readFile } from 'node:fs/promises'
+import { mkdir, readFile } from 'node:fs/promises'
 import { dirname, extname, join, normalize, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = resolve(dirname(dirname(fileURLToPath(import.meta.url))))
 const chromePath = String(process.env.SLOGI_LOCAL_CHROME || '')
 const nodeModules = String(process.env.SLOGI_NODE_MODULES || '')
+const screenshotDir = String(process.env.SLOGI_SCREENSHOT_DIR || '')
 assert.ok(chromePath && nodeModules, 'browser_runtime_missing')
 const { chromium } = await import(pathToFileURL(join(nodeModules, 'playwright', 'index.mjs')).href)
 
@@ -70,6 +71,12 @@ page.on('console', entry => {
   if (entry.type() === 'error' && !/status of 401/.test(entry.text())) issues.push(`console:${entry.text()}`)
 })
 
+async function capture(name) {
+  if (!screenshotDir) return
+  await mkdir(screenshotDir, { recursive: true })
+  await page.screenshot({ path: join(screenshotDir, name), fullPage: false })
+}
+
 try {
   await context.addInitScript(fixtureSource)
   await context.route('**/legacy/shared-workspace.js', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: workspaceStub }))
@@ -81,6 +88,17 @@ try {
   await page.waitForFunction(() => window.SlogiCloud?.ready === true)
   assert.equal(await page.locator('html').getAttribute('data-slogi-access'), 'granted')
   assert.equal(await page.evaluate(() => new Promise(resolveTimer => setTimeout(() => resolveTimer('responsive'), 30))), 'responsive')
+  await page.setViewportSize({ width: 375, height: 760 })
+  const mobileSearch = await page.evaluate(() => ({
+    documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    actionOverflow: Math.max(0, ...Array.from(document.querySelectorAll('.page-actions .button')).map(node => node.getBoundingClientRect().right - innerWidth)),
+    mapHeight: document.querySelector('.map-stage')?.getBoundingClientRect().height || 0
+  }))
+  assert.ok(mobileSearch.documentOverflow <= 1)
+  assert.ok(mobileSearch.actionOverflow <= 1)
+  assert.ok(mobileSearch.mapHeight <= 300)
+  await capture('mobile-search.png')
+  await page.setViewportSize({ width: 1440, height: 900 })
 
   await Promise.all([
     page.waitForURL(/\/in-work\.html/),
@@ -119,6 +137,19 @@ try {
   assert.equal(await page.getByRole('button', { name: 'Сопровождение' }).isEnabled(), true)
   assert.equal(await page.locator('.property-tabs button').filter({ hasText: 'КП' }).isEnabled(), false)
   assert.equal(await page.locator('.pipeline-steps').count(), 0)
+  await page.setViewportSize({ width: 375, height: 760 })
+  const mobileObject = await page.locator('.property-card').evaluate(card => ({
+    overflow: card.scrollWidth - card.clientWidth,
+    tabOverflow: card.querySelector('.property-tabs').scrollWidth - card.querySelector('.property-tabs').clientWidth,
+    formColumnCounts: Array.from(card.querySelectorAll('.form-row')).map(row => getComputedStyle(row).gridTemplateColumns.trim().split(/\s+/).length),
+    headerHeight: card.querySelector('.property-header').getBoundingClientRect().height
+  }))
+  assert.ok(mobileObject.overflow <= 1)
+  assert.ok(mobileObject.tabOverflow <= 1)
+  assert.ok(mobileObject.formColumnCounts.every(count => count === 2))
+  assert.ok(mobileObject.headerHeight <= 72)
+  await capture('mobile-property-object.png')
+  await page.setViewportSize({ width: 1440, height: 900 })
   await page.getByRole('button', { name: 'Сопровождение' }).click()
   await page.getByRole('heading', { name: 'Контакт арендодателя' }).waitFor()
   const workflowGeometry = await page.locator('.property-card').evaluate(card => ({
@@ -132,6 +163,17 @@ try {
   assert.equal(workflowGeometry.columns.length, 2)
   assert.ok(Math.abs(workflowGeometry.columns[0] - workflowGeometry.columns[1]) <= 1)
   assert.deepEqual(workflowGeometry.heavyWeights, [])
+  await page.setViewportSize({ width: 375, height: 760 })
+  const mobileWorkflow = await page.locator('.property-card').evaluate(card => ({
+    overflow: card.scrollWidth - card.clientWidth,
+    workflowColumns: getComputedStyle(card.querySelector('.workflow-grid')).gridTemplateColumns.trim().split(/\s+/).length,
+    formColumnCounts: Array.from(card.querySelectorAll('.form-row')).map(row => getComputedStyle(row).gridTemplateColumns.trim().split(/\s+/).length)
+  }))
+  assert.ok(mobileWorkflow.overflow <= 1)
+  assert.equal(mobileWorkflow.workflowColumns, 1)
+  assert.ok(mobileWorkflow.formColumnCounts.every(count => count === 2))
+  await capture('mobile-property-workflow.png')
+  await page.setViewportSize({ width: 1440, height: 900 })
 
   await page.evaluate(() => {
     const [project] = JSON.parse(localStorage.getItem('slogi_locations_v1') || '[]')
@@ -157,11 +199,48 @@ try {
   await page.setViewportSize({ width: 375, height: 760 })
   const mobileCard = await page.locator('.property-card').evaluate(card => ({
     overflow: card.scrollWidth - card.clientWidth,
-    tabs: Array.from(card.querySelectorAll('.property-tabs button')).map(button => button.textContent?.trim())
+    tabs: Array.from(card.querySelectorAll('.property-tabs button')).map(button => button.textContent?.trim()),
+    proposalColumns: getComputedStyle(card.querySelector('.proposal-workflow')).gridTemplateColumns.trim().split(/\s+/).length,
+    documentColumns: getComputedStyle(card.querySelector('.document-buttons')).gridTemplateColumns.trim().split(/\s+/).length
   }))
   assert.ok(mobileCard.overflow <= 1)
   assert.deepEqual(mobileCard.tabs, ['Объект', 'Сопровождение', 'КП'])
+  assert.equal(mobileCard.proposalColumns, 1)
+  assert.equal(mobileCard.documentColumns, 2)
+  await capture('mobile-property-proposal.png')
+  for (const width of [320, 430]) {
+    await page.setViewportSize({ width, height: 760 })
+    const responsiveCard = await page.locator('.property-card').evaluate(card => ({
+      overflow: card.scrollWidth - card.clientWidth,
+      tabOverflow: card.querySelector('.property-tabs').scrollWidth - card.querySelector('.property-tabs').clientWidth
+    }))
+    assert.ok(responsiveCard.overflow <= 1, `property card overflows at ${width}px`)
+    assert.ok(responsiveCard.tabOverflow <= 1, `property tabs overflow at ${width}px`)
+  }
+  await page.setViewportSize({ width: 375, height: 760 })
   await page.getByRole('button', { name: 'Закрыть' }).click()
+  const mobileWorkPage = await page.evaluate(() => ({
+    documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    mapHeight: document.querySelector('.map-stage')?.getBoundingClientRect().height || 0,
+    headingLeft: document.querySelector('.page-header h1')?.getBoundingClientRect().left || 0,
+    scrollX
+  }))
+  assert.ok(mobileWorkPage.documentOverflow <= 1)
+  assert.ok(mobileWorkPage.mapHeight <= 300)
+  assert.equal(mobileWorkPage.scrollX, 0)
+  assert.ok(mobileWorkPage.headingLeft >= 7)
+  await capture('mobile-in-work.png')
+  await page.getByRole('button', { name: 'Календарь' }).click()
+  await page.locator('.calendar-shell').waitFor()
+  const mobileCalendar = await page.locator('.calendar-shell').evaluate(calendar => ({
+    overflow: calendar.scrollWidth - calendar.clientWidth,
+    columns: getComputedStyle(calendar.querySelector('.calendar-days')).gridTemplateColumns.trim().split(/\s+/).length,
+    toolbarWidth: calendar.querySelector('.calendar-toolbar').getBoundingClientRect().width
+  }))
+  assert.ok(mobileCalendar.overflow <= 1)
+  assert.equal(mobileCalendar.columns, 1)
+  assert.ok(mobileCalendar.toolbarWidth <= 357)
+  await capture('mobile-calendar.png')
   await page.setViewportSize({ width: 1440, height: 900 })
 
   await Promise.all([
