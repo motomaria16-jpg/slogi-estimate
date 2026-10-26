@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { proposalTabReady } from '~/utils/format'
+
 const { state, close } = usePropertyModal()
 const { projects, refresh } = useProjects()
 const { ready, api } = useSlogiRuntime()
@@ -9,12 +11,12 @@ const form = reactive<any>({})
 const saving = ref(false)
 const project = computed(() => state.value.projectId ? projects.value.find(item => String(item.id) === String(state.value.projectId)) || null : null)
 const isInWork = computed(() => Boolean(project.value && api()?.phase0?.spaceLifecycle?.hasLeftSearch?.(project.value)) || state.value.context !== 'search')
-const hasProposal = computed(() => Boolean(project.value && api()?.proposal?.isProposalProject?.(project.value)) || state.value.context === 'proposal')
+const canOpenProposal = computed(() => Boolean(project.value && proposalTabReady(project.value)))
 const tabs = computed(() => [
-  { key: 'object', label: 'Объект', visible: true },
-  { key: 'workflow', label: 'Сопровождение', visible: isInWork.value },
-  { key: 'proposal', label: 'КП', visible: hasProposal.value }
-].filter(item => item.visible) as { key: 'object' | 'workflow' | 'proposal'; label: string }[])
+  { key: 'object', label: 'Объект', enabled: true, hint: '' },
+  { key: 'workflow', label: 'Сопровождение', enabled: isInWork.value, hint: 'Доступно после добавления помещения в работу' },
+  { key: 'proposal', label: 'КП', enabled: canOpenProposal.value, hint: 'Доступно после завершения просмотра и добавления фото и видео' }
+] as { key: 'object' | 'workflow' | 'proposal'; label: string; enabled: boolean; hint: string }[])
 const titleAddress = computed(() => form.address || project.value?.address || 'Новое помещение')
 
 function runtime() {
@@ -78,11 +80,21 @@ function resetForm() {
 watch(() => state.value.open, open => {
   if (!import.meta.client) return
   if (open) {
-    activeTab.value = state.value.initialTab
+    activeTab.value = state.value.initialTab === 'proposal' && !canOpenProposal.value
+      ? (isInWork.value ? 'workflow' : 'object')
+      : state.value.initialTab === 'workflow' && !isInWork.value ? 'object' : state.value.initialTab
     nextTick(() => { resetForm(); dialog.value?.showModal() })
   } else if (dialog.value?.open) dialog.value.close()
 })
 watch(project, () => { if (state.value.open) resetForm() }, { deep: true })
+watch(canOpenProposal, enabled => {
+  if (!enabled && activeTab.value === 'proposal') activeTab.value = isInWork.value ? 'workflow' : 'object'
+})
+
+function selectTab(key: 'object' | 'workflow' | 'proposal') {
+  const tab = tabs.value.find(item => item.key === key)
+  if (tab?.enabled) activeTab.value = key
+}
 
 function handleClose() { if (state.value.open) close() }
 async function resolveAddress() {
@@ -172,7 +184,16 @@ function toProposal(saved: any) { changed(saved); activeTab.value = 'proposal'; 
   <dialog ref="dialog" class="property-dialog" @close="handleClose" @cancel.prevent="close">
     <div v-if="state.open" class="property-card">
       <header class="property-header"><div><h2>Карточка помещения</h2><p>{{ titleAddress }}</p></div><a v-if="form.listingUrl" :href="form.listingUrl" target="_blank" rel="noopener">Открыть объявление</a><button class="close-button" aria-label="Закрыть" @click="close">×</button></header>
-      <nav class="property-tabs" aria-label="Разделы карточки"><button v-for="tab in tabs" :key="tab.key" :class="{ active: activeTab === tab.key }" @click="activeTab = tab.key">{{ tab.label }}</button></nav>
+      <nav class="property-tabs" aria-label="Разделы карточки">
+        <button
+          v-for="tab in tabs"
+          :key="tab.key"
+          :class="{ active: activeTab === tab.key, locked: !tab.enabled }"
+          :disabled="!tab.enabled"
+          :title="tab.enabled ? '' : tab.hint"
+          @click="selectTab(tab.key)"
+        >{{ tab.label }}<span v-if="!tab.enabled" class="tab-lock" aria-hidden="true">·</span></button>
+      </nav>
       <div class="property-body">
         <AppLoading v-if="!ready" />
         <PropertyObjectTab v-else-if="activeTab === 'object'" v-model="form" @resolve="resolveAddress" />

@@ -255,7 +255,7 @@ test('search layout keeps compact hero, map controls in heading and card actions
     assert.match(page,/<PremisesCard v-for="item in items"/);
     assert.match(page,/<PremisesMap :items="items"/);
     assert.match(css,/\.split-workspace \{ display: grid; grid-template-columns: minmax\(0, 1\.45fr\) minmax\(380px, \.95fr\)/);
-    assert.match(css,/\.premises-row__actions \{[^}]*min-height: 58px/);
+    assert.match(css,/\.premises-row__actions \{[^}]*min-height: 50px/);
     return;
   }
   const html=fs.readFileSync(path.join(ROOT,'available-spaces.html'),'utf8'),source=fs.readFileSync(path.join(ROOT,'cian-workspace.js'),'utf8'),css=fs.readFileSync(path.join(ROOT,'cian-workspace.css'),'utf8');

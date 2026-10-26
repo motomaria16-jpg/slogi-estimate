@@ -90,6 +90,80 @@ try {
   assert.equal(await page.locator('html').getAttribute('data-slogi-access'), 'granted')
   assert.equal(await page.evaluate(() => new Promise(resolveTimer => setTimeout(() => resolveTimer('responsive'), 30))), 'responsive')
 
+  await page.evaluate(() => {
+    const project = {
+      id: 'navigation-card-fixture',
+      address: 'Москва, тестовое помещение',
+      phase0: {
+        revision: 1,
+        source: 'manual',
+        spaceCard: {
+          id: 'navigation-card-fixture',
+          source: 'manual',
+          address: 'Москва, тестовое помещение',
+          work: {
+            status: 'in_work',
+            takenAt: new Date().toISOString(),
+            pipeline: { status: 'viewing_scheduled' },
+            viewings: [{ id: 'viewing-fixture', status: 'scheduled', startsAt: new Date(Date.now() + 3600000).toISOString(), attachments: [] }]
+          }
+        }
+      }
+    }
+    localStorage.setItem('slogi_locations_v1', JSON.stringify([project]))
+    window.dispatchEvent(new CustomEvent('slogi:locations-updated'))
+  })
+  await page.getByText('Москва, тестовое помещение', { exact: true }).click()
+  await page.getByRole('heading', { name: 'Карточка помещения' }).waitFor()
+  assert.deepEqual(await page.locator('.property-tabs button').allTextContents(), ['Объект', 'Сопровождение', 'КП·'])
+  assert.equal(await page.getByRole('button', { name: 'Сопровождение' }).isEnabled(), true)
+  assert.equal(await page.locator('.property-tabs button').filter({ hasText: 'КП' }).isEnabled(), false)
+  assert.equal(await page.locator('.pipeline-steps').count(), 0)
+  await page.getByRole('button', { name: 'Сопровождение' }).click()
+  await page.getByRole('heading', { name: 'Контакт арендодателя' }).waitFor()
+  const workflowGeometry = await page.locator('.property-card').evaluate(card => ({
+    overflow: card.scrollWidth - card.clientWidth,
+    columns: getComputedStyle(card.querySelector('.workflow-grid')).gridTemplateColumns.trim().split(/\s+/).map(parseFloat),
+    heavyWeights: Array.from(card.querySelectorAll('h2,h3,b,strong,button'))
+      .map(node => Number(getComputedStyle(node).fontWeight))
+      .filter(weight => weight > 500)
+  }))
+  assert.ok(workflowGeometry.overflow <= 1)
+  assert.equal(workflowGeometry.columns.length, 2)
+  assert.ok(Math.abs(workflowGeometry.columns[0] - workflowGeometry.columns[1]) <= 1)
+  assert.deepEqual(workflowGeometry.heavyWeights, [])
+
+  await page.evaluate(() => {
+    const [project] = JSON.parse(localStorage.getItem('slogi_locations_v1') || '[]')
+    project.phase0.revision += 1
+    project.phase0.spaceCard.work.pipeline.status = 'viewing_completed'
+    project.phase0.spaceCard.work.viewings[0] = {
+      ...project.phase0.spaceCard.work.viewings[0],
+      status: 'completed',
+      completedAt: new Date().toISOString(),
+      attachments: [
+        { id: 'photo-fixture', kind: 'photo', status: 'uploaded', name: 'photo.jpg' },
+        { id: 'video-fixture', kind: 'video', status: 'uploaded', name: 'video.mp4' }
+      ]
+    }
+    localStorage.setItem('slogi_locations_v1', JSON.stringify([project]))
+    window.dispatchEvent(new CustomEvent('slogi:locations-updated'))
+  })
+  const proposalTab = page.locator('.property-tabs button').filter({ hasText: 'КП' })
+  await page.waitForFunction(() => !Array.from(document.querySelectorAll('.property-tabs button')).find(button => button.textContent?.includes('КП'))?.disabled)
+  assert.equal(await proposalTab.isEnabled(), true)
+  await proposalTab.click()
+  await page.getByRole('heading', { name: 'Коммерческие условия' }).waitFor()
+  await page.setViewportSize({ width: 375, height: 760 })
+  const mobileCard = await page.locator('.property-card').evaluate(card => ({
+    overflow: card.scrollWidth - card.clientWidth,
+    tabs: Array.from(card.querySelectorAll('.property-tabs button')).map(button => button.textContent?.trim())
+  }))
+  assert.ok(mobileCard.overflow <= 1)
+  assert.deepEqual(mobileCard.tabs, ['Объект', 'Сопровождение', 'КП'])
+  await page.getByRole('button', { name: 'Закрыть' }).click()
+  await page.setViewportSize({ width: 1440, height: 900 })
+
   await Promise.all([
     page.waitForURL(/\/available-spaces\.html/),
     page.locator('.sidebar a').filter({ hasText: 'Поиск помещения' }).click(),

@@ -124,12 +124,6 @@ async function startProposal() {
 
 <template>
   <div class="workflow-tab">
-    <ol class="pipeline-steps">
-      <li :class="{ active: ['contacted','viewing_scheduled','viewing_completed','proposal_started'].includes(pipeline) }"><span>1</span>Связались</li>
-      <li :class="{ active: ['viewing_scheduled','viewing_completed','proposal_started'].includes(pipeline) }"><span>2</span>Просмотр назначен</li>
-      <li :class="{ active: ['viewing_completed','proposal_started'].includes(pipeline) }"><span>3</span>Просмотр завершён</li>
-      <li :class="{ active: pipeline === 'proposal_started' }"><span>4</span>КП</li>
-    </ol>
     <div class="workflow-grid">
       <section class="form-card workflow-card">
         <div class="card-heading"><h3>Контакт арендодателя</h3><span class="badge status">{{ work.landlordContact?.contactedAt ? 'Связались' : 'Не зафиксирован' }}</span></div>

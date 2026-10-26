@@ -29,6 +29,19 @@ export function pipelineStatus(project: any) {
   return work?.pipeline?.status || work.pipelineStatus || 'contact_pending'
 }
 
+export function proposalTabReady(project: any) {
+  const work = projectWork(project)
+  const completedViewing = [...(Array.isArray(work.viewings) ? work.viewings : [])]
+    .reverse()
+    .find((viewing: any) => viewing?.status === 'completed')
+  if (!completedViewing) return false
+  const attachments = Array.isArray(completedViewing.attachments)
+    ? completedViewing.attachments.filter((item: any) => item?.status === 'uploaded')
+    : []
+  return attachments.some((item: any) => item.kind === 'photo')
+    && attachments.some((item: any) => item.kind === 'video')
+}
+
 export function statusLabel(project: any) {
   const labels: Record<string, string> = {
     contact_pending: 'Новое',
