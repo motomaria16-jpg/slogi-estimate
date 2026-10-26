@@ -1,0 +1,27 @@
+{
+  "name": "slogi-nuxt-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync:legacy": "node scripts/sync-legacy-assets.mjs",
+    "predev": "pnpm run sync:legacy",
+    "dev": "nuxt dev",
+    "prebuild": "pnpm run sync:legacy",
+    "build": "nuxt build",
+    "pregenerate": "pnpm run sync:legacy",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "typecheck": "nuxt typecheck",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "nuxt": "4.5.2",
+    "vue": "3.5.44",
+    "vue-router": "5.4.0"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vue-tsc": "3.1.1"
+  },
+  "packageManager": "pnpm@11.25.0"
+}

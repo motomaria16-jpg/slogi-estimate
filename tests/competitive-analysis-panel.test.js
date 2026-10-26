@@ -10,6 +10,16 @@ const ROOT=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(ROOT,file),'utf8');
 
 test('search page owns the visible competitive-analysis entry and loads the existing XLSX workflow before services',()=>{
+  const nuxtPage=path.join(ROOT,'frontend','app','pages','available-spaces.html.vue');
+  if(fs.existsSync(nuxtPage)){
+    const search=fs.readFileSync(nuxtPage,'utf8'),runtime=read('frontend/app/plugins/legacy.client.ts');
+    assert.match(search,/>Конкурентный анализ<\/button>/);
+    const imported=search.indexOf('competitiveRepository.importFile(file)'),applied=search.indexOf('phase0Service.applyCompetitiveRows(snapshot)');
+    assert.ok(imported>=0&&applied>imported);
+    const pako=runtime.indexOf("'pako-inflate.min.js'"),xlsx=runtime.indexOf("'xlsx-workflow.js'"),services=runtime.indexOf("'phase0-services.js'");
+    assert.ok(pako>=0&&xlsx>pako&&services>xlsx);
+    return;
+  }
   const search=read('available-spaces.html'),premises=read('index.html');
   assert.match(search,/id="available-open-competitive"[^>]*>Конкурентный анализ</);
   const pako=search.indexOf('pako-inflate.min.js'),xlsx=search.indexOf('xlsx-workflow.js'),services=search.indexOf('phase0-services.js'),panel=search.indexOf('competitive-analysis-panel.js'),workspace=search.indexOf('cian-workspace.js');

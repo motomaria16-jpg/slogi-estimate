@@ -232,13 +232,30 @@ test('server geocoder forwards configured bounds and selects by precision then p
   const result=await server('Москва, Тверская, 1');assert.deepEqual(body,{address:'Москва, Тверская, 1',ll:'37.6176,55.7558',spn:'4.2,3.0'});assert.deepEqual({lat:result.latitude,lng:result.longitude},{lat:56,lng:38});assert.equal(mapData.clusterState(result,clusterService).clusterStatus,'outside');
 });
 
-test('UI exposes separate missing-address, missing-coordinate, failed and pending DOM counters',()=>{
-  const html=fs.readFileSync(path.join(ROOT,'available-spaces.html'),'utf8'),source=fs.readFileSync(path.join(ROOT,'cian-workspace.js'),'utf8');
-  for(const id of ['cian-map-missing','cian-map-no-address','cian-map-failed','cian-map-pending'])assert.match(html,new RegExp(`id=["']${id}["']`));
-  assert.match(source,/mapNoAddress\.textContent=`Без адреса: \$\{state\.missingAddressCount\}`/);
+test('Nuxt map uses the canonical collection and exposes bounded loading and error states',()=>{
+  const page=fs.readFileSync(path.join(ROOT,'frontend','app','pages','available-spaces.html.vue'),'utf8');
+  const map=fs.readFileSync(path.join(ROOT,'frontend','app','components','PremisesMap.client.vue'),'utf8');
+  assert.match(page,/<PremisesMap :items="items"/);
+  assert.match(map,/v-if="state === 'loading'"/);
+  assert.match(map,/v-else-if="state === 'error'"/);
+  assert.match(map,/Карта временно недоступна/);
 });
 
 test('search layout keeps compact hero, map controls in heading and card actions compact',()=>{
+  const nuxtPage=path.join(ROOT,'frontend','app','pages','available-spaces.html.vue');
+  if(fs.existsSync(nuxtPage)){
+    const page=fs.readFileSync(nuxtPage,'utf8'),css=fs.readFileSync(path.join(ROOT,'frontend','app','assets','css','main.css'),'utf8');
+    assert.match(page,/<h1>Поиск помещений<\/h1>/);
+    assert.doesNotMatch(page,/Подходящие предложения коммерческой аренды|Список подходящих помещений|Применяются автоматически|>Объект<|>Аренда<|>Действия/);
+    const competitive=page.indexOf('Конкурентный анализ'),add=page.indexOf('Добавить помещение'),refresh=page.indexOf('Обновить');
+    assert.ok(competitive>=0&&add>competitive&&refresh>add);
+    assert.match(page,/class="split-workspace"[\s\S]*class="list-panel"[\s\S]*class="map-panel"/);
+    assert.match(page,/<PremisesCard v-for="item in items"/);
+    assert.match(page,/<PremisesMap :items="items"/);
+    assert.match(css,/\.split-workspace \{ display: grid; grid-template-columns: minmax\(0, 1\.45fr\) minmax\(380px, \.95fr\)/);
+    assert.match(css,/\.premises-row__actions \{[^}]*min-height: 58px/);
+    return;
+  }
   const html=fs.readFileSync(path.join(ROOT,'available-spaces.html'),'utf8'),source=fs.readFileSync(path.join(ROOT,'cian-workspace.js'),'utf8'),css=fs.readFileSync(path.join(ROOT,'cian-workspace.css'),'utf8');
   assert.match(html,/class="cian-hero-content"[^>]*><h1 id="available-title">Поиск помещений<\/h1><div class="cian-hero-meta"/);
   assert.doesNotMatch(html,/Подходящие предложения коммерческой аренды|Список подходящих помещений|id="available-count"|id="available-summary"/);

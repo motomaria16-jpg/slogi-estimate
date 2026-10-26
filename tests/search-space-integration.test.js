@@ -118,6 +118,17 @@ function manualReadyCard(overrides = {}) {
 }
 
 test('the search page loads one shared card model before the modal and workspace', () => {
+  const nuxtPage=path.join(ROOT,'frontend','app','pages','available-spaces.html.vue');
+  if(fs.existsSync(nuxtPage)){
+    const page=read('frontend/app/pages/available-spaces.html.vue'),runtime=read('frontend/app/plugins/legacy.client.ts'),modalSource=read('frontend/app/components/PropertyCardModal.vue');
+    assert.match(page,/<PremisesCard v-for="item in items"/);
+    assert.match(page,/>Добавить помещение<\/button>/);
+    assert.match(page,/@primary="take"/);
+    assert.match(page,/@remove="discard"/);
+    assert.ok(runtime.indexOf("'search-space-card.js'") < runtime.indexOf("'phase0-services.js'"));
+    assert.match(modalSource,/window\.SlogiSearchSpaceCard\.normalize/);
+    return;
+  }
   const model = pageSource.indexOf('search-space-card.js');
   const modal = pageSource.indexOf('search-space-card-modal.js');
   const workspace = pageSource.indexOf('cian-workspace.js');
@@ -378,7 +389,14 @@ test('shared-field edits round-trip into the same canonical card and the work li
   assert.match(servicesSource, /listSearchCandidates\(\)\{return this\.listPhase0\(\)\.filter\(isSearchCandidateProject\)/);
   assert.match(workspaceSource, /repository\.listSearchCandidates\(\)/, 'the search list must use the canonical pre-work selector');
   assert.match(read('phase0-app.js'), /state\.projects=repo\.listInWork\(\)/, 'the in-work page must filter by the canonical work status');
-  assert.ok(indexSource.indexOf('search-space-card.js') < indexSource.indexOf('phase0-services.js'));
+  const nuxtRuntime=path.join(ROOT,'frontend','app','plugins','legacy.client.ts');
+  if(fs.existsSync(nuxtRuntime)){
+    const runtimeSource=fs.readFileSync(nuxtRuntime,'utf8'),projectsSource=read('frontend/app/composables/useProjects.ts');
+    assert.ok(runtimeSource.indexOf("'search-space-card.js'") < runtimeSource.indexOf("'phase0-services.js'"));
+    assert.match(projectsSource,/const inWorkProjects = computed\([\s\S]*isActiveWorkProject/);
+  }else{
+    assert.ok(indexSource.indexOf('search-space-card.js') < indexSource.indexOf('phase0-services.js'));
+  }
 });
 
 test('open-center occupancy uses operational evidence, ignores deleted projects and excludes the current card', () => {

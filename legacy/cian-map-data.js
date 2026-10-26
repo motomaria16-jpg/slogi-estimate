@@ -1,0 +1,344 @@
+(function(root,factory){
+  'use strict';
+  const api=factory();
+  if(typeof module==='object'&&module.exports)module.exports=api;
+  if(root)root.SlogiCianMapData=api;
+})(typeof window!=='undefined'?window:globalThis,function(){
+  'use strict';
+
+  const SUCCESS_TTL_MS=30*24*60*60*1000;
+  const FAILURE_TTL_MS=15*60*1000;
+  const CACHE_LIMIT=500;
+  const CACHE_KEY='slogi_cian_geocode_cache_v5';
+  const LEGACY_CACHE_KEYS=Object.freeze(['slogi_cian_geocode_cache_v4']);
+
+  const number=value=>{if(value==null||String(value).trim()==='')return null;const parsed=Number(value);return Number.isFinite(parsed)?parsed:null;};
+
+  function coordinates(value){
+    const latitude=number(value&&value.latitude),longitude=number(value&&value.longitude);
+    if(latitude==null||longitude==null||latitude< -90||latitude>90||longitude< -180||longitude>180)return null;
+    return{latitude,longitude};
+  }
+
+  function normalizeAddress(value){return String(value||'').trim().toLocaleLowerCase('ru-RU').replace(/ё/g,'е').replace(/\s+/g,' ').replace(/\s*,\s*/g,', ');}
+
+  function addressQueryVariants(value){
+    const variants=[],seen=new Set();
+    const tidy=input=>String(input||'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').replace(/\s*,\s*/g,',').replace(/,{2,}/g,',').replace(/,/g,', ').replace(/^,\s*|,\s*$/g,'').trim();
+    const push=input=>{const candidate=tidy(input),key=normalizeAddress(candidate);if(candidate&&candidate.length>=5&&!seen.has(key)){seen.add(key);variants.push(candidate);}};
+    const raw=tidy(value);if(!raw)return variants;push(raw);
+    const withoutUi=tidy(raw.replace(/\s+На карте(?:\s.*)?$/iu,''));
+    const cleaned=tidy(withoutUi
+      .replace(/(?:^|,\s*)(?:ЦАО|САО|СВАО|ВАО|ЮВАО|ЮАО|ЮЗАО|ЗАО|СЗАО|ЗелАО|ТАО|НАО)(?=\s*,|$)/giu,', ')
+      .replace(/(?:^|,\s*)(?:р[\s.-]*н|район)\s+[^,]+(?=\s*,|$)/giu,', ')
+      .replace(/(?:^|,\s*)м\.\s*[^,]+(?=\s*,|$)/giu,', '));
+    push(cleaned);
+    [withoutUi,cleaned].forEach(base=>{
+      push(base.replace(/\b(\d[0-9\/-]*)\s*[кk]\s*(\d+)\b/giu,'$1 корпус $2'));
+      push(base.replace(/\b(\d[0-9\/-]*)\s*(?:корп(?:ус)?\.?|корпус)\s*(\d+)\b/giu,'$1 корпус $2'));
+      push(base.replace(/\b(\d[0-9\/-]*)\s*[сc]\s*(\d+)\b/giu,'$1 строение $2'));
+      push(base.replace(/\b(\d[0-9\/-]*)\s*стр(?:оение)?\.?\s*(\d+)\b/giu,'$1 строение $2'));
+    });
+    if(!/(?:москва|московск|санкт-петербург|ленинградск)/iu.test(raw)){
+      [...variants].forEach(variant=>{push(`Москва, ${variant}`);push(`Московская область, ${variant}`);});
+    }
+    return variants;
+  }
+
+  function inferAddressCluster(value){
+    const address=String(value||'').trim();
+    const match=address.match(/(?:^|[,;]\s*|\s)(?:р[\s.-]*н|район)\s+([^,;]+)/iu);
+    return match?String(match[1]||'').trim().replace(/\s+/g,' '):'';
+  }
+
+  function addressClusterState(value){
+    const clusterName=String(value&&(value.sourceClusterName||value.source_cluster_name)||inferAddressCluster(value&&value.address)||'').trim();
+    return clusterName?{clusterId:'',clusterName:'',addressHint:clusterName,clusterStatus:'not_computed',clusterBoundary:false,clusterResolutionSource:null}:null;
+  }
+
+  function canonicalUrl(value){
+    try{const url=new URL(String(value||''));url.hash='';url.search='';url.hostname=url.hostname.toLowerCase();url.pathname=url.pathname.replace(/\/+$/,'')||'/';return url.toString();}
+    catch(_error){return String(value||'').trim();}
+  }
+
+  function listingId(item){
+    const source=String(item&&item.source||''),externalId=String(item&&(item.externalId||item.external_id)||'').trim();
+    return source+':'+(externalId||canonicalUrl(item&&(item.listingUrl||item.listing_url)));
+  }
+
+  function deduplicate(items){
+    const externalIds=new Set(),urls=new Set(),result=[];
+    (items||[]).forEach(item=>{
+      const source=String(item&&item.source||''),externalId=String(item&&(item.externalId||item.external_id)||'').trim();
+      const url=canonicalUrl(item&&(item.listingUrl||item.listing_url));
+      const externalKey=externalId?source+':'+externalId:'',urlKey=url?source+':'+url:'';
+      if((externalKey&&externalIds.has(externalKey))||(urlKey&&urls.has(urlKey)))return;
+      if(!externalKey&&!urlKey)return;
+      if(externalKey)externalIds.add(externalKey);if(urlKey)urls.add(urlKey);result.push(item);
+    });
+    return result;
+  }
+
+  function clusterState(value,clusterService){
+    const geo=coordinates(value);
+    const addressState=addressClusterState(value);
+    if(!geo)return addressState||{clusterId:'',clusterName:'',clusterStatus:'not_computed',clusterBoundary:false,clusterResolutionSource:null};
+    if(clusterService&&typeof clusterService.locate==='function'){
+      const located=clusterService.locate(geo.latitude,geo.longitude);
+      if(located&&located.status==='inside')return{clusterId:String(located.clusterId||located.id||''),clusterName:String(located.clusterName||located.name||''),clusterStatus:'inside',clusterBoundary:located.boundary===true,clusterResolutionSource:'automatic'};
+      if(located&&located.status==='outside')return{clusterId:'',clusterName:'',clusterStatus:'outside',clusterBoundary:false,clusterResolutionSource:'automatic'};
+    }
+    if(clusterService&&typeof clusterService.findByCoordinates==='function'){
+      const match=clusterService.findByCoordinates(geo.latitude,geo.longitude);
+      if(match)return{clusterId:String(match.id||''),clusterName:String(match.name||''),clusterStatus:'inside',clusterBoundary:match.boundary===true,clusterResolutionSource:'automatic'};
+      return{clusterId:'',clusterName:'',clusterStatus:'outside',clusterBoundary:false,clusterResolutionSource:'automatic'};
+    }
+    return addressState||{clusterId:'',clusterName:'',clusterStatus:'not_computed',clusterBoundary:false,clusterResolutionSource:null};
+  }
+
+  function nestedCoordinates(value){
+    const direct=coordinates(value);if(direct)return direct;
+    const geo=value&&value.geo;if(!geo)return null;
+    return coordinates({latitude:geo.lat??geo.latitude??(Array.isArray(geo.coordinates)?geo.coordinates[0]:null),longitude:geo.lng??geo.lon??geo.longitude??(Array.isArray(geo.coordinates)?geo.coordinates[1]:null)});
+  }
+
+  function mergeProjectListingGeo(project,listing,clusterService){
+    const saved=nestedCoordinates(project),parsed=coordinates(listing),geo=saved||parsed;
+    if(!geo)return Object.assign({latitude:null,longitude:null,coordinateSource:'',geocodeStatus:String(listing&&listing.geocodeStatus||'not_computed')},clusterState(listing||project,clusterService));
+    const classified=clusterState(geo,clusterService),fromProject=Boolean(saved);
+    return Object.assign({
+      latitude:geo.latitude,longitude:geo.longitude,
+      coordinateSource:fromProject?'stored_project':String(listing&&listing.coordinateSource||'parsed_listing'),
+      geocodeStatus:fromProject?'stored':String(listing&&listing.geocodeStatus||'stored')
+    },classified);
+  }
+
+  function parsedProject(project){
+    const phase=project&&project.phase0||{};
+    return Boolean(project&&project.id!=null&&!project.deletedAt&&phase&&typeof phase==='object'&&String(phase.source||project.source||'').trim().toLocaleLowerCase('ru-RU')==='cian');
+  }
+
+  function createProjectGeocodeRuntime(){
+    const entries=new Map();
+    const idOf=project=>String(project&&project.id||'').trim();
+    const addressKeyOf=project=>normalizeAddress(project&&project.address);
+    const get=project=>{
+      const id=idOf(project);if(!id||!parsedProject(project)){if(id)entries.delete(id);return null;}
+      const entry=entries.get(id);if(!entry)return null;
+      if(entry.addressKey!==addressKeyOf(project)){entries.delete(id);return null;}
+      return entry.item;
+    };
+    return{
+      get,
+      target(project){
+        const id=idOf(project);if(!id||!parsedProject(project))return null;
+        const current=get(project);if(current){current._runtimeProjectRevision=Number(project.phase0&&project.phase0.revision)||0;return current;}
+        const phase=project.phase0||{},item={
+          source:'cian',externalId:String(phase.externalId||project.externalId||project.id||''),listingUrl:String(phase.listingUrl||project.listingUrl||''),title:String(phase.listingTitle||project.title||'Помещение'),address:String(project.address||''),
+          latitude:null,longitude:null,coordinateSource:'',geocodeStatus:'not_computed',geocodeAttempts:0,geocodeDiagnostic:'',clusterId:'',clusterName:'',clusterStatus:'not_computed',clusterBoundary:false,clusterResolutionSource:null,
+          _runtimeProjectId:id,_runtimeProjectRevision:Number(phase.revision)||0,_runtimeAddressKey:addressKeyOf(project)
+        };
+        entries.set(id,{addressKey:addressKeyOf(project),item});return item;
+      },
+      delete(project){entries.delete(idOf(project));},
+      reconcile(projects){
+        const active=new Set();(Array.isArray(projects)?projects:[]).forEach(project=>{const id=idOf(project);if(!id||!parsedProject(project)){if(id)entries.delete(id);return;}active.add(id);get(project);});
+        [...entries.keys()].forEach(id=>{if(!active.has(id))entries.delete(id);});return entries.size;
+      },
+      size(){return entries.size;}
+    };
+  }
+
+  function collectProjectGeocodeTargets(feedItems,projects,{findProject,runtime,clusterService}={}){
+    const listings=Array.isArray(feedItems)?feedItems:[],saved=Array.isArray(projects)?projects:[],matched=new Set(),targets=listings.slice();
+    runtime&&typeof runtime.reconcile==='function'&&runtime.reconcile(saved);
+    if(typeof findProject==='function')listings.forEach(listing=>{const project=findProject(listing);if(!project||project.id==null)return;matched.add(String(project.id));const projectAddress=normalizeAddress(project.address),listingAddress=normalizeAddress(listing.address);if(!nestedCoordinates(project)&&projectAddress&&projectAddress===listingAddress){listing._runtimeProjectId=String(project.id);listing._runtimeProjectRevision=Number(project.phase0&&project.phase0.revision)||0;listing._runtimeAddressKey=projectAddress;}});
+    saved.forEach(project=>{
+      if(!project||project.id==null||!parsedProject(project)||matched.has(String(project.id))){runtime&&typeof runtime.delete==='function'&&runtime.delete(project);return;}
+      const merged=mergeProjectListingGeo(project,null,clusterService);
+      if(coordinates(merged)){runtime&&typeof runtime.delete==='function'&&runtime.delete(project);return;}
+      const target=runtime&&typeof runtime.target==='function'?runtime.target(project):null;if(target)targets.push(target);
+    });
+    return targets;
+  }
+
+  function projectGeocodeUpdates(items){
+    const updates=new Map();
+    (Array.isArray(items)?items:[]).forEach(item=>{
+      const projectId=String(item&&item._runtimeProjectId||'').trim(),geo=coordinates(item),status=String(item&&item.clusterStatus||''),source=String(item&&item.clusterResolutionSource||'');
+      if(!projectId||!geo||item.geocodeStatus!=='geocoded'||source!=='automatic'||!['inside','outside'].includes(status))return;
+      const clusterId=status==='inside'?String(item.clusterId||'').trim():'',clusterName=status==='inside'?String(item.clusterName||'').trim():'';
+      if(status==='inside'&&(!clusterId||!clusterName))return;
+      updates.set(projectId,{projectId,expectedRevision:Number(item._runtimeProjectRevision)||0,addressKey:String(item._runtimeAddressKey||normalizeAddress(item.address)),latitude:geo.latitude,longitude:geo.longitude,clusterId,clusterName,clusterStatus:status,clusterBoundary:item.clusterBoundary===true,clusterResolutionSource:'automatic'});
+    });
+    return[...updates.values()];
+  }
+
+  function classify(value,clusterService){return Object.assign(value,clusterState(value,clusterService));}
+
+  function projection(items){
+    const listings=deduplicate(items),markers=listings.filter(item=>coordinates(item));
+    const failed=listings.filter(item=>['failed','timeout','rate_limited','not_found'].includes(item.geocodeStatus)).length;
+    return{
+      listings,markers,
+      markerCount:markers.length,
+      withoutCoordinatesCount:listings.length-markers.length,
+      geocodeFailedCount:failed,
+      geocodePendingCount:listings.filter(item=>item.geocodeStatus==='pending').length,
+      missingAddressCount:listings.filter(item=>item.geocodeStatus==='missing_address').length,
+      outsideClusterCount:listings.filter(item=>item.clusterStatus==='outside').length,
+    };
+  }
+
+  function createAddressCache(storage,{key=CACHE_KEY,legacyKeys=LEGACY_CACHE_KEYS,now=()=>Date.now(),limit=CACHE_LIMIT}={}){
+    let entries={},migrated=false;
+    try{const parsed=JSON.parse(storage&&storage.getItem(key)||'{}');if(parsed&&typeof parsed==='object'&&!Array.isArray(parsed))entries=parsed;}catch(_error){entries={};}
+    if(!Object.keys(entries).length&&storage&&Array.isArray(legacyKeys))for(const legacyKey of legacyKeys){
+      try{const parsed=JSON.parse(storage.getItem(legacyKey)||'{}');if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))continue;Object.entries(parsed).forEach(([address,entry])=>{if(entry&&entry.status==='geocoded'&&coordinates(entry)&&Number(entry.expiresAt)>now())entries[address]=Object.assign({},entry);});if(Object.keys(entries).length){migrated=true;break;}}catch(_error){/* ignore malformed legacy cache */}
+    }
+    const persist=()=>{if(!storage)return;try{const sorted=Object.entries(entries).sort((left,right)=>Number(left[1]&&left[1].savedAt||0)-Number(right[1]&&right[1].savedAt||0)).slice(-Math.max(1,Number(limit)||CACHE_LIMIT));entries=Object.fromEntries(sorted);storage.setItem(key,JSON.stringify(entries));}catch(_error){/* cache is best effort */}};
+    if(migrated)persist();
+    return{
+      get(address){const normalized=normalizeAddress(address),entry=entries[normalized];if(!entry)return null;if(Number(entry.expiresAt)<=now()){delete entries[normalized];persist();return null;}return Object.assign({},entry);},
+      set(address,value,ttlMs){const normalized=normalizeAddress(address);if(!normalized)return;entries[normalized]=Object.assign({},value,{savedAt:now(),expiresAt:now()+Math.max(1000,Number(ttlMs)||FAILURE_TTL_MS)});persist();},
+      size(){return Object.keys(entries).length;},
+    };
+  }
+
+  function abortError(){const error=new Error('aborted');error.name='AbortError';return error;}
+
+  function wait(milliseconds,signal,sleepImpl){
+    if(signal&&signal.aborted)return Promise.reject(abortError());
+    if(sleepImpl)return sleepImpl(milliseconds,signal);
+    return new Promise((resolve,reject)=>{const timer=setTimeout(done,Math.max(0,milliseconds));function done(){cleanup();resolve();}function aborted(){clearTimeout(timer);cleanup();reject(abortError());}function cleanup(){signal&&signal.removeEventListener('abort',aborted);}signal&&signal.addEventListener('abort',aborted,{once:true});});
+  }
+
+  function retryAfter(response,attempt,baseDelayMs){
+    const header=String(response&&response.headers&&response.headers.get&&response.headers.get('retry-after')||'').trim();
+    const seconds=Number(header);if(header&&Number.isFinite(seconds)&&seconds>=0)return Math.min(10000,seconds*1000);
+    const date=Date.parse(header);if(Number.isFinite(date))return Math.max(0,Math.min(10000,date-Date.now()));
+    return Math.min(5000,Math.max(0,Number(baseDelayMs)||250)*Math.pow(2,attempt-1));
+  }
+
+  function configuredEdgeEndpoint(endpoint,projectUrl){
+    let target,project;
+    try{target=new URL(String(endpoint||''));project=new URL(String(projectUrl||''));}catch(_error){throw new Error('geocoder_endpoint_untrusted');}
+    if(project.protocol!=='https:'||project.username||project.password||project.search||project.hash||!/^\/?$/.test(project.pathname))throw new Error('geocoder_project_untrusted');
+    if(target.protocol!=='https:'||target.origin!==project.origin||target.username||target.password||target.search||target.hash||target.pathname!=='/functions/v1/geocode-address')throw new Error('geocoder_endpoint_untrusted');
+    return target.toString();
+  }
+
+  function geocodePrecisionRank(value){
+    const precision=String(value||'').trim().toLowerCase();return({exact:6,number:5,near:4,range:3,street:2,other:1})[precision]||0;
+  }
+
+  function selectGeocodeCandidate(items){
+    let selected=null,rank=-1;(Array.isArray(items)?items:[]).forEach(item=>{if(!coordinates({latitude:item&&item.lat,longitude:item&&item.lng}))return;const candidateRank=geocodePrecisionRank(item&&item.precision);if(!selected||candidateRank>rank){selected=item;rank=candidateRank;}});return selected;
+  }
+
+  function createServerGeocoder({endpoint,projectUrl,token='',fetchImpl=globalThis.fetch,timeoutMs=12000,maxAttempts=3,baseDelayMs=250,sleepImpl,searchCenter='',searchSpan=''}={}){
+    const url=configuredEdgeEndpoint(endpoint,projectUrl),attemptLimit=Math.max(1,Math.min(5,Math.trunc(Number(maxAttempts)||3)));
+    if(typeof fetchImpl!=='function')throw new Error('geocoder_unavailable');
+    return async function geocode(address,{signal}={}){
+      const normalized=String(address||'').trim();if(normalized.length<5)return{status:'not_found',attempts:0,diagnostic:'address_invalid'};
+      let lastStatus='failed';
+      for(let attempt=1;attempt<=attemptLimit;attempt++){
+        if(signal&&signal.aborted)throw abortError();
+        const controller=new AbortController();let timedOut=false;
+        const timer=setTimeout(()=>{timedOut=true;controller.abort();},Math.max(100,Number(timeoutMs)||12000));
+        const abort=()=>controller.abort();signal&&signal.addEventListener('abort',abort,{once:true});
+        try{
+          const headers={'Content-Type':'application/json','Accept':'application/json','X-Slogi-Client':'cian-map'};if(token)headers.Authorization='Bearer '+token;
+          const response=await fetchImpl(url,{method:'POST',headers,body:JSON.stringify({address:normalized,ll:String(searchCenter||''),spn:String(searchSpan||'')}),signal:controller.signal});
+          const payload=await response.json().catch(()=>null);
+          if(response.ok){
+            const result=selectGeocodeCandidate(payload&&payload.results);
+            if(!result)return{status:'not_found',attempts:attempt,diagnostic:String(payload&&payload.diagnostic&&payload.diagnostic.status||'no_results'),cacheHit:Boolean(payload&&payload.diagnostic&&payload.diagnostic.cacheHit)};
+            return{status:'geocoded',attempts:attempt,latitude:Number(result.lat),longitude:Number(result.lng),precision:String(result.precision||''),resolvedAddress:String(result.address||normalized),cacheHit:Boolean(payload&&payload.diagnostic&&payload.diagnostic.cacheHit),coordinateSource:'geocode_server'};
+          }
+          lastStatus=response.status===429?'rate_limited':response.status===408||response.status===504?'timeout':'failed';
+          if(attempt<attemptLimit&&(response.status===429||response.status===408||response.status>=500)){await wait(retryAfter(response,attempt,baseDelayMs),signal,sleepImpl);continue;}
+          return{status:lastStatus,attempts:attempt,diagnostic:String(payload&&payload.error||`http_${response.status}`)};
+        }catch(error){
+          if(signal&&signal.aborted)throw abortError();
+          lastStatus=timedOut||error&&error.name==='AbortError'?'timeout':'failed';
+          if(attempt<attemptLimit){await wait(Math.min(5000,Math.max(0,Number(baseDelayMs)||250)*Math.pow(2,attempt-1)),signal,sleepImpl);continue;}
+          return{status:lastStatus,attempts:attempt,diagnostic:lastStatus==='timeout'?'timeout':'network_error'};
+        }finally{clearTimeout(timer);signal&&signal.removeEventListener('abort',abort);}
+      }
+      return{status:lastStatus,attempts:attemptLimit,diagnostic:'retry_exhausted'};
+    };
+  }
+
+  function createAddressVariantGeocoder(lookup,{successDiagnostic='address_variant',noResultsDiagnostic='address_variants_not_found',failureDiagnostic='address_variants_failed',coordinateSource='geocode_variant'}={}){
+    if(typeof lookup!=='function')throw new Error('address_variant_lookup_unavailable');
+    return async function geocode(address,{signal}={}){
+      const variants=addressQueryVariants(address);if(!variants.length)return{status:'not_found',attempts:0,diagnostic:'address_invalid'};
+      let attempts=0,responded=false,lastFailure='';
+      for(const query of variants){
+        if(signal&&signal.aborted)throw abortError();attempts++;
+        try{
+          const candidate=await lookup(query,{signal,attempt:attempts});if(signal&&signal.aborted)throw abortError();responded=true;
+          const geo=coordinates(candidate);if(!geo)continue;
+          return Object.assign({},candidate,{status:'geocoded',attempts,latitude:geo.latitude,longitude:geo.longitude,resolvedAddress:String(candidate&&candidate.resolvedAddress||query),diagnostic:attempts===1?successDiagnostic:`${successDiagnostic}_variant_${attempts}`,coordinateSource:String(candidate&&candidate.coordinateSource||coordinateSource)});
+        }catch(error){if(error&&error.name==='AbortError'||signal&&signal.aborted)throw abortError();lastFailure=String(error&&error.message||failureDiagnostic);}
+      }
+      return{status:responded?'not_found':'failed',attempts,diagnostic:responded?noResultsDiagnostic:(lastFailure||failureDiagnostic)};
+    };
+  }
+
+  function createFallbackGeocoder(primary,fallback){
+    return async function geocode(address,options={}){
+      const first=typeof primary==='function'?await primary(address,options):{status:'failed',attempts:0,diagnostic:'server_geocoder_unavailable'};
+      if(first&&first.status==='geocoded')return first;
+      const second=typeof fallback==='function'?await fallback(address,options):null,attempts=(Number(first&&first.attempts)||0)+(Number(second&&second.attempts)||0);
+      if(second&&second.status==='geocoded')return Object.assign({},second,{attempts,diagnostic:`fallback:${String(first&&first.diagnostic||first&&first.status||'primary_failed')} -> ${String(second.diagnostic||'browser_geocoded')}`});
+      return Object.assign({},second||first||{status:'failed'},{attempts,diagnostic:[first&&first.diagnostic,second&&second.diagnostic].filter(Boolean).join(' -> ')||'geocoder_failed'});
+    };
+  }
+
+  function applyGeocodeResult(items,result,clusterService,source){
+    items.forEach(item=>{
+      item.geocodeStatus=String(result&&result.status||'failed');item.geocodeAttempts=Number(result&&result.attempts)||0;item.geocodeDiagnostic=String(result&&result.diagnostic||'');
+      if(result&&result.status==='geocoded'&&coordinates(result)){
+        const provider=String(result.coordinateSource||''),resolvedSource=source==='geocode_cache'?(provider==='geocode_browser'?'geocode_cache_browser':provider==='geocode_server'?'geocode_cache_server':'geocode_cache'):(provider||source||'geocode_unknown');
+        item.latitude=Number(result.latitude);item.longitude=Number(result.longitude);item.coordinateSource=resolvedSource;classify(item,clusterService);
+      }else{item.coordinateSource='';Object.assign(item,clusterState(item,clusterService));}
+    });
+  }
+
+  async function geocodeMissingListings(items,{geocode,clusterService,cache=null,signal,concurrency=2,onProgress}={}){
+    const groups=new Map();let cached=0;
+    (items||[]).forEach(item=>{
+      if(coordinates(item)){item.coordinateSource=item.coordinateSource||'stored';item.geocodeStatus='stored';classify(item,clusterService);return;}
+      const key=normalizeAddress(item.address);
+      if(!key){item.geocodeStatus='missing_address';item.coordinateSource='';Object.assign(item,clusterState(item,clusterService));return;}
+      if(!groups.has(key))groups.set(key,{address:String(item.address).trim(),items:[]});groups.get(key).items.push(item);
+    });
+    const tasks=[];
+    groups.forEach(group=>{
+      const hit=cache&&cache.get(group.address);
+      if(hit){cached++;applyGeocodeResult(group.items,hit,clusterService,hit.status==='geocoded'?'geocode_cache':'');}
+      else{group.items.forEach(item=>{item.geocodeStatus='pending';item.coordinateSource='';});tasks.push(group);}
+    });
+    let cursor=0,completed=0;
+    const report=()=>{if(typeof onProgress==='function')onProgress({completed,total:tasks.length,cached,projection:projection(items)});};
+    report();
+    const worker=async()=>{
+      for(;;){
+        if(signal&&signal.aborted)throw abortError();
+        const index=cursor++;if(index>=tasks.length)return;const group=tasks[index];
+        let result;
+        try{result=await geocode(group.address,{signal});}
+        catch(error){if(error&&error.name==='AbortError')throw error;result={status:'failed',attempts:1,diagnostic:'client_error'};}
+        const ttl=result&&result.status==='geocoded'?SUCCESS_TTL_MS:FAILURE_TTL_MS;
+        cache&&cache.set(group.address,result,ttl);applyGeocodeResult(group.items,result,clusterService,'geocode_result');completed++;report();
+      }
+    };
+    if(tasks.length&&typeof geocode==='function')await Promise.all(Array.from({length:Math.min(tasks.length,Math.max(1,Math.min(4,Math.trunc(Number(concurrency)||2))))},worker));
+    else if(tasks.length){tasks.forEach(group=>applyGeocodeResult(group.items,{status:'failed',attempts:0,diagnostic:'geocoder_unavailable'},clusterService,''));completed=tasks.length;report();}
+    return{completed,total:tasks.length,cached,projection:projection(items)};
+  }
+
+  return{SUCCESS_TTL_MS,FAILURE_TTL_MS,CACHE_KEY,coordinates,normalizeAddress,addressQueryVariants,inferAddressCluster,canonicalUrl,listingId,deduplicate,clusterState,classify,mergeProjectListingGeo,createProjectGeocodeRuntime,collectProjectGeocodeTargets,projectGeocodeUpdates,projection,createAddressCache,configuredEdgeEndpoint,geocodePrecisionRank,selectGeocodeCandidate,createServerGeocoder,createAddressVariantGeocoder,createFallbackGeocoder,geocodeMissingListings};
+});

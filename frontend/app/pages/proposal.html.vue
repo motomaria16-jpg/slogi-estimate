@@ -1,0 +1,30 @@
+<script setup lang="ts">
+import { projectWork } from '~/utils/format'
+
+useHead({ title: 'КП' })
+const { ready } = useSlogiRuntime()
+const { proposalProjects } = useProjects()
+const { openProject } = usePropertyModal()
+const query = ref('')
+const filter = ref('')
+const selectedId = ref('')
+const filters = [{ key: '', label: 'Все' }, { key: 'draft', label: 'Подготовка' }, { key: 'prepared', label: 'Готово к отправке' }, { key: 'sent', label: 'Отправлено' }]
+const visible = computed(() => proposalProjects.value.filter(project => {
+  const proposal = projectWork(project).proposal || {}
+  const search = [project.address, project.clusterName, projectWork(project).landlordContact?.name].join(' ').toLocaleLowerCase('ru')
+  return (!query.value || search.includes(query.value.toLocaleLowerCase('ru'))) && (!filter.value || (proposal.status || 'draft') === filter.value)
+}))
+function open(project: any) { selectedId.value = project.id; openProject(project.id, 'proposal', 'proposal') }
+</script>
+
+<template>
+  <div class="page">
+    <header class="page-header"><div class="page-title-line"><h1>КП</h1><span class="count-chip">{{ proposalProjects.length }} {{ proposalProjects.length === 1 ? 'объект' : 'объектов' }}</span></div></header>
+    <section class="filter-bar"><label class="search-field"><span>⌕</span><input v-model="query" type="search" placeholder="Поиск по адресу, кластеру или контакту" /></label><div class="filter-chips"><button v-for="item in filters" :key="item.key" :class="{ active: filter === item.key }" @click="filter = item.key">{{ item.label }}</button></div></section>
+    <section class="single-list-panel">
+      <AppLoading v-if="!ready" />
+      <div v-else-if="!visible.length" class="empty-state"><span>⌕</span><h2>Помещений на этапе КП пока нет</h2><p>После завершения просмотра нажмите «Сформировать КП» в карточке помещения.</p><NuxtLink class="button primary" to="/in-work.html">Перейти в «Помещения в работе»</NuxtLink></div>
+      <div v-else class="premises-list"><PremisesCard v-for="project in visible" :key="project.id" :item="project" context="proposal" :selected="selectedId === project.id" @open="open" @primary="open" /></div>
+    </section>
+  </div>
+</template>
