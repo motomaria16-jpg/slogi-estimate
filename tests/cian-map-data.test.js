@@ -258,7 +258,8 @@ test('search layout keeps compact hero, map controls in heading and card actions
     assert.match(page,/<PremisesCard v-for="item in items"/);
     assert.match(page,/<PremisesMap :items="items"/);
     assert.match(css,/\.split-workspace \{ display: grid; grid-template-columns: minmax\(0, 1\.45fr\) minmax\(380px, \.95fr\)/);
-    assert.match(css,/\.premises-row__actions \{[^}]*min-height: 38px/);
+    assert.match(css,/\.premises-row__actions \{[^}]*position: absolute;[^}]*min-height: 0/);
+    assert.match(css,/\.premises-row \{[^}]*border-left: 4px solid #4b7377/);
     assert.match(css,/\.split-workspace \{[^}]*align-items: start;[^}]*min-height: 0/);
     assert.match(css,/\.single-list-panel \{ min-height: 0/);
     return;

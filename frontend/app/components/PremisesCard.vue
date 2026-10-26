@@ -51,7 +51,6 @@ const primaryLabel = computed(() => {
       <div class="premises-row__price"><strong>{{ formatMoney(rent) }}</strong><span>{{ Number.isFinite(pricePerSqm) ? `${formatMoney(pricePerSqm)} / м²` : '' }}</span></div>
     </button>
     <div class="premises-row__actions">
-      <span class="premises-row__actions-spacer" aria-hidden="true" />
       <button class="button primary compact" type="button" @click="emit('primary', item)">{{ primaryLabel }}</button>
       <button v-if="context === 'search'" class="button compact" type="button" @click="emit('remove', item)">Удалить</button>
       <button v-if="context === 'in-work'" class="button danger compact" type="button" @click="emit('reject', item)">Отказ</button>

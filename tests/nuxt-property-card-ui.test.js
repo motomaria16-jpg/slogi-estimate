@@ -53,5 +53,5 @@ test('mobile layouts fit controls, keep compact cards and avoid oversized maps',
   assert.match(mobile, /\.form-row, \.proposal-terms \.form-row \{ grid-template-columns: minmax\(104px/)
   assert.match(mobile, /\.document-buttons \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/)
   assert.match(mobile, /\.calendar-days\.is-week, \.calendar-days\.is-month \{ grid-template-columns: 1fr; overflow-x: visible/)
-  assert.match(mobile, /\.premises-row__actions \{ display: grid; grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/)
+  assert.match(mobile, /\.premises-row__actions \{ position: static; display: grid; grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/)
 })
