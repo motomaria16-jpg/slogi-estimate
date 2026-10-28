@@ -57,7 +57,7 @@ const primaryLabel = computed(() => {
     <div class="premises-row__actions">
       <button class="button primary compact" type="button" @click="emit('primary', item)">{{ primaryLabel }}</button>
       <button v-if="context === 'search'" class="button compact" type="button" @click="emit('remove', item)">Удалить</button>
-      <button v-if="context === 'in-work' || context === 'proposal'" class="button danger compact" type="button" @click="emit('reject', item)">Отказ</button>
+      <button v-if="context === 'in-work' || context === 'proposal' || context === 'approval'" class="button danger compact" type="button" @click="emit('reject', item)">Отказ</button>
     </div>
   </article>
 </template>

@@ -26,6 +26,7 @@ const editorOpen = ref(false)
 const selectedEvent = ref<CalendarEvent | null>(null)
 const reminderEvent = ref<CalendarEvent | null>(null)
 const editingId = ref('')
+const deletingEvent = ref(false)
 const taskForm = reactive({ title: '', date: '', time: '10:00', duration: 60, responsible: '', description: '', reminder: 30 })
 let reminderTimer: ReturnType<typeof setInterval> | undefined
 
@@ -46,7 +47,7 @@ const events = computed<CalendarEvent[]>(() => {
   const result: CalendarEvent[] = []
   props.projects.forEach(project => {
     const work = projectWork(project)
-    ;(work.viewings || []).filter((item: any) => item.status !== 'cancelled').forEach((item: any) => result.push({
+    ;(work.viewings || []).filter((item: any) => item.status !== 'cancelled' && !item.calendarDeletedAt).forEach((item: any) => result.push({
       id: String(item.id), projectId: String(project.id), source: 'viewing', type: 'Просмотр', title: project.address,
       at: item.startsAt, endsAt: item.endsAt, responsible: item.assignedToName || item.assignedToId || 'Не указан',
       reminderMinutesBefore: Number(item.reminderMinutesBefore?.[0] ?? item.reminderMinutesBefore ?? 30)
@@ -133,6 +134,102 @@ function removeTask() {
   show('Задача удалена.')
 }
 
+function operation(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function eventProject(event: CalendarEvent) {
+  const id = String(event.projectId || '')
+  return id ? props.projects.find(project => String(project?.id || '') === id) || null : null
+}
+
+function removeViewingEvent(event: CalendarEvent) {
+  const runtime = api()
+  const project = eventProject(event)
+  if (!runtime?.phase0?.projectRepository || !project) throw new Error('Помещение для просмотра не найдено.')
+  const repository = runtime.phase0.projectRepository
+  const current = repository.get(project.id)
+  const work = projectWork(current)
+  const viewing = (work.viewings || []).find((item: any) => String(item.id) === event.id)
+  if (!viewing) throw new Error('Просмотр уже удалён из календаря.')
+
+  const pipeline = runtime.calendar?.pipelineStatus?.(current)
+  if (viewing.status === 'scheduled' && (runtime.calendar?.isInWork?.(current) || pipeline === 'proposal_started')) {
+    const service = runtime.calendar.createService({ projectRepository: repository, idFactory: (prefix: string) => runtime.pro.uid(prefix) })
+    service.cancel(project.id, {
+      operationId: operation('calendar-delete-viewing'),
+      viewingId: event.id,
+      reason: 'Удалено пользователем из календаря',
+      actorId: runtime.pro.actor().id,
+      preserveProposalStage: pipeline === 'proposal_started'
+    })
+    return
+  }
+
+  const at = new Date().toISOString()
+  repository.mutate(project.id, (draft: any) => {
+    const draftWork = projectWork(draft)
+    const target = (draftWork.viewings || []).find((item: any) => String(item.id) === event.id)
+    if (!target) throw new Error('Просмотр уже удалён из календаря.')
+    target.calendarDeletedAt = at
+    target.calendarDeletedById = runtime.pro.actor().id
+    target.updatedAt = at
+    return draft
+  }, current.phase0.revision, 'calendar-viewing-hide')
+}
+
+function removeFollowUpEvent(event: CalendarEvent) {
+  const runtime = api()
+  const project = eventProject(event)
+  if (!runtime?.phase0?.projectRepository || !project) throw new Error('Помещение для контрольной связи не найдено.')
+  const repository = runtime.phase0.projectRepository
+  const current = repository.get(project.id)
+  const currentProposal = projectWork(current).proposal || {}
+  const taskId = String(currentProposal.followUpTaskId || event.id)
+  const at = new Date().toISOString()
+  repository.mutate(project.id, (draft: any) => {
+    const draftWork = projectWork(draft)
+    const proposal = draftWork.proposal || {}
+    proposal.followUpTaskId = null
+    proposal.followUpDueAt = null
+    proposal.updatedAt = at
+    draftWork.proposal = proposal
+    return draft
+  }, current.phase0.revision, 'calendar-follow-up-remove')
+  runtime.pro.remove('tasks', taskId)
+}
+
+function removeManualEvent(event: CalendarEvent) {
+  const runtime = api()
+  if (!runtime?.pro) throw new Error('Календарь ещё загружается.')
+  runtime.pro.remove('tasks', event.id)
+  refreshManualTasks()
+}
+
+function removalConfirmation(event: CalendarEvent) {
+  const when = formatDate(event.at, true)
+  if (event.source === 'viewing') return `Удалить просмотр «${event.title}» на ${when} из календаря? Назначенный просмотр будет отменён; завершённый останется в истории помещения.`
+  if (event.source === 'follow-up') return `Удалить контрольную связь «${event.title}» на ${when}? Задача будет снята с помещения.`
+  return `Удалить задачу «${event.title}» на ${when} из календаря?`
+}
+
+async function removeSelectedEvent() {
+  const event = selectedEvent.value
+  if (!event || deletingEvent.value || !confirm(removalConfirmation(event))) return
+  deletingEvent.value = true
+  try {
+    if (event.source === 'viewing') removeViewingEvent(event)
+    else if (event.source === 'follow-up') removeFollowUpEvent(event)
+    else removeManualEvent(event)
+    selectedEvent.value = null
+    show('Событие удалено из календаря.')
+  } catch (reason) {
+    show(reason instanceof Error ? reason.message : 'Не удалось удалить событие.', 'error')
+  } finally {
+    deletingEvent.value = false
+  }
+}
+
 function toIcsStamp(value: string) { return new Date(value).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '') }
 function escapeIcs(value: string) { return String(value || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;') }
 function buildIcs(items: CalendarEvent[]) {
@@ -182,7 +279,7 @@ onBeforeUnmount(() => { window.removeEventListener('slogi:professional-state', h
   <section class="calendar-shell">
     <div class="calendar-toolbar">
       <div class="calendar-nav"><button class="icon-button" aria-label="Предыдущий период" @click="move(-1)">‹</button><button class="button compact" @click="activeDate = new Date()">Сегодня</button><button class="icon-button" aria-label="Следующий период" @click="move(1)">›</button><h2>{{ rangeTitle }}</h2></div>
-      <div class="calendar-tools"><button class="button compact" @click="openEditor()">Добавить</button><button class="button compact" @click="enableNotifications">Уведомления</button><button class="button compact" :disabled="!events.length" @click="downloadCalendar()">В календарь (.ics)</button><div class="segmented"><button :class="{ active: view === 'day' }" @click="view = 'day'">День</button><button :class="{ active: view === 'week' }" @click="view = 'week'">Неделя</button><button :class="{ active: view === 'month' }" @click="view = 'month'">Месяц</button></div></div>
+      <div class="calendar-tools"><button class="button primary compact calendar-add-button" @click="openEditor()">Добавить</button><button class="button compact calendar-tool-secondary calendar-tool-secondary--notifications" @click="enableNotifications">Уведомления</button><button class="button compact calendar-tool-secondary calendar-tool-secondary--export" :disabled="!events.length" @click="downloadCalendar()">В календарь (.ics)</button><div class="segmented"><button :class="{ active: view === 'day' }" @click="view = 'day'">День</button><button :class="{ active: view === 'week' }" @click="view = 'week'">Неделя</button><button :class="{ active: view === 'month' }" @click="view = 'month'">Месяц</button></div></div>
     </div>
     <div v-if="view === 'month'" class="calendar-weekdays"><span v-for="weekday in weekdays" :key="weekday">{{ weekday }}</span></div>
     <div class="calendar-days" :class="`is-${view}`">
@@ -196,7 +293,7 @@ onBeforeUnmount(() => { window.removeEventListener('slogi:professional-state', h
 
   <div v-if="editorOpen" class="calendar-modal-backdrop" @click.self="editorOpen = false"><section class="calendar-modal" role="dialog" aria-modal="true"><header><h2>{{ editingId ? 'Изменить задачу' : 'Новая задача' }}</h2><button class="close-button" @click="editorOpen = false">×</button></header><label class="stacked-field"><span>Название</span><input v-model="taskForm.title" /></label><div class="calendar-form-grid"><label class="stacked-field"><span>Дата</span><input v-model="taskForm.date" type="date" /></label><label class="stacked-field"><span>Время</span><input v-model="taskForm.time" type="time" /></label></div><div class="calendar-form-grid"><label class="stacked-field"><span>Длительность</span><select v-model.number="taskForm.duration"><option :value="30">30 минут</option><option :value="60">1 час</option><option :value="90">1,5 часа</option><option :value="120">2 часа</option></select></label><label class="stacked-field"><span>Напомнить</span><select v-model.number="taskForm.reminder"><option :value="0">Не напоминать</option><option :value="15">За 15 минут</option><option :value="30">За 30 минут</option><option :value="60">За 1 час</option><option :value="1440">За 1 день</option></select></label></div><label class="stacked-field"><span>Ответственный</span><input v-model="taskForm.responsible" /></label><label class="stacked-field"><span>Описание</span><textarea v-model="taskForm.description" rows="3" /></label><footer><button v-if="editingId" class="button danger" @click="removeTask">Удалить</button><span /><button class="button" @click="editorOpen = false">Отменить</button><button class="button primary" @click="saveTask">Сохранить</button></footer></section></div>
 
-  <div v-if="selectedEvent" class="calendar-modal-backdrop" @click.self="selectedEvent = null"><section class="calendar-modal compact" role="dialog" aria-modal="true"><header><h2>{{ selectedEvent.type }}</h2><button class="close-button" @click="selectedEvent = null">×</button></header><h3>{{ selectedEvent.title }}</h3><p>{{ formatDate(selectedEvent.at, true) }}</p><p>Ответственный: {{ selectedEvent.responsible }}</p><p v-if="selectedEvent.description">{{ selectedEvent.description }}</p><footer><button v-if="selectedEvent.source === 'manual'" class="button" @click="openEditor(selectedEvent); selectedEvent = null">Изменить</button><span /><button class="button" @click="downloadCalendar([selectedEvent!], 'slogi-event.ics')">В календарь</button><button class="button primary" @click="openGoogle(selectedEvent!)">Google Calendar</button></footer></section></div>
+  <div v-if="selectedEvent" class="calendar-modal-backdrop" @click.self="selectedEvent = null"><section class="calendar-modal compact" role="dialog" aria-modal="true"><header><h2>{{ selectedEvent.type }}</h2><button class="close-button" @click="selectedEvent = null">×</button></header><h3>{{ selectedEvent.title }}</h3><p>{{ formatDate(selectedEvent.at, true) }}</p><p>Ответственный: {{ selectedEvent.responsible }}</p><p v-if="selectedEvent.description">{{ selectedEvent.description }}</p><footer><div class="calendar-event-management"><button class="button danger" :disabled="deletingEvent" @click="removeSelectedEvent">Удалить</button><button v-if="selectedEvent.source === 'manual'" class="button" @click="openEditor(selectedEvent); selectedEvent = null">Изменить</button></div><span /><button class="button" @click="downloadCalendar([selectedEvent!], 'slogi-event.ics')">В календарь</button><button class="button primary" @click="openGoogle(selectedEvent!)">Google Calendar</button></footer></section></div>
 
   <div v-if="reminderEvent" class="calendar-reminder" role="alertdialog" aria-live="assertive"><div><b>Напоминание</b><span>{{ reminderEvent.type }} · {{ reminderEvent.title }}</span><small>{{ formatDate(reminderEvent.at, true) }}</small></div><button class="button compact" @click="reminderEvent = null">Понятно</button></div>
 </template>

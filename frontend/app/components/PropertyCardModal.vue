@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { approvalTabReady, proposalTabReady } from '~/utils/format'
+import { approvalTabReady, listingUrlOf, proposalTabReady } from '~/utils/format'
 
 const { state, close } = usePropertyModal()
 const { projects, refresh } = useProjects()
@@ -15,15 +15,7 @@ const isInWork = computed(() => Boolean(project.value && api()?.phase0?.spaceLif
 const canOpenProposal = computed(() => Boolean(project.value && proposalTabReady(project.value)))
 const canOpenApproval = computed(() => Boolean(project.value && approvalTabReady(project.value)))
 const canAgreeApproval = computed(() => Boolean(project.value && api()?.approval?.canAgree?.(project.value)))
-const listingUrl = computed(() => String(
-  form.listingUrl
-  || project.value?.listingUrl
-  || project.value?.canonicalUrl
-  || project.value?.phase0?.listingUrl
-  || project.value?.phase0?.canonicalUrl
-  || project.value?.phase0?.spaceCard?.listingUrl
-  || ''
-).trim())
+const listingUrl = computed(() => listingUrlOf(form.listingUrl, project.value, state.value.draft))
 const tabs = computed(() => [
   { key: 'object', label: 'Объект', enabled: true, hint: '' },
   { key: 'workflow', label: 'Сопровождение', enabled: isInWork.value, hint: 'Доступно после добавления помещения в работу' },
@@ -45,7 +37,7 @@ function cardFrom(source: any) {
     ...raw,
     id: source?.id || raw.id,
     source: source?.phase0?.source || source?.source || raw.source || 'manual',
-    listingUrl: source?.phase0?.listingUrl || source?.listingUrl || raw.listingUrl || '',
+    listingUrl: listingUrlOf(source, raw),
     address: source?.address || raw.address || '',
     geo: raw.geo || { lat: source?.latitude, lng: source?.longitude },
     cluster: raw.cluster || { id: source?.clusterId || '', name: source?.clusterName || '', status: source?.clusterId || source?.clusterName ? 'inside' : 'not_computed', hasSlogiCenter: null },
@@ -68,7 +60,7 @@ function resetForm() {
     description: source.description || source.phase0?.listingDescription || '',
     source: source.source || source.phase0?.source || 'manual',
     address: card.address || source.address || '',
-    listingUrl: card.listingUrl || source.listingUrl || source.canonicalUrl || source.phase0?.listingUrl || source.phase0?.canonicalUrl || '',
+    listingUrl: listingUrlOf(card, source),
     latitude: card.geo?.lat ?? source.latitude ?? null,
     longitude: card.geo?.lng ?? source.longitude ?? null,
     clusterId: card.cluster?.id || source.clusterId || '',

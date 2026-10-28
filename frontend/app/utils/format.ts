@@ -24,6 +24,28 @@ export function projectWork(project: any) {
   return projectCard(project)?.work || {}
 }
 
+export function listingUrlOf(...sources: any[]) {
+  for (const source of sources) {
+    const candidates = typeof source === 'string'
+      ? [source]
+      : [
+          source?.listingUrl,
+          source?.canonicalUrl,
+          source?.spaceCard?.listingUrl,
+          source?.spaceCard?.canonicalUrl,
+          source?.phase0?.listingUrl,
+          source?.phase0?.canonicalUrl,
+          source?.phase0?.spaceCard?.listingUrl,
+          source?.phase0?.spaceCard?.canonicalUrl
+        ]
+    const url = candidates
+      .map(value => String(value || '').trim())
+      .find(value => /^https?:\/\//iu.test(value))
+    if (url) return url
+  }
+  return ''
+}
+
 export function pipelineStatus(project: any) {
   const work = projectWork(project)
   return work?.pipeline?.status || work.pipelineStatus || 'contact_pending'

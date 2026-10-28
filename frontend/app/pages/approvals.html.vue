@@ -18,6 +18,7 @@ const visible = computed(() => approvalProjects.value.filter((project) => {
 }))
 function open(project: any) { selectedId.value = project.id; openProject(project.id, 'approval', 'approval') }
 function openFromMap(id: string) { const project = visible.value.find(item => String(item.id) === id); if (project) open(project) }
+function reject(project: any) { open(project) }
 </script>
 
 <template>
@@ -29,7 +30,7 @@ function openFromMap(id: string) { const project = visible.value.find(item => St
         <div class="list-panel">
           <AppLoading v-if="!ready" />
           <div v-else-if="!visible.length" class="empty-state"><span>✓</span><h2>Помещений на согласовании пока нет</h2><p>После нажатия «КП отправлено» помещение автоматически появится в этом разделе.</p><NuxtLink class="button primary" to="/proposal.html">Перейти к коммерческим предложениям</NuxtLink></div>
-          <div v-else class="premises-list"><PremisesCard v-for="project in visible" :key="project.id" :item="project" context="approval" :selected="selectedId === project.id" @open="open" @primary="open" /></div>
+          <div v-else class="premises-list"><PremisesCard v-for="project in visible" :key="project.id" :item="project" context="approval" :selected="selectedId === project.id" @open="open" @primary="open" @reject="reject" /></div>
         </div>
         <aside class="map-panel">
           <div class="panel-heading"><div><h2>Расположение</h2><p>Объекты на согласовании</p></div><span class="count-chip">{{ visible.length }} {{ visible.length === 1 ? 'точка' : 'точек' }}</span></div>

@@ -72,9 +72,17 @@ test('viewing media exposes real upload progress and an unambiguous completion s
 
 test('calendar and AI assistant use the available viewport height', () => {
   const css = read('frontend/app/assets/css/main.css')
-  assert.match(css, /\.calendar-shell \{[^}]*height: calc\(100dvh - 170px\)/)
+  assert.match(css, /\.calendar-shell \{[^}]*height: calc\(100dvh - 88px\)/)
   assert.match(css, /\.calendar-days\.is-month \{ grid-template-rows: repeat\(6, minmax\(0, 1fr\)\)/)
+  assert.match(css, /\.button\.calendar-tool-secondary \{[^}]*min-height: 30px/)
   assert.match(css, /\.ai-assistant-panel \{[^}]*height: calc\(100dvh - 24px\)/)
+})
+
+test('button variants keep readable colours on hover', () => {
+  const css = read('frontend/app/assets/css/main.css')
+  assert.match(css, /\.button\.primary:hover:not\(:disabled\) \{[^}]*background: #35575d;[^}]*color: white/)
+  assert.match(css, /\.button\.accent:hover:not\(:disabled\) \{[^}]*background: #e7c55e;[^}]*color: #513b0f/)
+  assert.match(css, /\.button\.danger:hover:not\(:disabled\) \{[^}]*background: var\(--red-soft\);[^}]*color: #8f4439/)
 })
 
 test('mobile layouts fit controls, keep compact cards and avoid oversized maps', () => {
@@ -117,6 +125,7 @@ test('proposal list exposes rejection and map markers open the canonical card', 
 test('approval keeps agreement in the shared footer and the card header is stable in every context', () => {
   const modal = read('frontend/app/components/PropertyCardModal.vue')
   const approval = read('frontend/app/components/PropertyApprovalTab.vue')
+  const format = read('frontend/app/utils/format.ts')
   const css = read('frontend/app/assets/css/main.css')
   assert.doesNotMatch(approval, /Для согласования нужны подписанный ДА/)
   assert.doesNotMatch(approval, /Для варианта «Иная причина» комментарий обязателен/)
@@ -125,5 +134,18 @@ test('approval keeps agreement in the shared footer and the card header is stabl
   assert.match(modal, /<footer class="property-footer"><button v-if="activeTab === 'approval'"[^>]*>Согласовано<\/button><button class="button"[^>]*>Отменить<\/button><button class="button primary"/)
   assert.match(modal, /class="property-header__actions"/)
   assert.match(modal, /v-if="listingUrl" :href="listingUrl"/)
+  assert.match(modal, /listingUrlOf\(form\.listingUrl, project\.value, state\.value\.draft\)/)
+  assert.match(format, /source\?\.spaceCard\?\.canonicalUrl/)
+  assert.match(format, /source\?\.phase0\?\.spaceCard\?\.canonicalUrl/)
+  assert.match(format, /\^https\?:\\\/\\\//)
   assert.match(css, /\.property-header \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto/)
+})
+
+test('approval list exposes the refusal action and opens the canonical approval form', () => {
+  const card = read('frontend/app/components/PremisesCard.vue')
+  const approval = read('frontend/app/pages/approvals.html.vue')
+  assert.match(card, /context === 'approval'/)
+  assert.match(approval, /@reject="reject"/)
+  assert.match(approval, /function reject\(project: any\) \{ open\(project\) \}/)
+  assert.match(approval, /openProject\(project\.id, 'approval', 'approval'\)/)
 })

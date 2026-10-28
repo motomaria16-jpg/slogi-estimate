@@ -34,7 +34,7 @@ const project = {
   id: 'approval-browser-fixture',
   address: 'Москва, улица Согласования, 1',
   clusterName: 'Тестовый кластер',
-  phase0: { revision: 7, source: 'manual', spaceCard: { id: 'approval-browser-fixture', address: 'Москва, улица Согласования, 1', work: {
+  phase0: { revision: 7, source: 'manual', spaceCard: { id: 'approval-browser-fixture', address: 'Москва, улица Согласования, 1', canonicalUrl: 'https://example.test/listing/approval-browser-fixture', work: {
     status: 'closed', stage: 'approval', pipeline: { status: 'approval_pending' },
     landlordContact: { name: 'Арендодатель' },
     viewings: [{ id: 'viewing-1', status: 'completed', attachments: [{ id: 'p', kind: 'photo', status: 'uploaded' }, { id: 'v', kind: 'video', status: 'uploaded' }] }],
@@ -44,9 +44,10 @@ const project = {
 }
 await context.addInitScript(value => {
   localStorage.setItem('slogi_locations_v1', JSON.stringify([value]))
-  document.documentElement.setAttribute('data-slogi-access', 'granted')
+  if (document.documentElement) document.documentElement.setAttribute('data-slogi-access', 'granted')
 }, project)
 await context.route('**/legacy/shared-workspace.js', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: `
+  document.documentElement.setAttribute('data-slogi-access','granted');
   window.SlogiCloud={ready:true,user:{id:'approval-test',user_metadata:{role:'Администратор'}},workspaceId:'approval-test',sync:async()=>({}),schedulePush(){}};
   window.dispatchEvent(new CustomEvent('slogi:workspace-ready'));
 ` }))
@@ -58,10 +59,12 @@ page.on('console', message => { if (message.type() === 'error') issues.push(mess
 try {
   await page.goto(`${origin}/approvals.html`, { waitUntil: 'domcontentloaded' })
   await page.getByRole('heading', { name: 'Согласование', exact: true }).waitFor()
-  await page.getByText('Москва, улица Согласования, 1', { exact: true }).click()
+  await page.getByRole('button', { name: 'Отказ', exact: true }).click()
   await page.getByRole('heading', { name: 'Документы согласования' }).waitFor()
+  await page.getByRole('link', { name: 'Открыть объявление' }).waitFor()
+  assert.equal(await page.getByRole('link', { name: 'Открыть объявление' }).getAttribute('href'), 'https://example.test/listing/approval-browser-fixture')
   assert.deepEqual(await page.locator('.property-tabs button').allTextContents(), ['Объект', 'Сопровождение', 'КП', 'Согласование'])
-  assert.equal(await page.getByRole('button', { name: 'Согласовано' }).isDisabled(), true)
+  assert.equal(await page.getByRole('button', { name: 'Согласовано', exact: true }).isDisabled(), true)
   const desktop = await page.locator('.property-card').evaluate(card => ({
     overflow: card.scrollWidth - card.clientWidth,
     bodyOverflow: card.querySelector('.property-body').scrollHeight - card.querySelector('.property-body').clientHeight,
@@ -79,7 +82,7 @@ try {
     { name: 'Доверенность.pdf', mimeType: 'application/pdf', buffer: Buffer.from('authority') }
   ])
   await page.getByText('Доверенность.pdf').waitFor()
-  assert.equal(await page.getByRole('button', { name: 'Согласовано' }).isEnabled(), true)
+  assert.equal(await page.getByRole('button', { name: 'Согласовано', exact: true }).isEnabled(), true)
 
   await page.setViewportSize({ width: 375, height: 760 })
   const mobile = await page.locator('.property-card').evaluate(card => ({
@@ -93,7 +96,7 @@ try {
   await page.setViewportSize({ width: 1440, height: 900 })
 
   page.once('dialog', dialog => dialog.accept())
-  await page.getByRole('button', { name: 'Согласовано' }).click()
+  await page.getByRole('button', { name: 'Согласовано', exact: true }).click()
   await page.waitForURL(/under-development\.html/)
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('slogi_locations_v1') || '[]')[0])
   assert.equal(stored.phase0.spaceCard.work.pipeline.status, 'repair')
