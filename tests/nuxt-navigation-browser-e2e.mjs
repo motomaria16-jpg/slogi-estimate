@@ -148,7 +148,7 @@ try {
   assert.equal(await page.locator('.pipeline-steps').count(), 0)
   const desktopObjectDialog = await page.locator('.property-dialog').boundingBox()
   assert.ok(desktopObjectDialog.width <= 1041)
-  assert.ok(desktopObjectDialog.height <= 760)
+  assert.ok(desktopObjectDialog.height <= 680)
   await capture('desktop-property-object.png')
   await page.setViewportSize({ width: 375, height: 760 })
   const mobileObject = await page.locator('.property-card').evaluate(card => ({
@@ -216,7 +216,7 @@ try {
   })
   assert.ok(desktopProposalCard.overflow <= 1)
   assert.ok(Math.abs(desktopProposalCard.termsHeight - desktopProposalCard.packageHeight) <= 1)
-  assert.ok((await page.locator('.property-dialog').boundingBox()).height <= 760)
+  assert.ok((await page.locator('.property-dialog').boundingBox()).height <= 680)
   await capture('desktop-property-proposal.png')
   await page.setViewportSize({ width: 375, height: 760 })
   const mobileCard = await page.locator('.property-card').evaluate(card => ({

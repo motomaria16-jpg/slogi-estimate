@@ -71,7 +71,9 @@ test('shared workspace actions, fixed property card and full calendar work in th
     const objectBox = await page.locator('.property-dialog').boundingBox()
     const objectHeight = objectBox.height
     assert.ok(objectBox.width >= 1039 && objectBox.width <= 1041)
-    assert.ok(objectHeight >= 720 && objectHeight <= 761)
+    assert.ok(objectHeight >= 679 && objectHeight <= 681)
+    const objectBodyOverflow = await page.locator('.property-body').evaluate(body => body.scrollHeight - body.clientHeight)
+    assert.ok(objectBodyOverflow <= 1, `object_body_overflow:${objectBodyOverflow}`)
     assert.deepEqual(await page.locator('.property-footer .button').allTextContents(), ['Отменить', 'Сохранить'])
     await page.getByRole('button', { name: 'Отменить', exact: true }).click()
 
@@ -88,6 +90,8 @@ test('shared workspace actions, fixed property card and full calendar work in th
     const secondTabHeight = (await page.locator('.property-dialog').boundingBox()).height
     const workflowCardHeights = await page.locator('.workflow-card').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height))
     assert.equal(firstTabHeight, secondTabHeight)
+    const workflowBodyOverflow = await page.locator('.property-body').evaluate(body => body.scrollHeight - body.clientHeight)
+    assert.ok(workflowBodyOverflow <= 1, `workflow_body_overflow:${workflowBodyOverflow}`)
     assert.ok(workflowCardHeights.length >= 4)
     assert.ok(Math.max(...workflowCardHeights) - Math.min(...workflowCardHeights) <= 1)
     await page.getByRole('button', { name: 'КП', exact: true }).click()
