@@ -64,7 +64,7 @@ test('shared workspace actions, fixed property card and full calendar work in th
     await page.getByRole('button', { name: 'Добавить помещение' }).click()
     await page.getByRole('heading', { name: 'Карточка помещения' }).waitFor()
     const objectHeight = (await page.locator('.property-dialog').boundingBox()).height
-    assert.ok(objectHeight >= 700 && objectHeight <= 761)
+    assert.ok(objectHeight >= 620 && objectHeight <= 661)
     assert.deepEqual(await page.locator('.property-footer .button').allTextContents(), ['Отменить', 'Сохранить'])
     await page.getByRole('button', { name: 'Отменить', exact: true }).click()
 
@@ -79,7 +79,10 @@ test('shared workspace actions, fixed property card and full calendar work in th
     await page.getByRole('button', { name: 'Сопровождение', exact: true }).click()
     await page.getByRole('heading', { name: 'Контакт арендодателя' }).waitFor()
     const secondTabHeight = (await page.locator('.property-dialog').boundingBox()).height
+    const workflowCardHeights = await page.locator('.workflow-card').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height))
     assert.equal(firstTabHeight, secondTabHeight)
+    assert.ok(workflowCardHeights.length >= 4)
+    assert.ok(Math.max(...workflowCardHeights) - Math.min(...workflowCardHeights) <= 1)
     assert.deepEqual(await page.locator('.property-footer .button').allTextContents(), ['Отменить', 'Сохранить'])
     assert.deepEqual(issues, [])
   } finally {
