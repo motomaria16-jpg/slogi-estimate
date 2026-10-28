@@ -63,7 +63,9 @@ test('shared workspace actions, fixed property card and full calendar work in th
 
     await page.getByRole('button', { name: 'Добавить помещение' }).click()
     await page.getByRole('heading', { name: 'Карточка помещения' }).waitFor()
-    const objectHeight = (await page.locator('.property-dialog').boundingBox()).height
+    const objectBox = await page.locator('.property-dialog').boundingBox()
+    const objectHeight = objectBox.height
+    assert.ok(objectBox.width >= 1039 && objectBox.width <= 1041)
     assert.ok(objectHeight >= 620 && objectHeight <= 661)
     assert.deepEqual(await page.locator('.property-footer .button').allTextContents(), ['Отменить', 'Сохранить'])
     await page.getByRole('button', { name: 'Отменить', exact: true }).click()
@@ -71,7 +73,7 @@ test('shared workspace actions, fixed property card and full calendar work in th
     await page.goto(`${origin}/in-work.html`, { waitUntil: 'domcontentloaded' })
     await page.evaluate(() => {
       const id = 'fixed-card-test'
-      localStorage.setItem('slogi_locations_v1', JSON.stringify([{ id, address: 'Москва, тестовая улица, 1', phase0: { revision: 1, source: 'manual', spaceCard: { id, source: 'manual', address: 'Москва, тестовая улица, 1', work: { status: 'in_work', takenAt: new Date().toISOString(), pipeline: { status: 'contact_pending' }, viewings: [] } } } }]))
+      localStorage.setItem('slogi_locations_v1', JSON.stringify([{ id, address: 'Москва, тестовая улица, 1', phase0: { revision: 1, source: 'manual', spaceCard: { id, source: 'manual', address: 'Москва, тестовая улица, 1', work: { status: 'in_work', takenAt: new Date().toISOString(), pipeline: { status: 'viewing_completed' }, viewings: [{ id: 'viewing-test', status: 'completed', attachments: [{ id: 'photo-test', kind: 'photo', status: 'uploaded' }, { id: 'video-test', kind: 'video', status: 'uploaded' }] }] } } } }]))
       window.dispatchEvent(new CustomEvent('slogi:locations-updated'))
     })
     await page.getByText('Москва, тестовая улица, 1', { exact: true }).click()
@@ -83,6 +85,13 @@ test('shared workspace actions, fixed property card and full calendar work in th
     assert.equal(firstTabHeight, secondTabHeight)
     assert.ok(workflowCardHeights.length >= 4)
     assert.ok(Math.max(...workflowCardHeights) - Math.min(...workflowCardHeights) <= 1)
+    await page.getByRole('button', { name: 'КП', exact: true }).click()
+    await page.getByRole('heading', { name: 'Коммерческие условия' }).waitFor()
+    const proposalBoxes = await page.locator('.proposal-terms, .proposal-package').evaluateAll(cards => cards.map(card => ({ width: card.getBoundingClientRect().width, height: card.getBoundingClientRect().height })))
+    assert.equal(proposalBoxes.length, 2)
+    assert.ok(proposalBoxes[1].width > proposalBoxes[0].width * 1.8)
+    assert.ok(Math.abs(proposalBoxes[1].height - proposalBoxes[0].height) <= 1)
+    assert.equal((await page.locator('.property-dialog').boundingBox()).height, firstTabHeight)
     assert.deepEqual(await page.locator('.property-footer .button').allTextContents(), ['Отменить', 'Сохранить'])
     assert.deepEqual(issues, [])
   } finally {

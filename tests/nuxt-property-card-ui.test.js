@@ -33,7 +33,7 @@ test('workflow progress strip is removed and the shared card has a fixed size an
   assert.doesNotMatch(css, /\.pipeline-steps/)
   assert.match(css, /strong, b \{ font-weight: 400; \}/)
   assert.match(css, /\.form-row \{[^}]*min-height: 46px/)
-  assert.match(css, /\.property-dialog \{[^}]*width: min\(1120px,[^}]*height: min\(660px, calc\(100dvh - 32px\)\)/)
+  assert.match(css, /\.property-dialog \{[^}]*width: min\(1040px,[^}]*height: min\(660px, calc\(100dvh - 32px\)\)/)
   assert.match(css, /\.property-card \{[^}]*height: 100%;[^}]*max-height: none/)
   assert.match(css, /\.workflow-grid \{[^}]*grid-auto-rows: 1fr;[^}]*align-items: stretch/)
   assert.match(css, /\.workflow-card \{ height: 100%; min-height: 0; \}/)
@@ -44,8 +44,8 @@ test('workflow progress strip is removed and the shared card has a fixed size an
 
 test('proposal blocks share one compact height and the package avoids oversized fields', () => {
   const css = read('frontend/app/assets/css/main.css')
-  assert.match(css, /\.proposal-workflow \{[^}]*align-items: stretch/)
-  assert.match(css, /\.proposal-terms, \.proposal-package \{ display: flex;[^}]*flex-direction: column/)
+  assert.match(css, /\.proposal-workflow \{[^}]*grid-template-columns: minmax\(270px, \.58fr\) minmax\(520px, 1\.55fr\);[^}]*align-items: stretch;[^}]*height: 100%/)
+  assert.match(css, /\.proposal-terms, \.proposal-package \{ display: flex;[^}]*height: 100%;[^}]*flex-direction: column/)
   assert.match(css, /\.stacked-field textarea \{[^}]*min-height: 76px/)
   assert.match(css, /\.proposal-terms \.card-actions \{[^}]*margin-top: auto/)
 })
