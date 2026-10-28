@@ -114,11 +114,30 @@
     work.approval=approval;
     return next;
   }
+  function removeDocument(project,command={},context={}){
+    const kind=text(command.kind);
+    if(!DOCUMENT_KINDS.includes(kind))throw new Error('Неизвестный тип документа.');
+    const {next,work}=assertCard(project),approval=normalize(work.approval),at=text(context.now)||new Date().toISOString();
+    if(approval.status!=='pending')throw new Error('Согласование уже завершено.');
+    if(kind==='ownershipProof'){
+      const attachmentType=text(command.attachmentType);
+      if(!attachmentType)throw new Error('Не указан документ для удаления.');
+      approval.documents.ownershipProofs=approval.documents.ownershipProofs.filter(item=>item.attachmentType!==attachmentType);
+    }else{
+      const current=approval.documents[kind];
+      const attachmentType=text(command.attachmentType);
+      if(attachmentType&&current.attachmentType!==attachmentType)return next;
+      approval.documents[kind]=normalizeDocument({},kind);
+    }
+    approval.updatedAt=at;
+    work.approval=approval;
+    return next;
+  }
   function requiredDocuments(approval){
     const normalized=normalize(approval);
     return{
       signedLease:Boolean(normalized.documents.signedLease.name),
-      ownershipProof:Boolean(normalized.documents.ownershipProofs.length)
+      ownershipProof:normalized.documents.ownershipProofs.some(document=>Boolean(document.name))
     };
   }
   function canAgree(project){
@@ -146,6 +165,6 @@
 
   return Object.freeze({
     STATUSES,DOCUMENT_KINDS,REJECTION_REASONS,REJECTION_LABELS,
-    normalize,approvalOf,hasApproval,isApprovalProject,start,attachDocument,requiredDocuments,canAgree,agree,reject
+    normalize,approvalOf,hasApproval,isApprovalProject,start,attachDocument,removeDocument,requiredDocuments,canAgree,agree,reject
   });
 });

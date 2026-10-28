@@ -45,6 +45,40 @@ test('ownership documents can contain several files', () => {
   assert.deepEqual(approval.approvalOf(entered).documents.ownershipProofs.map(item => item.name), ['Выписка.pdf', 'Доверенность.pdf'])
 })
 
+test('documents can be removed by exact attachment type and agreement readiness is recalculated', () => {
+  let entered = approval.start(project())
+  entered = approval.attachDocument(entered, { kind: 'protocol', name: 'Протокол.pdf', attachmentType: 'protocol-1' })
+  entered = approval.attachDocument(entered, { kind: 'signedLease', name: 'ДА.pdf', attachmentType: 'lease-1' })
+  entered = approval.attachDocument(entered, { kind: 'ownershipProof', name: 'Выписка.pdf', attachmentType: 'ownership-1' })
+  entered = approval.attachDocument(entered, { kind: 'ownershipProof', name: 'Доверенность.pdf', attachmentType: 'ownership-2' })
+  assert.equal(approval.canAgree(entered), true)
+
+  const withoutProtocol = approval.removeDocument(entered, { kind: 'protocol', attachmentType: 'protocol-1' })
+  assert.equal(approval.approvalOf(withoutProtocol).documents.protocol.name, '')
+  assert.equal(approval.canAgree(withoutProtocol), true)
+  assert.equal(approval.approvalOf(entered).documents.protocol.name, 'Протокол.pdf')
+
+  const ownershipStillReady = approval.removeDocument(withoutProtocol, { kind: 'ownershipProof', attachmentType: 'ownership-1' })
+  assert.deepEqual(approval.approvalOf(ownershipStillReady).documents.ownershipProofs.map(item => item.name), ['Доверенность.pdf'])
+  assert.equal(approval.canAgree(ownershipStillReady), true)
+
+  const ownershipMissing = approval.removeDocument(ownershipStillReady, { kind: 'ownershipProof', attachmentType: 'ownership-2' })
+  assert.equal(approval.canAgree(ownershipMissing), false)
+  const leaseMissing = approval.removeDocument(entered, { kind: 'signedLease', attachmentType: 'lease-1' })
+  assert.equal(approval.canAgree(leaseMissing), false)
+})
+
+test('document removal validates the document kind and pending approval state', () => {
+  const entered = approval.start(project())
+  assert.throws(() => approval.removeDocument(entered, { kind: 'unknown', attachmentType: 'file-1' }), /тип документа/)
+  assert.throws(() => approval.removeDocument(entered, { kind: 'ownershipProof' }), /Не указан документ/)
+
+  let ready = approval.attachDocument(entered, { kind: 'signedLease', name: 'ДА.pdf', attachmentType: 'lease-1' })
+  ready = approval.attachDocument(ready, { kind: 'ownershipProof', name: 'Выписка.pdf', attachmentType: 'ownership-1' })
+  const agreed = approval.agree(ready)
+  assert.throws(() => approval.removeDocument(agreed, { kind: 'signedLease', attachmentType: 'lease-1' }), /уже завершено/)
+})
+
 test('rejection requires a reason, requires comment for other, and archives the project', () => {
   const entered = approval.start(project())
   assert.throws(() => approval.reject(entered, {}), /причину/)

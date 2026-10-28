@@ -83,6 +83,21 @@ try {
   ])
   await page.getByText('Доверенность.pdf').waitFor()
   assert.equal(await page.getByRole('button', { name: 'Согласовано', exact: true }).isEnabled(), true)
+  assert.equal(await page.getByRole('button', { name: 'Удалить', exact: true }).count(), 3)
+
+  const leaseRow = page.locator('.approval-document-row').filter({ hasText: 'Подписанный договор аренды' })
+  page.once('dialog', dialog => dialog.accept())
+  await leaseRow.getByRole('button', { name: 'Удалить', exact: true }).click()
+  await page.getByText('Подписанный ДА.pdf').waitFor({ state: 'detached' })
+  assert.equal(await page.getByRole('button', { name: 'Согласовано', exact: true }).isDisabled(), true)
+  await inputs.nth(1).setInputFiles({ name: 'Подписанный ДА.pdf', mimeType: 'application/pdf', buffer: Buffer.from('signed lease again') })
+  await page.getByText('Подписанный ДА.pdf').waitFor()
+
+  const firstOwnership = page.locator('.approval-file-item').filter({ hasText: 'Выписка.pdf' })
+  page.once('dialog', dialog => dialog.accept())
+  await firstOwnership.getByRole('button', { name: 'Удалить', exact: true }).click()
+  await page.getByText('Выписка.pdf').waitFor({ state: 'detached' })
+  assert.equal(await page.getByRole('button', { name: 'Согласовано', exact: true }).isEnabled(), true)
 
   await page.setViewportSize({ width: 375, height: 760 })
   const mobile = await page.locator('.property-card').evaluate(card => ({

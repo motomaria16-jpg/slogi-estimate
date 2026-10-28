@@ -149,3 +149,18 @@ test('approval list exposes the refusal action and opens the canonical approval 
   assert.match(approval, /function reject\(project: any\) \{ open\(project\) \}/)
   assert.match(approval, /openProject\(project\.id, 'approval', 'approval'\)/)
 })
+
+test('approval documents expose explicit deletion and recalculate agreement readiness', () => {
+  const component = read('frontend/app/components/PropertyApprovalTab.vue')
+  const domain = read('approval-stage.js')
+  const css = read('frontend/app/assets/css/main.css')
+  assert.match(component, /removeDocument\('protocol', documents\.protocol\)/)
+  assert.match(component, /removeDocument\('signedLease', documents\.signedLease\)/)
+  assert.match(component, /removeDocument\('ownershipProof', document\)/)
+  assert.match(component, />Удалить<\/button>/)
+  assert.match(component, /emit\('changed', saved\)/)
+  assert.match(domain, /function removeDocument\(project,command=\{\},context=\{\}\)/)
+  assert.match(domain, /ownershipProofs\.some\(document=>Boolean\(document\.name\)\)/)
+  assert.match(css, /\.approval-document-actions \{[^}]*display: flex/)
+  assert.match(css, /\.approval-file-item \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto/)
+})

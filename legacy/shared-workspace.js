@@ -394,6 +394,21 @@
     const downloaded=await authorizedFetch('/storage/v1/object/authenticated/'+BUCKET+'/'+rows[0].storage_path);if(!downloaded.ok)return null;
     return{blob:await downloaded.blob(),name:rows[0].file_name,mime:rows[0].mime_type};
   }
+  async function deleteAttachment(locationId,type){
+    if(!membership||!locationId||!type)return false;
+    const query='/rest/v1/slogi_shared_workspace_attachments?workspace_id=eq.'+encodeURIComponent(membership.workspace_id)+'&location_id=eq.'+encodeURIComponent(String(locationId))+'&attachment_type=eq.'+encodeURIComponent(String(type));
+    const listed=await authorizedFetch(query+'&select=storage_path');
+    if(!listed.ok)throw new Error('shared_attachment_metadata_failed');
+    const rows=await listed.json();
+    const paths=Array.from(new Set((Array.isArray(rows)?rows:[]).map(row=>String(row&&row.storage_path||'')).filter(Boolean)));
+    if(paths.length){
+      const removed=await authorizedFetch('/storage/v1/object/'+BUCKET,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({prefixes:paths})});
+      if(!removed.ok&&removed.status!==404)throw new Error('shared_attachment_delete_failed');
+    }
+    const metadata=await authorizedFetch(query,{method:'DELETE'});
+    if(!metadata.ok&&metadata.status!==404)throw new Error('shared_attachment_metadata_failed');
+    return true;
+  }
   async function deleteAttachments(locationId){
     if(!membership)return;
     const query='/rest/v1/slogi_shared_workspace_attachments?workspace_id=eq.'+encodeURIComponent(membership.workspace_id)+'&location_id=eq.'+encodeURIComponent(String(locationId));
@@ -472,6 +487,7 @@
     showAccessGate:showGate,
     saveAttachment,
     getAttachment,
+    deleteAttachment,
     deleteAttachments,
     safeName,
     download

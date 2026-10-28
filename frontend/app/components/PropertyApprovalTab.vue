@@ -14,6 +14,7 @@ const progress = reactive({ active: false, fileName: '', percent: 0, fileIndex: 
 
 const approval = computed(() => api()?.approval?.approvalOf(props.project) || { status: 'pending', documents: { protocol: {}, signedLease: {}, ownershipProofs: [] } })
 const documents = computed(() => approval.value.documents || { protocol: {}, signedLease: {}, ownershipProofs: [] })
+const isPending = computed(() => approval.value.status === 'pending')
 const canAgree = computed(() => Boolean(api()?.approval?.canAgree(props.project)) && !busy.value)
 const canReject = computed(() => Boolean(rejection.reason) && (rejection.reason !== 'other' || Boolean(rejection.comment.trim())) && !busy.value)
 const actor = computed(() => api()?.pro?.actor?.() || { id: 'workspace-member', name: 'Специалист' })
@@ -40,6 +41,7 @@ async function upload(kind: 'protocol' | 'signedLease' | 'ownershipProof', event
   const input = event.target as HTMLInputElement
   const files = Array.from(input.files || [])
   if (!files.length) return
+  if (!isPending.value) { input.value = ''; return fail(new Error('Согласование уже завершено.')) }
   busy.value = true
   Object.assign(progress, { active: true, fileName: files[0]?.name || '', percent: 0, fileIndex: 1, fileCount: files.length })
   try {
@@ -79,6 +81,27 @@ async function download(document: any) {
     if (!file?.blob) throw new Error('Файл не найден в хранилище.')
     runtime().workflow.download(file.blob, file.name || document.name)
   } catch (reason) { fail(reason) }
+}
+
+async function removeDocument(kind: 'protocol' | 'signedLease' | 'ownershipProof', document: any) {
+  if (!isPending.value) return fail(new Error('Согласование уже завершено.'))
+  if (!document?.attachmentType || !confirm(`Удалить документ «${document.name || 'Без названия'}»?`)) return
+  busy.value = true
+  try {
+    const value = runtime()
+    if (typeof value.workflow.deleteAttachment === 'function') {
+      await value.workflow.deleteAttachment(props.project.id, document.attachmentType)
+    }
+    const current = value.phase0.projectRepository.get(props.project.id)
+    const saved = value.phase0.projectRepository.mutate(props.project.id, (project: any) => value.approval.removeDocument(project, {
+      kind,
+      attachmentType: document.attachmentType,
+      actorId: actor.value.id
+    }), current.phase0.revision, `approval-${kind}-remove`)
+    emit('changed', saved)
+    show('Документ удалён.')
+  } catch (reason) { fail(reason) }
+  finally { busy.value = false }
 }
 
 async function agree() {
@@ -123,19 +146,28 @@ defineExpose({ agree })
       <div class="approval-document-row">
         <div><h4>Итоговый протокол разногласий</h4><p>Прикрепите финальную версию при наличии.</p></div>
         <button v-if="documents.protocol?.name" class="approval-file" type="button" @click="download(documents.protocol)"><span>Файл</span><strong>{{ documents.protocol.name }}</strong></button>
-        <button class="button compact" type="button" :disabled="busy" @click="trigger('protocol')">{{ documents.protocol?.name ? 'Заменить' : 'Прикрепить' }}</button>
+        <div class="approval-document-actions">
+          <button class="button compact" type="button" :disabled="busy || !isPending" @click="trigger('protocol')">{{ documents.protocol?.name ? 'Заменить' : 'Прикрепить' }}</button>
+          <button v-if="documents.protocol?.name" class="button compact danger" type="button" :disabled="busy || !isPending" @click="removeDocument('protocol', documents.protocol)">Удалить</button>
+        </div>
       </div>
       <div class="approval-document-row required">
         <div><h4>Подписанный договор аренды</h4><p>Обязательный документ.</p></div>
         <button v-if="documents.signedLease?.name" class="approval-file" type="button" @click="download(documents.signedLease)"><span>Файл</span><strong>{{ documents.signedLease.name }}</strong></button>
-        <button class="button compact" type="button" :disabled="busy" @click="trigger('signedLease')">{{ documents.signedLease?.name ? 'Заменить' : 'Прикрепить' }}</button>
+        <div class="approval-document-actions">
+          <button class="button compact" type="button" :disabled="busy || !isPending" @click="trigger('signedLease')">{{ documents.signedLease?.name ? 'Заменить' : 'Прикрепить' }}</button>
+          <button v-if="documents.signedLease?.name" class="button compact danger" type="button" :disabled="busy || !isPending" @click="removeDocument('signedLease', documents.signedLease)">Удалить</button>
+        </div>
       </div>
       <div class="approval-document-row required ownership-row">
         <div><h4>Документы о праве сдачи помещения</h4><p>Право собственности или иной подтверждающий документ.</p></div>
         <div v-if="documents.ownershipProofs?.length" class="approval-file-list">
-          <button v-for="document in documents.ownershipProofs" :key="document.attachmentType" class="approval-file" type="button" @click="download(document)"><span>Файл</span><strong>{{ document.name }}</strong></button>
+          <div v-for="document in documents.ownershipProofs" :key="document.attachmentType" class="approval-file-item">
+            <button class="approval-file" type="button" @click="download(document)"><span>Файл</span><strong>{{ document.name }}</strong></button>
+            <button class="button compact danger" type="button" :disabled="busy || !isPending" :title="`Удалить ${document.name}`" @click="removeDocument('ownershipProof', document)">Удалить</button>
+          </div>
         </div>
-        <button class="button compact" type="button" :disabled="busy" @click="trigger('ownershipProof')">Добавить</button>
+        <div class="approval-document-actions"><button class="button compact" type="button" :disabled="busy || !isPending" @click="trigger('ownershipProof')">Добавить</button></div>
       </div>
       <input ref="protocolInput" hidden type="file" accept=".pdf,.doc,.docx" @change="upload('protocol', $event)" />
       <input ref="leaseInput" hidden type="file" accept=".pdf,.doc,.docx" @change="upload('signedLease', $event)" />
