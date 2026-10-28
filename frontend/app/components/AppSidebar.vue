@@ -5,9 +5,8 @@ const { open: openAssistant } = useAiAssistant()
 const buildVersion = String((runtimeConfig.app as { buildId?: string }).buildId || '')
 const groups = [
   {
-    label: 'Поиск помещения',
+    label: 'Помещения',
     links: [
-      { to: '/available-spaces.html', label: 'Поиск помещения', shortLabel: 'Поиск', icon: '⌕' },
       { to: '/in-work.html', label: 'Помещения в работе', shortLabel: 'В работе', icon: '▥' },
       { to: '/proposal.html', label: 'КП', shortLabel: 'КП', icon: '▤' },
       { to: '/under-development.html?section=approvals', label: 'Согласование', shortLabel: 'Согласование', icon: '▤' }
@@ -23,7 +22,7 @@ const groups = [
   },
   {
     label: '',
-    links: [{ to: '/under-development.html?section=objects', label: 'Мои объекты', shortLabel: 'Объекты', icon: '▥' }]
+    links: [{ to: '/slogi-objects.html', label: 'Текущие объекты СЛОГИ', shortLabel: 'Объекты СЛОГИ', icon: '▥' }]
   }
 ]
 
@@ -44,7 +43,7 @@ function versionedTarget(destination: string) {
 
 <template>
   <aside class="sidebar" aria-label="Основное меню">
-    <NuxtLink class="brand" :to="versionedTarget('/available-spaces.html')" aria-label="СЛОГИ — главная">
+    <NuxtLink class="brand" :to="versionedTarget('/in-work.html')" aria-label="СЛОГИ — главная">
       <span v-for="(letter, index) in ['С', 'Л', 'О', 'Г', 'И']" :key="letter" :class="`brand-letter brand-letter-${index + 1}`">{{ letter }}</span>
     </NuxtLink>
     <nav class="sidebar-nav">

@@ -1,0 +1,1 @@
+import{M as e,T as t,nt as n,q as r}from"./Dotwf2UJ.js";import{f as i,u as a}from"./BzLsXE-2.js";var o=e({__name:`index`,async setup(e){let o,s,c=i();return[o,s]=n(()=>a({path:`/in-work.html`,query:c.query},{replace:!0})),await o,s(),(e,n)=>(r(),t(`span`))}});export{o as default};

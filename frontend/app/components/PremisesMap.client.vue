@@ -1,13 +1,21 @@
 <script setup lang="ts">
 import { projectCard } from '~/utils/format'
+import { isSlogiObject } from '~/utils/slogiObjects'
 
-const props = withDefaults(defineProps<{ items: any[]; selectedId?: string; showClusters?: boolean }>(), { selectedId: '', showClusters: false })
+const props = withDefaults(defineProps<{ items: readonly any[]; selectedId?: string; showClusters?: boolean; showSlogiObjects?: boolean }>(), { selectedId: '', showClusters: false, showSlogiObjects: true })
 const emit = defineEmits<{ select: [id: string] }>()
+const { objects: slogiObjects } = useSlogiObjects()
 const mapHost = ref<HTMLElement | null>(null)
 const state = ref<'loading' | 'ready' | 'error'>('loading')
 const clustersVisible = ref(props.showClusters)
 let map: any = null
 let scriptPromise: Promise<void> | null = null
+const plottedItems = computed(() => {
+  const values = props.showSlogiObjects ? [...props.items, ...slogiObjects.value] : props.items
+  const unique = new Map<string, any>()
+  values.forEach((item: any, index: number) => unique.set(String(item?.id || item?.externalId || item?.listingUrl || index), item))
+  return [...unique.values()]
+})
 
 function coordinates(item: any) {
   const card = projectCard(item)
@@ -53,14 +61,18 @@ function renderMap() {
     })
   }
   const bounds: number[][] = []
-  props.items.forEach(item => {
+  plottedItems.value.forEach(item => {
     const point = coordinates(item)
     if (!point) return
     bounds.push(point)
     const id = String(item.id || item.externalId || item.listingUrl || '')
-    const marker = new window.ymaps.Placemark(point, { hintContent: item.address || 'Помещение' }, {
-      preset: id === props.selectedId ? 'islands#redDotIcon' : 'islands#darkGreenDotIcon'
-    })
+    const slogiObject = isSlogiObject(item)
+    const marker = new window.ymaps.Placemark(point, {
+      hintContent: slogiObject ? `СЛОГИ · ${item.address || 'Текущий объект'}` : item.address || 'Помещение',
+      iconContent: slogiObject ? 'СЛОГИ' : ''
+    }, slogiObject
+      ? { preset: 'islands#darkGreenStretchyIcon', zIndex: 850 }
+      : { preset: id === props.selectedId ? 'islands#redDotIcon' : 'islands#darkGreenDotIcon' })
     marker.events.add('click', () => emit('select', id))
     map.geoObjects.add(marker)
   })
@@ -80,7 +92,7 @@ onMounted(async () => {
   }
 })
 
-watch(() => [props.items, props.selectedId], renderMap, { deep: true })
+watch(() => [plottedItems.value, props.selectedId], renderMap, { deep: true })
 watch(clustersVisible, renderMap)
 onBeforeUnmount(() => { map?.destroy?.(); map = null })
 </script>
