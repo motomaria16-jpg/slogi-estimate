@@ -11,6 +11,7 @@ const rejection = reactive({ reason: '', comment: '' })
 const photoInput = ref<HTMLInputElement | null>(null)
 const videoInput = ref<HTMLInputElement | null>(null)
 const busy = ref(false)
+const uploadProgress = reactive({ active: false, kind: 'photo' as 'photo' | 'video', fileName: '', fileIndex: 0, fileCount: 0, percent: 0 })
 
 const work = computed(() => projectWork(props.project))
 const pipeline = computed(() => pipelineStatus(props.project))
@@ -21,6 +22,7 @@ const activeViewing = computed(() => {
 const attachments = computed(() => (activeViewing.value?.attachments || []).filter((item: any) => item.status !== 'removed'))
 const hasPhoto = computed(() => attachments.value.some((item: any) => item.kind === 'photo' && item.status === 'uploaded'))
 const hasVideo = computed(() => attachments.value.some((item: any) => item.kind === 'video' && item.status === 'uploaded'))
+const canCompleteViewing = computed(() => activeViewing.value?.status === 'scheduled' && viewingStarted.value && hasPhoto.value && hasVideo.value && !busy.value)
 const viewingStarted = computed(() => Boolean(activeViewing.value && (
   activeViewing.value.status === 'completed'
   || new Date(activeViewing.value.startsAt).getTime() <= Date.now()
@@ -80,13 +82,20 @@ async function upload(kind: 'photo' | 'video', event: Event) {
   const files = Array.from((event.target as HTMLInputElement).files || [])
   if (!files.length || !activeViewing.value) return
   busy.value = true
+  Object.assign(uploadProgress, { active: true, kind, fileName: files[0]?.name || '', fileIndex: 1, fileCount: files.length, percent: 0 })
   try {
     const value = runtime()
     let current = value.phase0.projectRepository.get(props.project.id)
-    for (const file of files) {
+    for (const [index, file] of files.entries()) {
+      Object.assign(uploadProgress, { fileName: file.name, fileIndex: index + 1, percent: Math.round(index / files.length * 100) })
       const id = value.pro.uid(kind)
       const type = `viewing-${activeViewing.value.id}-${id}`
-      await value.workflow.saveAttachment(props.project.id, type, file, file.name)
+      await value.workflow.saveAttachment(props.project.id, type, file, file.name, {
+        onProgress(filePercent: number) {
+          const normalized = Math.max(0, Math.min(100, Number(filePercent) || 0))
+          uploadProgress.percent = Math.round((index + normalized / 100) / files.length * 100)
+        },
+      })
       current = value.phase0.projectRepository.mutate(props.project.id, (project: any) => {
         const target = projectWork(project).viewings.find((item: any) => item.id === activeViewing.value.id)
         target.attachments.push({ id, kind, status: 'uploaded', type, name: file.name, mimeType: file.type, uploadedAt: new Date().toISOString() })
@@ -95,7 +104,11 @@ async function upload(kind: 'photo' | 'video', event: Event) {
     }
     done(current, `${kind === 'photo' ? 'Фото' : 'Видео'} загружено.`)
   } catch (reason) { fail(reason) }
-  finally { busy.value = false; (event.target as HTMLInputElement).value = '' }
+  finally {
+    busy.value = false
+    uploadProgress.active = false
+    ;(event.target as HTMLInputElement).value = ''
+  }
 }
 
 async function removeAttachment(item: any) {
@@ -142,12 +155,17 @@ async function startProposal() {
       </section>
 
       <section class="form-card workflow-card">
-        <div class="card-heading"><h3>Фото и видео</h3><span class="badge status">{{ attachments.length }} файлов</span></div>
-        <p class="helper-text">{{ activeViewing && !viewingStarted ? 'Загрузка откроется после начала просмотра.' : 'Материалы остаются доступны после завершения: их можно добавлять и удалять.' }}</p>
+        <div class="card-heading"><h3>Фото и видео помещения</h3><span class="badge status">{{ attachments.length }} файлов</span></div>
+        <p v-if="activeViewing && !viewingStarted" class="helper-text">Загрузка откроется после начала просмотра.</p>
         <div class="media-actions"><button class="button media" :disabled="!viewingStarted || busy" @click="photoInput?.click()">＋ Добавить фото</button><button class="button media" :disabled="!viewingStarted || busy" @click="videoInput?.click()">＋ Добавить видео</button></div>
         <input ref="photoInput" hidden type="file" accept="image/*" multiple @change="upload('photo', $event)" /><input ref="videoInput" hidden type="file" accept="video/*" multiple @change="upload('video', $event)" />
+        <div v-if="uploadProgress.active" class="media-progress" aria-live="polite">
+          <div><span>Загрузка {{ uploadProgress.kind === 'photo' ? 'фото' : 'видео' }}: {{ uploadProgress.fileName }}</span><span>{{ uploadProgress.percent }}%</span></div>
+          <progress :value="uploadProgress.percent" max="100" aria-label="Прогресс загрузки файла" />
+          <small>Файл {{ uploadProgress.fileIndex }} из {{ uploadProgress.fileCount }}</small>
+        </div>
         <ul v-if="attachments.length" class="attachment-list"><li v-for="item in attachments" :key="item.id"><span><b>{{ item.kind === 'photo' ? 'Фото' : 'Видео' }}</b>{{ item.name }}</span><button aria-label="Удалить файл" @click="removeAttachment(item)">×</button></li></ul>
-        <div class="card-actions"><button class="button accent compact" :disabled="activeViewing?.status !== 'scheduled' || !viewingStarted || !hasPhoto || !hasVideo" @click="completeViewing">Завершить просмотр</button></div>
+        <div class="card-actions"><button v-if="activeViewing?.status === 'scheduled'" class="button accent compact" :disabled="!canCompleteViewing" @click="completeViewing">Завершить просмотр</button><span v-else-if="activeViewing?.status === 'completed'" class="completion-state">Просмотр завершён</span></div>
       </section>
 
       <section class="form-card workflow-card">

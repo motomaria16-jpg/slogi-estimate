@@ -40,7 +40,7 @@ test('shared workspace actions, fixed property card and full calendar work in th
   const issues = []
   page.on('pageerror', error => issues.push(error.message))
   await context.addInitScript(fixture)
-  await context.route('**/legacy/shared-workspace.js', route => route.fulfill({ contentType: 'application/javascript', body: "document.documentElement.setAttribute('data-slogi-access','granted');window.SlogiCloud={ready:true,user:{id:'test'},workspaceId:'test',sync:async()=>({}),schedulePush(){}};window.dispatchEvent(new CustomEvent('slogi:workspace-ready'));" }))
+  await context.route('**/legacy/shared-workspace.js', route => route.fulfill({ contentType: 'application/javascript', body: "document.documentElement.setAttribute('data-slogi-access','granted');window.SlogiCloud={ready:true,user:{id:'test'},workspaceId:'test',sync:async()=>({}),schedulePush(){},saveAttachment:async(_id,_type,_blob,_name,options)=>{options?.onProgress?.(12);await new Promise(resolve=>setTimeout(resolve,180));options?.onProgress?.(78);await new Promise(resolve=>setTimeout(resolve,80));options?.onProgress?.(100)}};window.dispatchEvent(new CustomEvent('slogi:workspace-ready'));" }))
   await context.route('https://fonts.googleapis.com/**', route => route.abort())
   await context.route('https://fonts.gstatic.com/**', route => route.abort())
   try {
@@ -80,7 +80,7 @@ test('shared workspace actions, fixed property card and full calendar work in th
     await page.goto(`${origin}/in-work.html`, { waitUntil: 'domcontentloaded' })
     await page.evaluate(() => {
       const id = 'fixed-card-test'
-      localStorage.setItem('slogi_locations_v1', JSON.stringify([{ id, address: 'Москва, тестовая улица, 1', phase0: { revision: 1, source: 'manual', spaceCard: { id, source: 'manual', address: 'Москва, тестовая улица, 1', work: { status: 'in_work', takenAt: new Date().toISOString(), pipeline: { status: 'viewing_completed' }, viewings: [{ id: 'viewing-test', status: 'completed', attachments: [{ id: 'photo-test', kind: 'photo', status: 'uploaded' }, { id: 'video-test', kind: 'video', status: 'uploaded' }] }] } } } }]))
+      localStorage.setItem('slogi_locations_v1', JSON.stringify([{ id, address: 'Москва, тестовая улица, 1', phase0: { revision: 1, source: 'manual', spaceCard: { id, source: 'manual', address: 'Москва, тестовая улица, 1', work: { status: 'in_work', takenAt: new Date().toISOString(), pipeline: { status: 'viewing_scheduled' }, activeViewingId: 'viewing-test', viewings: [{ id: 'viewing-test', status: 'scheduled', startsAt: new Date(Date.now() - 3600000).toISOString(), attachments: [{ id: 'photo-test', kind: 'photo', status: 'uploaded' }, { id: 'video-test', kind: 'video', status: 'uploaded' }] }] } } } }]))
       window.dispatchEvent(new CustomEvent('slogi:locations-updated'))
     })
     await page.getByText('Москва, тестовая улица, 1', { exact: true }).click()
@@ -94,6 +94,22 @@ test('shared workspace actions, fixed property card and full calendar work in th
     assert.ok(workflowBodyOverflow <= 1, `workflow_body_overflow:${workflowBodyOverflow}`)
     assert.ok(workflowCardHeights.length >= 4)
     assert.ok(Math.max(...workflowCardHeights) - Math.min(...workflowCardHeights) <= 1)
+    await page.getByRole('heading', { name: 'Фото и видео помещения' }).waitFor()
+    assert.equal(await page.getByText('Материалы остаются доступны после завершения: их можно добавлять и удалять.').count(), 0)
+    const completeButton = page.getByRole('button', { name: 'Завершить просмотр' })
+    assert.equal(await completeButton.isEnabled(), true)
+    await completeButton.click()
+    await page.getByText('Просмотр завершён', { exact: true }).last().waitFor()
+    assert.equal(await page.getByRole('button', { name: 'Завершить просмотр' }).count(), 0)
+    const progressVisible = page.locator('.media-progress').waitFor({ state: 'visible' })
+    await page.locator('input[accept="image/*"]').setInputFiles({ name: 'progress-photo.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('photo') })
+    await progressVisible
+    assert.ok(Number(await page.locator('.media-progress progress').getAttribute('value')) > 0)
+    assert.ok(await page.locator('.property-body').evaluate(body => body.scrollHeight - body.clientHeight <= 1))
+    const progressCardHeights = await page.locator('.workflow-card').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height))
+    assert.ok(Math.max(...progressCardHeights) - Math.min(...progressCardHeights) <= 1)
+    await page.locator('.media-progress').waitFor({ state: 'hidden' })
+    await page.locator('.attachment-list li').filter({ hasText: 'progress-photo.jpg' }).waitFor()
     await page.getByRole('button', { name: 'КП', exact: true }).click()
     await page.getByRole('heading', { name: 'Коммерческие условия' }).waitFor()
     const proposalBoxes = await page.locator('.proposal-terms, .proposal-package').evaluateAll(cards => cards.map(card => ({ width: card.getBoundingClientRect().width, height: card.getBoundingClientRect().height })))

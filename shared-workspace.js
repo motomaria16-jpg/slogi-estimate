@@ -347,14 +347,43 @@
 
   function encodeSegment(value){return encodeURIComponent(String(value||'').trim().slice(0,180)).replace(/%2F/gi,'_');}
   function attachmentPath(locationId,type){return'workspace/'+membership.workspace_id+'/'+encodeSegment(locationId)+'/'+encodeSegment(type);}
+  async function uploadAttachmentBlob(path,blob,onProgress){
+    await ensureSession();
+    await waitForGrant();
+    if(!deviceGrant||!deviceGrant.grant)throw new Error('access_denied');
+    const execute=()=>new Promise((resolve,reject)=>{
+      const request=new XMLHttpRequest();
+      request.open('POST',baseUrl+'/storage/v1/object/'+BUCKET+'/'+path,true);
+      request.setRequestHeader('apikey',publishableKey);
+      request.setRequestHeader('Authorization','Bearer '+session.access_token);
+      request.setRequestHeader('x-slogi-device-grant',deviceGrant.grant);
+      request.setRequestHeader('Content-Type',blob.type||'application/octet-stream');
+      request.setRequestHeader('x-upsert','true');
+      request.upload.onprogress=event=>{
+        if(event.lengthComputable&&typeof onProgress==='function')onProgress(Math.round(event.loaded/event.total*90));
+      };
+      request.onload=()=>resolve({ok:request.status>=200&&request.status<300,status:request.status});
+      request.onerror=()=>reject(new Error('shared_attachment_upload_failed'));
+      request.send(blob);
+    });
+    let response=await execute();
+    if(response.status===401){await refreshSession();response=await execute();}
+    if(response.ok&&typeof onProgress==='function')onProgress(90);
+    return response;
+  }
   async function saveAttachment(locationId,type,file,name,options){
     if(!membership||!file)return null;
     const blob=file instanceof Blob?file:new Blob([file]),path=attachmentPath(locationId,type);
-    const upload=await authorizedFetch('/storage/v1/object/'+BUCKET+'/'+path,{method:'POST',headers:{'Content-Type':blob.type||'application/octet-stream','x-upsert':'true'},body:blob});
+    const onProgress=options&&typeof options.onProgress==='function'?options.onProgress:null;
+    if(onProgress)onProgress(0);
+    const upload=onProgress
+      ?await uploadAttachmentBlob(path,blob,onProgress)
+      :await authorizedFetch('/storage/v1/object/'+BUCKET+'/'+path,{method:'POST',headers:{'Content-Type':blob.type||'application/octet-stream','x-upsert':'true'},body:blob});
     if(!upload.ok)throw new Error('shared_attachment_upload_failed');
     const meta={workspace_id:membership.workspace_id,location_id:String(locationId),attachment_type:String(type),file_name:String(name||file.name||type).slice(0,240),mime_type:String(blob.type||'application/octet-stream').slice(0,120),storage_path:path,updated_by:session.user.id};
     const response=await authorizedFetch('/rest/v1/slogi_shared_workspace_attachments?on_conflict=workspace_id,location_id,attachment_type',{method:'POST',headers:{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(meta)});
     if(!response.ok)throw new Error('shared_attachment_metadata_failed');
+    if(onProgress)onProgress(100);
     if(!(options&&options.silent))announce('Файл сохранён в рабочем пространстве.',false);return meta;
   }
   async function getAttachment(locationId,type){

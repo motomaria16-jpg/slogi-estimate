@@ -52,6 +52,24 @@ test('proposal blocks share one compact height and the package avoids oversized 
   assert.match(css, /\.proposal-terms \.card-actions \{[^}]*margin-top: auto/)
 })
 
+test('viewing media exposes real upload progress and an unambiguous completion state', () => {
+  const workflow = read('frontend/app/components/PropertyWorkflowTab.vue')
+  const storage = read('workflow-storage.js')
+  const shared = read('shared-workspace.js')
+  const css = read('frontend/app/assets/css/main.css')
+  assert.match(workflow, /Фото и видео помещения/)
+  assert.doesNotMatch(workflow, /Материалы остаются доступны после завершения/)
+  assert.match(workflow, /class="media-progress"/)
+  assert.match(workflow, /aria-label="Прогресс загрузки файла"/)
+  assert.match(workflow, /v-if="activeViewing\?\.status === 'scheduled'"[^>]*:disabled="!canCompleteViewing"/)
+  assert.match(workflow, /v-else-if="activeViewing\?\.status === 'completed'" class="completion-state">Просмотр завершён/)
+  assert.match(storage, /saveAttachment\(locationId,type,file,name,options\)/)
+  assert.match(storage, /onProgress:value=>report/)
+  assert.match(shared, /request\.upload\.onprogress=/)
+  assert.match(shared, /onProgress\(100\)/)
+  assert.match(css, /\.media-progress progress \{[^}]*accent-color:/)
+})
+
 test('calendar and AI assistant use the available viewport height', () => {
   const css = read('frontend/app/assets/css/main.css')
   assert.match(css, /\.calendar-shell \{[^}]*height: calc\(100dvh - 170px\)/)
