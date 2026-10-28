@@ -8,7 +8,7 @@ const groups = [
     label: 'Помещения',
     links: [
       { to: '/in-work.html', label: 'Помещения в работе', shortLabel: 'В работе', icon: '▥' },
-      { to: '/proposal.html', label: 'КП', shortLabel: 'КП', icon: '▤' },
+      { to: '/proposal.html', label: 'Коммерческое предложение', shortLabel: 'КП', icon: '▤' },
       { to: '/under-development.html?section=approvals', label: 'Согласование', shortLabel: 'Согласование', icon: '▤' }
     ]
   },

@@ -2,10 +2,9 @@
 import { pipelineStatus, projectWork } from '~/utils/format'
 
 useHead({ title: 'Помещения в работе' })
-const { ready, api } = useSlogiRuntime()
+const { ready } = useSlogiRuntime()
 const { projects, inWorkProjects } = useProjects()
-const { openProject, createProject } = usePropertyModal()
-const { show } = useToast()
+const { openProject } = usePropertyModal()
 const query = ref('')
 const status = ref('')
 const mode = ref<'list' | 'calendar'>('list')
@@ -25,7 +24,7 @@ function idOf(item: any) { return String(item.id) }
   <div class="page">
     <header class="page-header">
       <div class="page-title-line"><h1>Помещения в работе</h1><span class="count-chip">{{ inWorkProjects.length }} {{ inWorkProjects.length === 1 ? 'объект' : 'объектов' }}</span></div>
-      <div class="page-actions"><button class="button" @click="createProject('in-work')">Добавить помещение</button><div class="segmented"><button :class="{ active: mode === 'list' }" @click="mode = 'list'">Список и карта</button><button :class="{ active: mode === 'calendar' }" @click="mode = 'calendar'">Календарь</button></div></div>
+      <WorkspacePageActions v-model="mode" />
     </header>
     <template v-if="mode === 'list'">
       <section class="filter-bar"><label class="search-field"><span>⌕</span><input v-model="query" type="search" placeholder="Поиск по адресу, контакту или ответственному" /></label><div class="filter-chips"><button v-for="filter in filters" :key="filter.key" :class="{ active: status === filter.key }" @click="status = filter.key">{{ filter.label }}</button></div></section>

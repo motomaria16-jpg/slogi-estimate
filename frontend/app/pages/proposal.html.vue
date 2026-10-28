@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { projectWork } from '~/utils/format'
 
-useHead({ title: 'КП' })
+useHead({ title: 'Коммерческое предложение' })
 const { ready } = useSlogiRuntime()
-const { proposalProjects } = useProjects()
+const { projects, proposalProjects } = useProjects()
 const { openProject } = usePropertyModal()
 const query = ref('')
 const filter = ref('')
+const mode = ref<'list' | 'calendar'>('list')
 const selectedId = ref('')
 const filters = [{ key: '', label: 'Все' }, { key: 'draft', label: 'Подготовка' }, { key: 'prepared', label: 'Готово к отправке' }, { key: 'sent', label: 'Отправлено' }]
 const visible = computed(() => proposalProjects.value.filter(project => {
@@ -19,9 +20,10 @@ function open(project: any) { selectedId.value = project.id; openProject(project
 
 <template>
   <div class="page">
-    <header class="page-header"><div class="page-title-line"><h1>КП</h1><span class="count-chip">{{ proposalProjects.length }} {{ proposalProjects.length === 1 ? 'объект' : 'объектов' }}</span></div></header>
-    <section class="filter-bar"><label class="search-field"><span>⌕</span><input v-model="query" type="search" placeholder="Поиск по адресу, кластеру или контакту" /></label><div class="filter-chips"><button v-for="item in filters" :key="item.key" :class="{ active: filter === item.key }" @click="filter = item.key">{{ item.label }}</button></div></section>
-    <section class="split-workspace">
+    <header class="page-header"><div class="page-title-line"><h1>Коммерческое предложение</h1><span class="count-chip">{{ proposalProjects.length }} {{ proposalProjects.length === 1 ? 'объект' : 'объектов' }}</span></div><WorkspacePageActions v-model="mode" /></header>
+    <template v-if="mode === 'list'">
+      <section class="filter-bar"><label class="search-field"><span>⌕</span><input v-model="query" type="search" placeholder="Поиск по адресу, кластеру или контакту" /></label><div class="filter-chips"><button v-for="item in filters" :key="item.key" :class="{ active: filter === item.key }" @click="filter = item.key">{{ item.label }}</button></div></section>
+      <section class="split-workspace">
       <div class="list-panel">
         <AppLoading v-if="!ready" />
         <div v-else-if="!visible.length" class="empty-state"><span>⌕</span><h2>Помещений на этапе КП пока нет</h2><p>После завершения просмотра нажмите «Сформировать КП» в карточке помещения.</p><NuxtLink class="button primary" to="/in-work.html">Перейти в «Помещения в работе»</NuxtLink></div>
@@ -32,6 +34,8 @@ function open(project: any) { selectedId.value = project.id; openProject(project
         <ClientOnly><PremisesMap :items="visible" :selected-id="selectedId" show-clusters @select="selectedId = $event" /></ClientOnly>
         <p class="panel-note">Все кластеры и помещения на этапе КП показаны на одной карте.</p>
       </aside>
-    </section>
+      </section>
+    </template>
+    <WorkCalendarPanel v-else :projects="projects" />
   </div>
 </template>

@@ -18,13 +18,13 @@ export function useProjects() {
   const proposalProjects = computed(() => projects.value.filter(project => api()?.proposal?.isProposalProject?.(project)))
 
   if (import.meta.client) {
+    const events = ['slogi:runtime-ready', 'slogi:locations-updated', 'slogi:workspace-updated', 'slogi:shared-workspace-ready']
     watch(ready, value => { if (value) refresh() }, { immediate: true })
     onMounted(() => {
-      const events = ['slogi:runtime-ready', 'slogi:locations-updated', 'slogi:workspace-updated', 'slogi:shared-workspace-ready']
       events.forEach(name => window.addEventListener(name, refresh))
       refresh()
-      onBeforeUnmount(() => events.forEach(name => window.removeEventListener(name, refresh)))
     })
+    onBeforeUnmount(() => events.forEach(name => window.removeEventListener(name, refresh)))
   }
 
   return { projects: readonly(projects), searchProjects, inWorkProjects, proposalProjects, refresh }

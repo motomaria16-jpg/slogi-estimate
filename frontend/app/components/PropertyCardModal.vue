@@ -200,7 +200,7 @@ function toProposal(saved: any) { changed(saved); activeTab.value = 'proposal'; 
         <PropertyWorkflowTab v-else-if="activeTab === 'workflow' && project" :project="project" @changed="changed" @proposal="toProposal" />
         <PropertyProposalTab v-else-if="activeTab === 'proposal' && project" :project="project" @changed="changed" />
       </div>
-      <footer class="property-footer"><button class="button" @click="close">Отмена</button><button v-if="activeTab === 'object'" class="button primary" :disabled="saving" @click="save">Сохранить</button></footer>
+      <footer class="property-footer"><button class="button" @click="close">Отменить</button><button class="button primary" :disabled="saving" @click="save">Сохранить</button></footer>
     </div>
   </dialog>
 </template>
