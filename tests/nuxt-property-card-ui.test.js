@@ -113,3 +113,17 @@ test('proposal list exposes rejection and map markers open the canonical card', 
   assert.match(proposal, /openProject\(project\.id, 'proposal', tab\)/)
   assert.match(map, /if \(!slogiObject\) emit\('open', id\)/)
 })
+
+test('approval keeps agreement in the shared footer and the card header is stable in every context', () => {
+  const modal = read('frontend/app/components/PropertyCardModal.vue')
+  const approval = read('frontend/app/components/PropertyApprovalTab.vue')
+  const css = read('frontend/app/assets/css/main.css')
+  assert.doesNotMatch(approval, /Для согласования нужны подписанный ДА/)
+  assert.doesNotMatch(approval, /Для варианта «Иная причина» комментарий обязателен/)
+  assert.match(approval, /<h3>Решение об отказе<\/h3>/)
+  assert.doesNotMatch(approval, />Согласовано<\/button>/)
+  assert.match(modal, /<footer class="property-footer"><button v-if="activeTab === 'approval'"[^>]*>Согласовано<\/button><button class="button"[^>]*>Отменить<\/button><button class="button primary"/)
+  assert.match(modal, /class="property-header__actions"/)
+  assert.match(modal, /v-if="listingUrl" :href="listingUrl"/)
+  assert.match(css, /\.property-header \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto/)
+})

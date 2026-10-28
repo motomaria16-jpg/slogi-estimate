@@ -14,7 +14,6 @@ const progress = reactive({ active: false, fileName: '', percent: 0, fileIndex: 
 
 const approval = computed(() => api()?.approval?.approvalOf(props.project) || { status: 'pending', documents: { protocol: {}, signedLease: {}, ownershipProofs: [] } })
 const documents = computed(() => approval.value.documents || { protocol: {}, signedLease: {}, ownershipProofs: [] })
-const required = computed(() => api()?.approval?.requiredDocuments(approval.value) || { signedLease: false, ownershipProof: false })
 const canAgree = computed(() => Boolean(api()?.approval?.canAgree(props.project)) && !busy.value)
 const canReject = computed(() => Boolean(rejection.reason) && (rejection.reason !== 'other' || Boolean(rejection.comment.trim())) && !busy.value)
 const actor = computed(() => api()?.pro?.actor?.() || { id: 'workspace-member', name: 'Специалист' })
@@ -113,6 +112,8 @@ async function reject() {
   } catch (reason) { fail(reason) }
   finally { busy.value = false }
 }
+
+defineExpose({ agree })
 </script>
 
 <template>
@@ -140,15 +141,13 @@ async function reject() {
       <input ref="leaseInput" hidden type="file" accept=".pdf,.doc,.docx" @change="upload('signedLease', $event)" />
       <input ref="ownershipInput" hidden type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" multiple @change="upload('ownershipProof', $event)" />
       <div v-if="progress.active" class="media-progress approval-progress" aria-live="polite"><div><span>Загрузка: {{ progress.fileName }}</span><span>{{ progress.percent }}%</span></div><progress :value="progress.percent" max="100" /><small>Файл {{ progress.fileIndex }} из {{ progress.fileCount }}</small></div>
-      <p class="approval-required-state" :class="{ complete: required.signedLease && required.ownershipProof }">{{ required.signedLease && required.ownershipProof ? 'Обязательные документы прикреплены' : 'Для согласования нужны подписанный ДА и документ о праве сдачи помещения' }}</p>
     </section>
 
     <section class="form-card approval-decision">
-      <div class="card-heading"><h3>Решение</h3><span v-if="approval.decidedAt" class="badge status">{{ formatDate(approval.decidedAt, true) }}</span></div>
+      <div class="card-heading"><h3>Решение об отказе</h3><span v-if="approval.decidedAt" class="badge status">{{ formatDate(approval.decidedAt, true) }}</span></div>
       <label class="stacked-field"><span>Причина отказа</span><select v-model="rejection.reason"><option value="">Выберите причину</option><option v-for="option in reasonOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label>
       <label class="stacked-field approval-comment"><span>Комментарий</span><textarea v-model="rejection.comment" rows="5" placeholder="Добавьте пояснение к решению" /></label>
-      <p class="helper-text">Для варианта «Иная причина» комментарий обязателен.</p>
-      <div class="approval-actions"><button class="button danger" type="button" :disabled="!canReject" @click="reject">Не согласовано</button><button class="button primary" type="button" :disabled="!canAgree" @click="agree">Согласовано</button></div>
+      <div class="approval-actions"><button class="button danger" type="button" :disabled="!canReject" @click="reject">Не согласовано</button></div>
     </section>
   </div>
 </template>

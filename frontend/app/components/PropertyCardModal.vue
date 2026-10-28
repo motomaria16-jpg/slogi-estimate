@@ -6,6 +6,7 @@ const { projects, refresh } = useProjects()
 const { ready, api } = useSlogiRuntime()
 const { show } = useToast()
 const dialog = ref<HTMLDialogElement | null>(null)
+const approvalTab = ref<{ agree: () => Promise<void> } | null>(null)
 const activeTab = ref<'object' | 'workflow' | 'proposal' | 'approval'>('object')
 const form = reactive<any>({})
 const saving = ref(false)
@@ -13,6 +14,16 @@ const project = computed(() => state.value.projectId ? projects.value.find(item 
 const isInWork = computed(() => Boolean(project.value && api()?.phase0?.spaceLifecycle?.hasLeftSearch?.(project.value)) || state.value.context !== 'search')
 const canOpenProposal = computed(() => Boolean(project.value && proposalTabReady(project.value)))
 const canOpenApproval = computed(() => Boolean(project.value && approvalTabReady(project.value)))
+const canAgreeApproval = computed(() => Boolean(project.value && api()?.approval?.canAgree?.(project.value)))
+const listingUrl = computed(() => String(
+  form.listingUrl
+  || project.value?.listingUrl
+  || project.value?.canonicalUrl
+  || project.value?.phase0?.listingUrl
+  || project.value?.phase0?.canonicalUrl
+  || project.value?.phase0?.spaceCard?.listingUrl
+  || ''
+).trim())
 const tabs = computed(() => [
   { key: 'object', label: 'Объект', enabled: true, hint: '' },
   { key: 'workflow', label: 'Сопровождение', enabled: isInWork.value, hint: 'Доступно после добавления помещения в работу' },
@@ -57,7 +68,7 @@ function resetForm() {
     description: source.description || source.phase0?.listingDescription || '',
     source: source.source || source.phase0?.source || 'manual',
     address: card.address || source.address || '',
-    listingUrl: card.listingUrl || source.listingUrl || '',
+    listingUrl: card.listingUrl || source.listingUrl || source.canonicalUrl || source.phase0?.listingUrl || source.phase0?.canonicalUrl || '',
     latitude: card.geo?.lat ?? source.latitude ?? null,
     longitude: card.geo?.lng ?? source.longitude ?? null,
     clusterId: card.cluster?.id || source.clusterId || '',
@@ -191,12 +202,13 @@ function approvalDecision(saved: any, status: 'agreed' | 'rejected') {
   close()
   if (status === 'agreed') navigateTo('/under-development.html?section=repair')
 }
+function agreeApproval() { return approvalTab.value?.agree() }
 </script>
 
 <template>
   <dialog ref="dialog" class="property-dialog" @close="handleClose" @cancel.prevent="close">
     <div v-if="state.open" class="property-card">
-      <header class="property-header"><div><h2>Карточка помещения</h2><p>{{ titleAddress }}</p></div><a v-if="form.listingUrl" :href="form.listingUrl" target="_blank" rel="noopener">Открыть объявление</a><button class="close-button" aria-label="Закрыть" @click="close">×</button></header>
+      <header class="property-header"><div class="property-header__main"><h2>Карточка помещения</h2><p>{{ titleAddress }}</p></div><div class="property-header__actions"><a v-if="listingUrl" :href="listingUrl" target="_blank" rel="noopener">Открыть объявление</a><button class="close-button" aria-label="Закрыть" @click="close">×</button></div></header>
       <nav class="property-tabs" aria-label="Разделы карточки">
         <button
           v-for="tab in tabs"
@@ -212,9 +224,9 @@ function approvalDecision(saved: any, status: 'agreed' | 'rejected') {
         <PropertyObjectTab v-else-if="activeTab === 'object'" v-model="form" @resolve="resolveAddress" />
         <PropertyWorkflowTab v-else-if="activeTab === 'workflow' && project" :project="project" @changed="changed" @proposal="toProposal" />
         <PropertyProposalTab v-else-if="activeTab === 'proposal' && project" :project="project" @changed="changed" @approval="toApproval" />
-        <PropertyApprovalTab v-else-if="activeTab === 'approval' && project" :project="project" @changed="changed" @decision="approvalDecision" />
+        <PropertyApprovalTab v-else-if="activeTab === 'approval' && project" ref="approvalTab" :project="project" @changed="changed" @decision="approvalDecision" />
       </div>
-      <footer class="property-footer"><button class="button" @click="close">Отменить</button><button class="button primary" :disabled="saving" @click="save">Сохранить</button></footer>
+      <footer class="property-footer"><button v-if="activeTab === 'approval'" class="button accent" :disabled="!canAgreeApproval" @click="agreeApproval">Согласовано</button><button class="button" @click="close">Отменить</button><button class="button primary" :disabled="saving" @click="save">Сохранить</button></footer>
     </div>
   </dialog>
 </template>
