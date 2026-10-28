@@ -8,8 +8,11 @@ const { objects: slogiObjects } = useSlogiObjects()
 const mapHost = ref<HTMLElement | null>(null)
 const state = ref<'loading' | 'ready' | 'error'>('loading')
 const clustersVisible = ref(props.showClusters)
+const MOSCOW_CENTER: [number, number] = [55.7558, 37.6176]
+const MOSCOW_ZOOM = 9
 let map: any = null
 let scriptPromise: Promise<void> | null = null
+let initialViewportApplied = false
 const plottedItems = computed(() => {
   const values = props.showSlogiObjects ? [...props.items, ...slogiObjects.value] : props.items
   const unique = new Map<string, any>()
@@ -60,11 +63,9 @@ function renderMap() {
       })
     })
   }
-  const bounds: number[][] = []
   plottedItems.value.forEach(item => {
     const point = coordinates(item)
     if (!point) return
-    bounds.push(point)
     const id = String(item.id || item.externalId || item.listingUrl || '')
     const slogiObject = isSlogiObject(item)
     const marker = new window.ymaps.Placemark(point, {
@@ -76,15 +77,17 @@ function renderMap() {
     marker.events.add('click', () => emit('select', id))
     map.geoObjects.add(marker)
   })
-  if (bounds.length) map.setBounds(bounds, { checkZoomRange: true, zoomMargin: 32 })
-  else map.setCenter([55.7558, 37.6176], 9)
+  if (!initialViewportApplied) {
+    map.setCenter(MOSCOW_CENTER, MOSCOW_ZOOM)
+    initialViewportApplied = true
+  }
 }
 
 onMounted(async () => {
   try {
     await loadYandex()
     if (!mapHost.value) return
-    map = new window.ymaps.Map(mapHost.value, { center: [55.7558, 37.6176], zoom: 9, controls: ['zoomControl', 'fullscreenControl'] })
+    map = new window.ymaps.Map(mapHost.value, { center: MOSCOW_CENTER, zoom: MOSCOW_ZOOM, controls: ['zoomControl', 'fullscreenControl'] })
     state.value = 'ready'
     renderMap()
   } catch {
