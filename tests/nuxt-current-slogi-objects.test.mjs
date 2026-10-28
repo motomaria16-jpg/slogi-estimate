@@ -42,6 +42,15 @@ test('every Nuxt premises map automatically overlays labeled SLOGI markers', () 
   assert.match(map, /MOSCOW_CENTER: \[number, number\] = \[55\.7558, 37\.6176\]/)
   assert.match(map, /MOSCOW_ZOOM = 9/)
   assert.doesNotMatch(map, /map\.setBounds\(/)
-  assert.match(css, /grid-template-columns: minmax\(0, \.85fr\) minmax\(420px, 1\.15fr\)/)
+  assert.match(css, /grid-template-columns: minmax\(0, \.95fr\) minmax\(400px, 1\.05fr\)/)
   assert.match(css, /body, body \* \{ font-weight: 400 !important; \}/)
+})
+
+test('premises lists show complete local addresses without the Russia prefix', () => {
+  const card = read('frontend/app/components/PremisesCard.vue')
+  const css = read('frontend/app/assets/css/main.css')
+
+  assert.match(card, /replace\(\/\^Россия\\s\*,\?\\s\*\/iu/)
+  assert.match(css, /premises-row__summary h3 \{[^}]*overflow-wrap: anywhere/)
+  assert.match(css, /premises-row__summary h3 \{[^}]*white-space: normal/)
 })

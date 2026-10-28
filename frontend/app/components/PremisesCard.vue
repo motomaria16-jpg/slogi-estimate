@@ -16,7 +16,10 @@ const emit = defineEmits<{
 
 const isProject = computed(() => Boolean(props.item?.phase0))
 const card = computed(() => isProject.value ? projectCard(props.item) : props.item)
-const address = computed(() => String(props.item?.address || card.value?.address || 'Адрес не указан').trim())
+const address = computed(() => {
+  const value = String(props.item?.address || card.value?.address || 'Адрес не указан').trim()
+  return value.replace(/^Россия\s*,?\s*/iu, '').trim() || value
+})
 const cluster = computed(() => String(props.item?.clusterName || card.value?.cluster?.name || '').trim())
 const rank = computed(() => card.value?.competitive?.rank ?? props.item?.clusterRank ?? null)
 const status = computed(() => props.context === 'search' ? 'Новое' : statusLabel(props.item))
