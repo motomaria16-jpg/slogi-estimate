@@ -47,11 +47,16 @@ test('shared workspace actions, fixed property card and full calendar work in th
     await page.goto(`${origin}/in-work.html`, { waitUntil: 'domcontentloaded' })
     await page.getByRole('heading', { name: 'Помещения в работе' }).waitFor()
     for (const label of ['Конкурентный анализ', 'Добавить помещение', 'Список и карта', 'Календарь']) await page.getByRole('button', { name: label }).waitFor()
+    await page.getByRole('button', { name: 'Открыть ИИ-помощника' }).click()
+    const assistantHeight = (await page.locator('.ai-assistant-panel').boundingBox()).height
+    assert.ok(assistantHeight >= 875 && assistantHeight <= 877)
+    await page.locator('.ai-assistant-header').getByRole('button', { name: 'Закрыть' }).click()
 
     await page.getByRole('button', { name: 'Календарь' }).click()
     for (const label of ['День', 'Неделя', 'Месяц', 'Добавить', 'Уведомления', 'В календарь (.ics)']) await page.getByRole('button', { name: label, exact: true }).waitFor()
     assert.equal(await page.locator('.calendar-days.is-month .calendar-day').count(), 42)
     assert.equal(await page.locator('.calendar-days.is-month').evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length), 7)
+    assert.ok((await page.locator('.calendar-shell').boundingBox()).height >= 729)
     await page.getByRole('button', { name: 'Добавить', exact: true }).click()
     await page.getByLabel('Название').fill('Проверить документы')
     await page.getByRole('dialog').getByRole('button', { name: 'Сохранить' }).click()
@@ -66,7 +71,7 @@ test('shared workspace actions, fixed property card and full calendar work in th
     const objectBox = await page.locator('.property-dialog').boundingBox()
     const objectHeight = objectBox.height
     assert.ok(objectBox.width >= 1039 && objectBox.width <= 1041)
-    assert.ok(objectHeight >= 620 && objectHeight <= 661)
+    assert.ok(objectHeight >= 720 && objectHeight <= 761)
     assert.deepEqual(await page.locator('.property-footer .button').allTextContents(), ['Отменить', 'Сохранить'])
     await page.getByRole('button', { name: 'Отменить', exact: true }).click()
 
@@ -91,6 +96,8 @@ test('shared workspace actions, fixed property card and full calendar work in th
     assert.equal(proposalBoxes.length, 2)
     assert.ok(proposalBoxes[1].width > proposalBoxes[0].width * 1.8)
     assert.ok(Math.abs(proposalBoxes[1].height - proposalBoxes[0].height) <= 1)
+    assert.ok(await page.locator('.property-body').evaluate(body => body.scrollHeight - body.clientHeight <= 1))
+    assert.ok(await page.locator('.proposal-package textarea').evaluate(textarea => textarea.scrollHeight - textarea.clientHeight <= 1))
     assert.equal((await page.locator('.property-dialog').boundingBox()).height, firstTabHeight)
     assert.deepEqual(await page.locator('.property-footer .button').allTextContents(), ['Отменить', 'Сохранить'])
     assert.deepEqual(issues, [])

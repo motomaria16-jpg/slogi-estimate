@@ -33,13 +33,13 @@ test('workflow progress strip is removed and the shared card has a fixed size an
   assert.doesNotMatch(css, /\.pipeline-steps/)
   assert.match(css, /strong, b \{ font-weight: 400; \}/)
   assert.match(css, /\.form-row \{[^}]*min-height: 46px/)
-  assert.match(css, /\.property-dialog \{[^}]*width: min\(1040px,[^}]*height: min\(660px, calc\(100dvh - 32px\)\)/)
+  assert.match(css, /\.property-dialog \{[^}]*width: min\(1040px,[^}]*height: min\(760px, calc\(100dvh - 24px\)\)/)
   assert.match(css, /\.property-card \{[^}]*height: 100%;[^}]*max-height: none/)
   assert.match(css, /\.workflow-grid \{[^}]*grid-auto-rows: 1fr;[^}]*align-items: stretch/)
   assert.match(css, /\.workflow-card \{ height: 100%; min-height: 0; \}/)
   assert.match(modal, />Отменить<\/button><button class="button primary"/)
   assert.doesNotMatch(modal, /v-if="activeTab === 'object'" class="button primary"/)
-  assert.match(css, /\.property-body \{[^}]*padding: 8px/)
+  assert.match(css, /\.property-body \{[^}]*overflow: hidden;[^}]*padding: 8px/)
 })
 
 test('proposal blocks share one compact height and the package avoids oversized fields', () => {
@@ -47,7 +47,16 @@ test('proposal blocks share one compact height and the package avoids oversized 
   assert.match(css, /\.proposal-workflow \{[^}]*grid-template-columns: minmax\(270px, \.58fr\) minmax\(520px, 1\.55fr\);[^}]*align-items: stretch;[^}]*height: 100%/)
   assert.match(css, /\.proposal-terms, \.proposal-package \{ display: flex;[^}]*height: 100%;[^}]*flex-direction: column/)
   assert.match(css, /\.stacked-field textarea \{[^}]*min-height: 76px/)
+  assert.match(css, /\.proposal-package \.stacked-field:last-of-type \{[^}]*flex: 1/)
+  assert.match(css, /\.proposal-package \.stacked-field:last-of-type textarea \{[^}]*height: 100%;[^}]*resize: none/)
   assert.match(css, /\.proposal-terms \.card-actions \{[^}]*margin-top: auto/)
+})
+
+test('calendar and AI assistant use the available viewport height', () => {
+  const css = read('frontend/app/assets/css/main.css')
+  assert.match(css, /\.calendar-shell \{[^}]*height: calc\(100dvh - 170px\)/)
+  assert.match(css, /\.calendar-days\.is-month \{ grid-template-rows: repeat\(6, minmax\(0, 1fr\)\)/)
+  assert.match(css, /\.ai-assistant-panel \{[^}]*height: calc\(100dvh - 24px\)/)
 })
 
 test('mobile layouts fit controls, keep compact cards and avoid oversized maps', () => {

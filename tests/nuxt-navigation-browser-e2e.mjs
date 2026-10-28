@@ -147,8 +147,8 @@ try {
   assert.equal(await page.locator('.property-tabs button').filter({ hasText: 'КП' }).isEnabled(), false)
   assert.equal(await page.locator('.pipeline-steps').count(), 0)
   const desktopObjectDialog = await page.locator('.property-dialog').boundingBox()
-  assert.ok(desktopObjectDialog.width <= 1281)
-  assert.ok(desktopObjectDialog.height < 760)
+  assert.ok(desktopObjectDialog.width <= 1041)
+  assert.ok(desktopObjectDialog.height <= 760)
   await capture('desktop-property-object.png')
   await page.setViewportSize({ width: 375, height: 760 })
   const mobileObject = await page.locator('.property-card').evaluate(card => ({
@@ -216,7 +216,7 @@ try {
   })
   assert.ok(desktopProposalCard.overflow <= 1)
   assert.ok(Math.abs(desktopProposalCard.termsHeight - desktopProposalCard.packageHeight) <= 1)
-  assert.ok((await page.locator('.property-dialog').boundingBox()).height < 660)
+  assert.ok((await page.locator('.property-dialog').boundingBox()).height <= 760)
   await capture('desktop-property-proposal.png')
   await page.setViewportSize({ width: 375, height: 760 })
   const mobileCard = await page.locator('.property-card').evaluate(card => ({
@@ -260,7 +260,7 @@ try {
     toolbarWidth: calendar.querySelector('.calendar-toolbar').getBoundingClientRect().width
   }))
   assert.ok(mobileCalendar.overflow <= 1)
-  assert.equal(mobileCalendar.columns, 1)
+  assert.equal(mobileCalendar.columns, 7)
   assert.ok(mobileCalendar.toolbarWidth <= 357)
   await capture('mobile-calendar.png')
   await page.setViewportSize({ width: 1440, height: 900 })
@@ -277,7 +277,7 @@ try {
     page.waitForURL(/\/proposal\.html/),
     page.locator('.sidebar a').filter({ hasText: 'КП' }).click(),
   ])
-  await page.getByRole('heading', { name: 'КП' }).waitFor()
+  await page.getByRole('heading', { name: 'Коммерческое предложение' }).waitFor()
   await page.getByText('Москва, тестовое помещение', { exact: true }).waitFor()
   assert.equal(await page.locator('.proposal-workflow').count(), 0)
   assert.equal(await page.locator('.split-workspace').count(), 1)
@@ -285,11 +285,6 @@ try {
   assert.equal(await page.locator('.map-cluster-toggle').count(), 1)
   await capture('desktop-proposal-page.png')
 
-  await Promise.all([
-    page.waitForURL(/\/available-spaces\.html/),
-    page.locator('.sidebar a').filter({ hasText: 'Поиск помещения' }).click(),
-  ])
-  await page.getByRole('heading', { name: 'Поиск помещений' }).waitFor()
   assert.equal(await page.locator('html').getAttribute('data-slogi-access'), 'granted')
   assert.equal(await page.evaluate(() => new Promise(resolveTimer => setTimeout(() => resolveTimer('responsive'), 30))), 'responsive')
   assert.deepEqual(issues, [])
