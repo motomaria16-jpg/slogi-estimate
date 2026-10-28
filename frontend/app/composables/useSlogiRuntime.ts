@@ -11,6 +11,7 @@ export function useSlogiRuntime() {
       cloud: window.SlogiCloud,
       calendar: window.SlogiWorkCalendar,
       proposal: window.SlogiProposalStage,
+      approval: window.SlogiApprovalStage,
       proposalDocument: window.SlogiProposalDocument,
       feed: window.SlogiCianFeed,
       mapData: window.SlogiCianMapData

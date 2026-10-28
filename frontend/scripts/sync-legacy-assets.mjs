@@ -32,6 +32,7 @@ const files = [
   'work-calendar.js',
   'proposal-assets.js',
   'proposal-stage.js',
+  'approval-stage.js',
   'proposal-document.js',
   'proposal-logo.png',
   'KP_Slogi_template.docx',

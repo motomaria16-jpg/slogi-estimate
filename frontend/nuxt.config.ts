@@ -21,7 +21,7 @@ export default defineNuxtConfig({
   },
   nitro: {
     prerender: {
-      routes: ['/', '/available-spaces.html', '/in-work.html', '/proposal.html', '/slogi-objects.html', '/under-development.html'],
+      routes: ['/', '/available-spaces.html', '/in-work.html', '/proposal.html', '/approvals.html', '/slogi-objects.html', '/under-development.html'],
       crawlLinks: true
     }
   },

@@ -2,7 +2,7 @@
 import { formatDate, projectWork } from '~/utils/format'
 
 const props = defineProps<{ project: any }>()
-const emit = defineEmits<{ changed: [project: any] }>()
+const emit = defineEmits<{ changed: [project: any]; approval: [project: any] }>()
 const { api } = useSlogiRuntime()
 const { show } = useToast()
 const busy = ref(false)
@@ -98,11 +98,13 @@ async function markSent() {
     const dueAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
     const saved = runtime.phase0.projectRepository.mutate(props.project.id, (project: any) => {
       const refreshed = runtime.proposal.prepare(project, { ...proposal.value, emailSubject: terms.emailSubject, emailBody: terms.emailBody }, { now: proposal.value.preparedAt || now })
-      return runtime.proposal.markSent(refreshed, { followUpTaskId: taskId, followUpDueAt: dueAt }, { now })
+      const sent = runtime.proposal.markSent(refreshed, { followUpTaskId: taskId, followUpDueAt: dueAt }, { now })
+      return runtime.approval.start(sent, { actorId: runtime.pro.actor().id }, { now })
     }, current.phase0.revision, 'proposal-sent')
     runtime.pro.upsert('tasks', runtime.proposal.followUpTask(saved, runtime.proposal.proposalOf(saved), taskId), 'proposal-follow-up-task')
     emit('changed', saved)
-    show('Отправка КП зафиксирована. Контрольная связь добавлена в календарь через 24 часа.')
+    emit('approval', saved)
+    show('Отправка КП зафиксирована. Помещение передано на согласование, контрольная связь добавлена в календарь через 24 часа.')
   } catch (reason) { fail(reason) }
 }
 </script>

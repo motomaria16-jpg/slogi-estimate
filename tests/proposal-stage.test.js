@@ -27,6 +27,7 @@ test('prepared proposal becomes sent and produces a 24-hour follow-up task',()=>
   assert.equal(task.id,'task-1');
   assert.equal(task.projectId,'space-1');
   assert.equal(task.type,'proposal_follow_up');
+  assert.equal(stage.isProposalProject(sent),false);
 });
 
 test('email draft identifies the selected premises',()=>{

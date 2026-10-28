@@ -6,9 +6,9 @@ const path = require('node:path')
 const root = path.resolve(__dirname, '..')
 const read = file => fs.readFileSync(path.join(root, file), 'utf8')
 
-test('the shared property card always exposes all three tabs and gates their actions', () => {
+test('the shared property card always exposes all four tabs and gates their actions', () => {
   const modal = read('frontend/app/components/PropertyCardModal.vue')
-  for (const tab of ['Объект', 'Сопровождение', 'КП']) {
+  for (const tab of ['Объект', 'Сопровождение', 'КП', 'Согласование']) {
     assert.match(modal, new RegExp(`label: '${tab}'`))
   }
   assert.doesNotMatch(modal, /\.filter\(item => item\.visible\)/)
@@ -81,7 +81,7 @@ test('mobile layouts fit controls, keep compact cards and avoid oversized maps',
   const css = read('frontend/app/assets/css/main.css')
   const mobile = css.slice(css.indexOf('@media (max-width: 620px)'), css.indexOf('@media (prefers-reduced-motion'))
   assert.match(mobile, /\.map-stage \{ height: 270px; min-height: 270px/)
-  assert.match(mobile, /\.property-tabs \{ display: grid; grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/)
+  assert.match(mobile, /\.property-tabs \{ display: grid; grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/)
   assert.match(mobile, /\.form-row, \.proposal-terms \.form-row \{ grid-template-columns: minmax\(104px/)
   assert.match(mobile, /\.document-buttons \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/)
   assert.match(mobile, /\.calendar-days\.is-month \{ grid-template-columns: repeat\(7, minmax\(0, 1fr\)\)/)
@@ -102,4 +102,14 @@ test('workspace headers share actions and calendar supports planning and externa
   assert.match(calendar, /Notification\.requestPermission/)
   assert.match(calendar, /text\/calendar/)
   assert.match(calendar, /calendar\.google\.com/)
+})
+
+test('proposal list exposes rejection and map markers open the canonical card', () => {
+  const card = read('frontend/app/components/PremisesCard.vue')
+  const map = read('frontend/app/components/PremisesMap.client.vue')
+  const proposal = read('frontend/app/pages/proposal.html.vue')
+  assert.match(card, /context === 'in-work' \|\| context === 'proposal'/)
+  assert.match(proposal, /@reject="reject"/)
+  assert.match(proposal, /openProject\(project\.id, 'proposal', tab\)/)
+  assert.match(map, /if \(!slogiObject\) emit\('open', id\)/)
 })

@@ -17,6 +17,7 @@ const visible = computed(() => inWorkProjects.value.filter(project => {
 function open(project: any, tab: 'object' | 'workflow' = 'object') { selectedId.value = project.id; openProject(project.id, 'in-work', tab) }
 function reject(project: any) { open(project, 'workflow') }
 function schedule(project: any) { open(project, 'workflow') }
+function openFromMap(id: string) { const project = visible.value.find(item => String(item.id) === id); if (project) open(project) }
 function idOf(item: any) { return String(item.id) }
 </script>
 
@@ -34,7 +35,7 @@ function idOf(item: any) { return String(item.id) }
           <div v-else-if="!visible.length" class="empty-state"><span>⌕</span><h2>Ничего не найдено</h2><p>Измените фильтры или добавьте помещение.</p></div>
           <div v-else class="premises-list"><PremisesCard v-for="project in visible" :key="project.id" :item="project" context="in-work" :selected="selectedId === project.id" @open="open" @primary="schedule" @reject="reject" /></div>
         </div>
-        <aside class="map-panel"><div class="panel-heading"><h2>Карта</h2><span class="count-chip">{{ visible.length }} {{ visible.length === 1 ? 'точка' : 'точек' }}</span></div><ClientOnly><PremisesMap :items="visible" :selected-id="selectedId" show-clusters @select="selectedId = $event" /></ClientOnly><p class="panel-note">Все кластеры и помещения в работе показаны на одной карте.</p></aside>
+        <aside class="map-panel"><div class="panel-heading"><h2>Карта</h2><span class="count-chip">{{ visible.length }} {{ visible.length === 1 ? 'точка' : 'точек' }}</span></div><ClientOnly><PremisesMap :items="visible" :selected-id="selectedId" show-clusters @select="selectedId = $event" @open="openFromMap" /></ClientOnly><p class="panel-note">Все кластеры и помещения в работе показаны на одной карте.</p></aside>
       </section>
     </template>
     <WorkCalendarPanel v-else :projects="projects" />

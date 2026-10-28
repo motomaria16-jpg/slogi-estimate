@@ -9,13 +9,15 @@ const query = ref('')
 const filter = ref('')
 const mode = ref<'list' | 'calendar'>('list')
 const selectedId = ref('')
-const filters = [{ key: '', label: 'Все' }, { key: 'draft', label: 'Подготовка' }, { key: 'prepared', label: 'Готово к отправке' }, { key: 'sent', label: 'Отправлено' }]
+const filters = [{ key: '', label: 'Все' }, { key: 'draft', label: 'Подготовка' }, { key: 'prepared', label: 'Готово к отправке' }]
 const visible = computed(() => proposalProjects.value.filter(project => {
   const proposal = projectWork(project).proposal || {}
   const search = [project.address, project.clusterName, projectWork(project).landlordContact?.name].join(' ').toLocaleLowerCase('ru')
   return (!query.value || search.includes(query.value.toLocaleLowerCase('ru'))) && (!filter.value || (proposal.status || 'draft') === filter.value)
 }))
-function open(project: any) { selectedId.value = project.id; openProject(project.id, 'proposal', 'proposal') }
+function open(project: any, tab: 'object' | 'workflow' | 'proposal' = 'proposal') { selectedId.value = project.id; openProject(project.id, 'proposal', tab) }
+function openFromMap(id: string) { const project = visible.value.find(item => String(item.id) === id); if (project) open(project) }
+function reject(project: any) { open(project, 'workflow') }
 </script>
 
 <template>
@@ -27,11 +29,11 @@ function open(project: any) { selectedId.value = project.id; openProject(project
       <div class="list-panel">
         <AppLoading v-if="!ready" />
         <div v-else-if="!visible.length" class="empty-state"><span>⌕</span><h2>Помещений на этапе КП пока нет</h2><p>После завершения просмотра нажмите «Сформировать КП» в карточке помещения.</p><NuxtLink class="button primary" to="/in-work.html">Перейти в «Помещения в работе»</NuxtLink></div>
-        <div v-else class="premises-list"><PremisesCard v-for="project in visible" :key="project.id" :item="project" context="proposal" :selected="selectedId === project.id" @open="open" @primary="open" /></div>
+        <div v-else class="premises-list"><PremisesCard v-for="project in visible" :key="project.id" :item="project" context="proposal" :selected="selectedId === project.id" @open="open" @primary="open" @reject="reject" /></div>
       </div>
       <aside class="map-panel">
         <div class="panel-heading"><div><h2>Расположение</h2><p>Объекты на этапе КП</p></div><span class="count-chip">{{ visible.length }} {{ visible.length === 1 ? 'точка' : 'точек' }}</span></div>
-        <ClientOnly><PremisesMap :items="visible" :selected-id="selectedId" show-clusters @select="selectedId = $event" /></ClientOnly>
+        <ClientOnly><PremisesMap :items="visible" :selected-id="selectedId" show-clusters @select="selectedId = $event" @open="openFromMap" /></ClientOnly>
         <p class="panel-note">Все кластеры и помещения на этапе КП показаны на одной карте.</p>
       </aside>
       </section>

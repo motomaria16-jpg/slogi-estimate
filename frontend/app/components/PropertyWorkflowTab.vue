@@ -122,7 +122,7 @@ async function completeViewing() {
 }
 
 async function rejectProject() {
-  try { done(service().reject(props.project.id, { operationId: operation('reject'), reason: rejection.reason, comment: rejection.comment, actorId: actor.value.id }), 'Отказ зафиксирован.') }
+  try { done(service().reject(props.project.id, { operationId: operation('reject'), reason: rejection.reason, comment: rejection.comment, actorId: actor.value.id, preserveProposalStage: pipeline.value === 'proposal_started' }), 'Отказ зафиксирован.') }
   catch (reason) { fail(reason) }
 }
 

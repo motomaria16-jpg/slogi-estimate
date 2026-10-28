@@ -3,7 +3,7 @@ import { projectCard } from '~/utils/format'
 import { isSlogiObject } from '~/utils/slogiObjects'
 
 const props = withDefaults(defineProps<{ items: readonly any[]; selectedId?: string; showClusters?: boolean; showSlogiObjects?: boolean }>(), { selectedId: '', showClusters: false, showSlogiObjects: true })
-const emit = defineEmits<{ select: [id: string] }>()
+const emit = defineEmits<{ select: [id: string]; open: [id: string] }>()
 const { objects: slogiObjects } = useSlogiObjects()
 const mapHost = ref<HTMLElement | null>(null)
 const state = ref<'loading' | 'ready' | 'error'>('loading')
@@ -74,7 +74,10 @@ function renderMap() {
     }, slogiObject
       ? { preset: 'islands#darkGreenStretchyIcon', zIndex: 850 }
       : { preset: id === props.selectedId ? 'islands#redDotIcon' : 'islands#darkGreenDotIcon' })
-    marker.events.add('click', () => emit('select', id))
+    marker.events.add('click', () => {
+      emit('select', id)
+      if (!slogiObject) emit('open', id)
+    })
     map.geoObjects.add(marker)
   })
   if (!initialViewportApplied) {

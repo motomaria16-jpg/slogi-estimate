@@ -3,7 +3,7 @@ import { formatArea, formatMoney, pipelineStatus, projectCard, statusLabel } fro
 
 const props = withDefaults(defineProps<{
   item: any
-  context: 'search' | 'in-work' | 'proposal'
+  context: 'search' | 'in-work' | 'proposal' | 'approval'
   selected?: boolean
 }>(), { selected: false })
 
@@ -31,7 +31,8 @@ const ceiling = computed(() => card.value?.ceilingHeight ?? props.item?.ceilingH
 const primaryLabel = computed(() => {
   if (props.context === 'search') return 'Взять в работу'
   if (props.context === 'in-work') return pipelineStatus(props.item) === 'viewing_scheduled' ? 'Открыть просмотр' : 'Назначить просмотр'
-  return 'Открыть КП'
+  if (props.context === 'proposal') return 'Открыть КП'
+  return 'Открыть согласование'
 })
 </script>
 
@@ -56,7 +57,7 @@ const primaryLabel = computed(() => {
     <div class="premises-row__actions">
       <button class="button primary compact" type="button" @click="emit('primary', item)">{{ primaryLabel }}</button>
       <button v-if="context === 'search'" class="button compact" type="button" @click="emit('remove', item)">Удалить</button>
-      <button v-if="context === 'in-work'" class="button danger compact" type="button" @click="emit('reject', item)">Отказ</button>
+      <button v-if="context === 'in-work' || context === 'proposal'" class="button danger compact" type="button" @click="emit('reject', item)">Отказ</button>
     </div>
   </article>
 </template>

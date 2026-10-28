@@ -237,19 +237,28 @@ test('Nuxt map uses the canonical collection and exposes bounded loading and err
   const workPage=fs.readFileSync(path.join(ROOT,'frontend','app','pages','in-work.html.vue'),'utf8');
   const proposalPage=fs.readFileSync(path.join(ROOT,'frontend','app','pages','proposal.html.vue'),'utf8');
   const map=fs.readFileSync(path.join(ROOT,'frontend','app','components','PremisesMap.client.vue'),'utf8');
-  assert.match(page,/<PremisesMap :items="items"/);
+  if (page.includes("navigateTo({ path: '/in-work.html'")) assert.match(page,/replace: true/,'the hidden search page must redirect without leaving history');
+  else assert.match(page,/<PremisesMap :items="items"/);
   assert.match(workPage,/<PremisesMap :items="visible"[^>]+show-clusters/,'work premises must display the same cluster layer');
   assert.match(proposalPage,/<PremisesMap :items="visible"[^>]+show-clusters/,'proposal premises must display the same cluster layer');
   assert.match(proposalPage,/class="split-workspace"[\s\S]*class="list-panel"[\s\S]*class="map-panel"/);
   assert.match(map,/v-if="state === 'loading'"/);
   assert.match(map,/v-else-if="state === 'error'"/);
   assert.match(map,/Карта временно недоступна/);
+  assert.match(map,/emit\('open', id\)/,'a premises marker must open the canonical property card');
+  assert.match(workPage,/@open="openFromMap"/);
+  assert.match(proposalPage,/@open="openFromMap"/);
 });
 
 test('search layout keeps compact hero, map controls in heading and card actions compact',()=>{
   const nuxtPage=path.join(ROOT,'frontend','app','pages','available-spaces.html.vue');
   if(fs.existsSync(nuxtPage)){
     const page=fs.readFileSync(nuxtPage,'utf8'),css=fs.readFileSync(path.join(ROOT,'frontend','app','assets','css','main.css'),'utf8');
+    if(page.includes("navigateTo({ path: '/in-work.html'")){
+      assert.doesNotMatch(page,/<h1>Поиск помещений<\/h1>/);
+      assert.match(page,/replace: true/);
+      return;
+    }
     assert.match(page,/<h1>Поиск помещений<\/h1>/);
     assert.doesNotMatch(page,/Подходящие предложения коммерческой аренды|Список подходящих помещений|Применяются автоматически|>Объект<|>Аренда<|>Действия/);
     const competitive=page.indexOf('Конкурентный анализ'),add=page.indexOf('Добавить помещение'),refresh=page.indexOf('Обновить');
@@ -259,7 +268,8 @@ test('search layout keeps compact hero, map controls in heading and card actions
     assert.match(page,/<PremisesMap :items="items"/);
     assert.match(css,/\.split-workspace \{ display: grid; grid-template-columns: minmax\(0, 1\.45fr\) minmax\(380px, \.95fr\)/);
     assert.match(css,/\.premises-row__actions \{[^}]*position: absolute;[^}]*min-height: 0/);
-    assert.match(css,/\.premises-row \{[^}]*border-left: 4px solid #4b7377/);
+    assert.match(css,/\.premises-row \{[^}]*border: 1px solid var\(--line\)/);
+    assert.doesNotMatch(css,/\.premises-row \{[^}]*border-left:/);
     assert.match(css,/\.split-workspace \{[^}]*align-items: start;[^}]*min-height: 0/);
     assert.match(css,/\.single-list-panel \{ min-height: 0/);
     return;

@@ -58,7 +58,9 @@
   }
   function isProposalProject(project){
     const card=project&&project.phase0&&project.phase0.spaceCard||{},work=card.work||{},pipeline=work.pipeline||{};
-    return !project.deletedAt&&(work.stage==='proposal_handoff'||pipeline.status==='proposal_started'||Boolean(work.proposal&&work.proposal.sentAt));
+    const approvalStatus=text(work.approval&&work.approval.status);
+    const proposalStatus=text(work.proposal&&work.proposal.status);
+    return !project.deletedAt&&proposalStatus!=='sent'&&!['pending','agreed','rejected'].includes(approvalStatus)&&(work.stage==='proposal_handoff'||pipeline.status==='proposal_started');
   }
   function setProposal(project,patch,at){
     const next=clone(project),card=next.phase0&&next.phase0.spaceCard;

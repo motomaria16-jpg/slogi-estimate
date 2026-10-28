@@ -1,22 +1,24 @@
 <script setup lang="ts">
-import { proposalTabReady } from '~/utils/format'
+import { approvalTabReady, proposalTabReady } from '~/utils/format'
 
 const { state, close } = usePropertyModal()
 const { projects, refresh } = useProjects()
 const { ready, api } = useSlogiRuntime()
 const { show } = useToast()
 const dialog = ref<HTMLDialogElement | null>(null)
-const activeTab = ref<'object' | 'workflow' | 'proposal'>('object')
+const activeTab = ref<'object' | 'workflow' | 'proposal' | 'approval'>('object')
 const form = reactive<any>({})
 const saving = ref(false)
 const project = computed(() => state.value.projectId ? projects.value.find(item => String(item.id) === String(state.value.projectId)) || null : null)
 const isInWork = computed(() => Boolean(project.value && api()?.phase0?.spaceLifecycle?.hasLeftSearch?.(project.value)) || state.value.context !== 'search')
 const canOpenProposal = computed(() => Boolean(project.value && proposalTabReady(project.value)))
+const canOpenApproval = computed(() => Boolean(project.value && approvalTabReady(project.value)))
 const tabs = computed(() => [
   { key: 'object', label: 'Объект', enabled: true, hint: '' },
   { key: 'workflow', label: 'Сопровождение', enabled: isInWork.value, hint: 'Доступно после добавления помещения в работу' },
-  { key: 'proposal', label: 'КП', enabled: canOpenProposal.value, hint: 'Доступно после завершения просмотра и добавления фото и видео' }
-] as { key: 'object' | 'workflow' | 'proposal'; label: string; enabled: boolean; hint: string }[])
+  { key: 'proposal', label: 'КП', enabled: canOpenProposal.value, hint: 'Доступно после завершения просмотра и добавления фото и видео' },
+  { key: 'approval', label: 'Согласование', enabled: canOpenApproval.value, hint: 'Доступно после отправки КП' }
+] as { key: 'object' | 'workflow' | 'proposal' | 'approval'; label: string; enabled: boolean; hint: string }[])
 const titleAddress = computed(() => form.address || project.value?.address || 'Новое помещение')
 
 function runtime() {
@@ -80,9 +82,11 @@ function resetForm() {
 watch(() => state.value.open, open => {
   if (!import.meta.client) return
   if (open) {
-    activeTab.value = state.value.initialTab === 'proposal' && !canOpenProposal.value
-      ? (isInWork.value ? 'workflow' : 'object')
-      : state.value.initialTab === 'workflow' && !isInWork.value ? 'object' : state.value.initialTab
+    activeTab.value = state.value.initialTab === 'approval' && !canOpenApproval.value
+      ? (canOpenProposal.value ? 'proposal' : isInWork.value ? 'workflow' : 'object')
+      : state.value.initialTab === 'proposal' && !canOpenProposal.value
+        ? (isInWork.value ? 'workflow' : 'object')
+        : state.value.initialTab === 'workflow' && !isInWork.value ? 'object' : state.value.initialTab
     nextTick(() => { resetForm(); dialog.value?.showModal() })
   } else if (dialog.value?.open) dialog.value.close()
 })
@@ -90,8 +94,11 @@ watch(project, () => { if (state.value.open) resetForm() }, { deep: true })
 watch(canOpenProposal, enabled => {
   if (!enabled && activeTab.value === 'proposal') activeTab.value = isInWork.value ? 'workflow' : 'object'
 })
+watch(canOpenApproval, enabled => {
+  if (!enabled && activeTab.value === 'approval') activeTab.value = canOpenProposal.value ? 'proposal' : isInWork.value ? 'workflow' : 'object'
+})
 
-function selectTab(key: 'object' | 'workflow' | 'proposal') {
+function selectTab(key: 'object' | 'workflow' | 'proposal' | 'approval') {
   const tab = tabs.value.find(item => item.key === key)
   if (tab?.enabled) activeTab.value = key
 }
@@ -178,6 +185,12 @@ async function save() {
 
 function changed(saved: any) { refresh(); state.value.projectId = saved.id; resetForm() }
 function toProposal(saved: any) { changed(saved); activeTab.value = 'proposal'; navigateTo('/proposal.html') }
+function toApproval(saved: any) { changed(saved); activeTab.value = 'approval'; navigateTo('/approvals.html') }
+function approvalDecision(saved: any, status: 'agreed' | 'rejected') {
+  changed(saved)
+  close()
+  if (status === 'agreed') navigateTo('/under-development.html?section=repair')
+}
 </script>
 
 <template>
@@ -198,7 +211,8 @@ function toProposal(saved: any) { changed(saved); activeTab.value = 'proposal'; 
         <AppLoading v-if="!ready" />
         <PropertyObjectTab v-else-if="activeTab === 'object'" v-model="form" @resolve="resolveAddress" />
         <PropertyWorkflowTab v-else-if="activeTab === 'workflow' && project" :project="project" @changed="changed" @proposal="toProposal" />
-        <PropertyProposalTab v-else-if="activeTab === 'proposal' && project" :project="project" @changed="changed" />
+        <PropertyProposalTab v-else-if="activeTab === 'proposal' && project" :project="project" @changed="changed" @approval="toApproval" />
+        <PropertyApprovalTab v-else-if="activeTab === 'approval' && project" :project="project" @changed="changed" @decision="approvalDecision" />
       </div>
       <footer class="property-footer"><button class="button" @click="close">Отменить</button><button class="button primary" :disabled="saving" @click="save">Сохранить</button></footer>
     </div>

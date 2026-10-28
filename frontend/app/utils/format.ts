@@ -42,6 +42,11 @@ export function proposalTabReady(project: any) {
     && attachments.some((item: any) => item.kind === 'video')
 }
 
+export function approvalTabReady(project: any) {
+  const work = projectWork(project)
+  return work?.proposal?.status === 'sent' || Boolean(work?.approval)
+}
+
 export function statusLabel(project: any) {
   const labels: Record<string, string> = {
     contact_pending: 'Новое',
@@ -49,6 +54,9 @@ export function statusLabel(project: any) {
     viewing_scheduled: 'Просмотр назначен',
     viewing_completed: 'Просмотр завершён',
     proposal_started: 'Готово к КП',
+    approval_pending: 'На согласовании',
+    repair: 'Согласовано',
+    archived: 'Не согласовано',
     rejected: 'Отказ'
   }
   return labels[pipelineStatus(project)] || 'Новое'

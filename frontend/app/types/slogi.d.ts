@@ -15,6 +15,7 @@ declare global {
     SlogiClusterGeometry: any
     SlogiWorkCalendar: any
     SlogiProposalStage: any
+    SlogiApprovalStage: any
     SlogiProposalDocument: any
     SLOGI_CLUSTERS_GEOJSON: any
     OfficeZip: any
