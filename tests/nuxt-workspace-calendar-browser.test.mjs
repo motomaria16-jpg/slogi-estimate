@@ -95,6 +95,9 @@ test('shared workspace actions, fixed property card and full calendar work in th
 
     await page.getByRole('button', { name: 'Добавить помещение' }).click()
     await page.getByRole('heading', { name: 'Карточка помещения' }).waitFor()
+    assert.equal(await page.getByRole('button', { name: 'Открыть объявление', exact: true }).isDisabled(), true)
+    assert.equal(await page.getByText('Широта', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('Долгота', { exact: true }).count(), 0)
     const objectBox = await page.locator('.property-dialog').boundingBox()
     const objectHeight = objectBox.height
     assert.ok(objectBox.width >= 1039 && objectBox.width <= 1041)
@@ -136,7 +139,11 @@ test('shared workspace actions, fixed property card and full calendar work in th
     const progressCardHeights = await page.locator('.workflow-card').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height))
     assert.ok(Math.max(...progressCardHeights) - Math.min(...progressCardHeights) <= 1)
     await page.locator('.media-progress').waitFor({ state: 'hidden' })
-    await page.locator('.attachment-list li').filter({ hasText: 'progress-photo.jpg' }).waitFor()
+    const uploadedPhoto = page.locator('.attachment-list li').filter({ hasText: 'progress-photo.jpg' })
+    await uploadedPhoto.waitFor()
+    const photoDownloadPromise = page.waitForEvent('download')
+    await uploadedPhoto.getByRole('button', { name: 'Скачать', exact: true }).click()
+    assert.equal((await photoDownloadPromise).suggestedFilename(), 'progress-photo.jpg')
     await page.getByRole('button', { name: 'КП', exact: true }).click()
     await page.getByRole('heading', { name: 'Коммерческие условия' }).waitFor()
     const proposalBoxes = await page.locator('.proposal-terms, .proposal-package').evaluateAll(cards => cards.map(card => ({ width: card.getBoundingClientRect().width, height: card.getBoundingClientRect().height })))

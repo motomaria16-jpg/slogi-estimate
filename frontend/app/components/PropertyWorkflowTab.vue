@@ -116,6 +116,17 @@ async function removeAttachment(item: any) {
   catch (reason) { fail(reason) }
 }
 
+async function downloadAttachment(item: any) {
+  try {
+    const value = runtime()
+    const attachmentType = item?.type || item?.attachmentType
+    if (!attachmentType) throw new Error('Для этого файла не найден идентификатор хранилища.')
+    const file = await value.workflow.getAttachment(props.project.id, attachmentType)
+    if (!file?.blob) throw new Error('Файл не найден в хранилище.')
+    value.workflow.download(file.blob, file.name || item.name)
+  } catch (reason) { fail(reason) }
+}
+
 async function completeViewing() {
   try { done(service().complete(props.project.id, { operationId: operation('complete'), viewingId: activeViewing.value.id, confirmed: true, actorId: actor.value.id }), 'Просмотр завершён.') }
   catch (reason) { fail(reason) }
@@ -164,7 +175,7 @@ async function startProposal() {
           <progress :value="uploadProgress.percent" max="100" aria-label="Прогресс загрузки файла" />
           <small>Файл {{ uploadProgress.fileIndex }} из {{ uploadProgress.fileCount }}</small>
         </div>
-        <ul v-if="attachments.length" class="attachment-list"><li v-for="item in attachments" :key="item.id"><span><b>{{ item.kind === 'photo' ? 'Фото' : 'Видео' }}</b>{{ item.name }}</span><button aria-label="Удалить файл" @click="removeAttachment(item)">×</button></li></ul>
+        <ul v-if="attachments.length" class="attachment-list"><li v-for="item in attachments" :key="item.id"><span><b>{{ item.kind === 'photo' ? 'Фото' : 'Видео' }}</b>{{ item.name }}</span><div class="attachment-actions"><button class="button compact" type="button" @click="downloadAttachment(item)">Скачать</button><button class="button compact danger" type="button" @click="removeAttachment(item)">Удалить</button></div></li></ul>
         <div class="card-actions"><button v-if="activeViewing?.status === 'scheduled'" class="button accent compact" :disabled="!canCompleteViewing" @click="completeViewing">Завершить просмотр</button><span v-else-if="activeViewing?.status === 'completed'" class="completion-state">Просмотр завершён</span></div>
       </section>
 

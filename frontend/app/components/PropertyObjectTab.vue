@@ -9,8 +9,6 @@ const emit = defineEmits<{ resolve: [] }>()
       <label class="wide"><span>Адрес</span><input v-model="form.address" /></label>
       <button class="button compact" type="button" @click="emit('resolve')">Определить</button>
       <label><span>Объявление</span><input v-model="form.listingUrl" placeholder="https://…" /></label>
-      <label class="coordinate"><span>Широта</span><input v-model.number="form.latitude" inputmode="decimal" /></label>
-      <label class="coordinate"><span>Долгота</span><input v-model.number="form.longitude" inputmode="decimal" /></label>
     </section>
 
     <div class="object-grid">

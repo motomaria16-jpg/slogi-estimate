@@ -30,13 +30,22 @@ export function listingUrlOf(...sources: any[]) {
       ? [source]
       : [
           source?.listingUrl,
+          source?.listing_url,
           source?.canonicalUrl,
+          source?.canonical_url,
+          source?.url,
           source?.spaceCard?.listingUrl,
+          source?.spaceCard?.listing_url,
           source?.spaceCard?.canonicalUrl,
+          source?.spaceCard?.canonical_url,
           source?.phase0?.listingUrl,
+          source?.phase0?.listing_url,
           source?.phase0?.canonicalUrl,
+          source?.phase0?.canonical_url,
           source?.phase0?.spaceCard?.listingUrl,
-          source?.phase0?.spaceCard?.canonicalUrl
+          source?.phase0?.spaceCard?.listing_url,
+          source?.phase0?.spaceCard?.canonicalUrl,
+          source?.phase0?.spaceCard?.canonical_url
         ]
     const url = candidates
       .map(value => String(value || '').trim())

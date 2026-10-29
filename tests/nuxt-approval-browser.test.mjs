@@ -29,7 +29,7 @@ const server = createServer(async (request, response) => {
 await new Promise(resolveListen => server.listen(0, '127.0.0.1', resolveListen))
 const origin = `http://127.0.0.1:${server.address().port}`
 const browser = await chromium.launch({ headless: true, executablePath: chromePath })
-const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, acceptDownloads: true })
 const project = {
   id: 'approval-browser-fixture',
   address: 'Москва, улица Согласования, 1',
@@ -64,6 +64,10 @@ try {
   await page.getByRole('link', { name: 'Открыть объявление' }).waitFor()
   assert.equal(await page.getByRole('link', { name: 'Открыть объявление' }).getAttribute('href'), 'https://example.test/listing/approval-browser-fixture')
   assert.deepEqual(await page.locator('.property-tabs button').allTextContents(), ['Объект', 'Сопровождение', 'КП', 'Согласование'])
+  for (const tabName of ['Объект', 'Сопровождение', 'КП', 'Согласование']) {
+    await page.getByRole('button', { name: tabName, exact: true }).click()
+    assert.equal(await page.getByRole('link', { name: 'Открыть объявление' }).getAttribute('href'), 'https://example.test/listing/approval-browser-fixture')
+  }
   assert.equal(await page.getByRole('button', { name: 'Ремонт помещения', exact: true }).count(), 0)
   assert.equal(await page.getByRole('button', { name: 'Согласовано', exact: true }).isDisabled(), true)
   const desktop = await page.locator('.property-card').evaluate(card => ({
@@ -75,6 +79,31 @@ try {
   assert.ok(desktop.bodyOverflow <= 1)
   assert.equal(desktop.columns, 2)
 
+  await page.setViewportSize({ width: 920, height: 900 })
+  const tablet = await page.locator('.property-card').evaluate(card => ({
+    overflow: card.scrollWidth - card.clientWidth,
+    documentOverflow: card.querySelector('.approval-documents').scrollWidth - card.querySelector('.approval-documents').clientWidth,
+    actionOverflow: Math.max(...Array.from(card.querySelectorAll('.approval-document-actions')).map(group => group.scrollWidth - group.clientWidth))
+  }))
+  assert.ok(tablet.overflow <= 1)
+  assert.ok(tablet.documentOverflow <= 1)
+  assert.ok(tablet.actionOverflow <= 1)
+  await page.setViewportSize({ width: 1440, height: 900 })
+
+  const actionGeometry = () => page.locator('.approval-document-actions').evaluateAll(groups => groups.map(group => ({
+    x: group.getBoundingClientRect().x,
+    y: group.getBoundingClientRect().y,
+    width: group.getBoundingClientRect().width,
+    labels: Array.from(group.querySelectorAll('button')).map(button => button.textContent?.trim()),
+    disabled: Array.from(group.querySelectorAll('button')).map(button => button.disabled)
+  })))
+  const actionsBeforeUpload = await actionGeometry()
+  assert.equal(actionsBeforeUpload.length, 3)
+  for (const group of actionsBeforeUpload) {
+    assert.deepEqual(group.labels, ['Добавить', 'Скачать', 'Удалить'])
+    assert.deepEqual(group.disabled, [false, true, true])
+  }
+
   const inputs = page.locator('.approval-documents input[type="file"]')
   await inputs.nth(1).setInputFiles({ name: 'Подписанный ДА.pdf', mimeType: 'application/pdf', buffer: Buffer.from('signed lease') })
   await page.getByText('Подписанный ДА.pdf').waitFor()
@@ -84,10 +113,27 @@ try {
   ])
   await page.getByText('Доверенность.pdf').waitFor()
   assert.equal(await page.getByRole('button', { name: 'Согласовано', exact: true }).isEnabled(), true)
-  await page.getByRole('button', { name: 'Удалить', exact: true }).nth(2).waitFor()
   assert.equal(await page.getByRole('button', { name: 'Удалить', exact: true }).count(), 3)
+  const actionsAfterUpload = await actionGeometry()
+  assert.deepEqual(actionsAfterUpload.map(group => group.labels), actionsBeforeUpload.map(group => group.labels))
+  actionsAfterUpload.forEach((group, index) => {
+    assert.ok(Math.abs(group.x - actionsBeforeUpload[index].x) <= 1)
+    assert.ok(Math.abs(group.y - actionsBeforeUpload[index].y) <= 1)
+    assert.ok(Math.abs(group.width - actionsBeforeUpload[index].width) <= 1)
+  })
 
   const leaseRow = page.locator('.approval-document-row').filter({ hasText: 'Подписанный договор аренды' })
+  const leaseDownloadPromise = page.waitForEvent('download')
+  await leaseRow.getByRole('button', { name: 'Скачать', exact: true }).click()
+  assert.equal((await leaseDownloadPromise).suggestedFilename(), 'Подписанный ДА.pdf')
+
+  const ownershipRow = page.locator('.approval-document-row').filter({ hasText: 'Документы о праве сдачи помещения' })
+  const ownershipSelect = ownershipRow.getByRole('combobox', { name: 'Документ о праве сдачи' })
+  await ownershipSelect.selectOption({ label: 'Выписка.pdf' })
+  const ownershipDownloadPromise = page.waitForEvent('download')
+  await ownershipRow.getByRole('button', { name: 'Скачать', exact: true }).click()
+  assert.equal((await ownershipDownloadPromise).suggestedFilename(), 'Выписка.pdf')
+
   page.once('dialog', dialog => dialog.accept())
   await leaseRow.getByRole('button', { name: 'Удалить', exact: true }).click()
   await page.getByText('Подписанный ДА.pdf').waitFor({ state: 'detached' })
@@ -95,10 +141,10 @@ try {
   await inputs.nth(1).setInputFiles({ name: 'Подписанный ДА.pdf', mimeType: 'application/pdf', buffer: Buffer.from('signed lease again') })
   await page.getByText('Подписанный ДА.pdf').waitFor()
 
-  const firstOwnership = page.locator('.approval-file-item').filter({ hasText: 'Выписка.pdf' })
+  await ownershipSelect.selectOption({ label: 'Выписка.pdf' })
   page.once('dialog', dialog => dialog.accept())
-  await firstOwnership.getByRole('button', { name: 'Удалить', exact: true }).click()
-  await page.getByText('Выписка.pdf').waitFor({ state: 'detached' })
+  await ownershipRow.getByRole('button', { name: 'Удалить', exact: true }).click()
+  await page.waitForFunction(() => !Array.from(document.querySelectorAll('.approval-file-select option')).some(option => option.textContent === 'Выписка.pdf'))
   assert.equal(await page.getByRole('button', { name: 'Согласовано', exact: true }).isEnabled(), true)
 
   await page.setViewportSize({ width: 375, height: 760 })
@@ -120,6 +166,7 @@ try {
   assert.equal(stored.phase0.spaceCard.work.pipeline.status, 'repair')
   assert.equal(stored.phase0.spaceCard.work.approval.status, 'agreed')
   assert.equal(stored.phase0.spaceCard.work.repair.stage, 'documents')
+  assert.equal(stored.phase0.spaceCard.listingUrl, 'https://example.test/listing/approval-browser-fixture', JSON.stringify({ phase: stored.phase0, card: stored.phase0.spaceCard }))
 
   await page.getByRole('button', { name: 'Открыть документы', exact: true }).click()
   const repairCard = page.locator('.property-card')
@@ -149,6 +196,16 @@ try {
   await repairCard.getByRole('button', { name: 'Карточка помещения', exact: true }).click()
   assert.deepEqual(await repairCard.locator('.property-tabs button').allTextContents(), ['Объект', 'Сопровождение', 'КП', 'Согласование'])
   assert.deepEqual(await sectionButtons.evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-pressed'))), ['true', 'false'])
+  const repairedListingAction = await repairCard.locator('.property-listing-link').evaluate(node => ({ tag: node.tagName, href: node.getAttribute('href'), disabled: node.hasAttribute('disabled') }))
+  assert.deepEqual(repairedListingAction, { tag: 'A', href: 'https://example.test/listing/approval-browser-fixture', disabled: false })
+  await repairCard.getByRole('button', { name: 'Согласование', exact: true }).click()
+  const completedOwnershipRow = repairCard.locator('.approval-document-row').filter({ hasText: 'Документы о праве сдачи помещения' })
+  assert.equal(await completedOwnershipRow.getByRole('button', { name: 'Добавить', exact: true }).isDisabled(), true)
+  assert.equal(await completedOwnershipRow.getByRole('button', { name: 'Удалить', exact: true }).isDisabled(), true)
+  assert.equal(await completedOwnershipRow.getByRole('button', { name: 'Скачать', exact: true }).isEnabled(), true)
+  const completedDownloadPromise = page.waitForEvent('download')
+  await completedOwnershipRow.getByRole('button', { name: 'Скачать', exact: true }).click()
+  assert.equal((await completedDownloadPromise).suggestedFilename(), 'Доверенность.pdf')
   await repairCard.getByRole('button', { name: 'Ремонт помещения', exact: true }).click()
   assert.deepEqual(await repairTabLabels(), ['Документы', 'Ремонт', 'Выход из ремонта'])
   await page.setViewportSize({ width: 375, height: 760 })
