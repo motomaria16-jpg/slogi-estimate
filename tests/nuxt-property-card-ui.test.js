@@ -28,7 +28,9 @@ test('the shared property card keeps the property tabs and exposes the gated rep
   assert.match(modal, /api\(\)\?\.repair\?\.canOpenStage\?\.\(project\.value, 'documents'\)/)
   assert.match(modal, /api\(\)\?\.repair\?\.canOpenStage\?\.\(project\.value, 'repair'\)/)
   assert.match(modal, /api\(\)\?\.repair\?\.canOpenStage\?\.\(project\.value, 'handover'\)/)
-  assert.match(modal, /v-if="canOpenRepair"[^>]*>\{\{ activeGroup === 'repair' \? 'Карточка помещения' : 'Ремонт помещения' \}\}/)
+  assert.match(modal, /aria-label="Переключение раздела карточки"/)
+  assert.match(modal, /:aria-pressed="activeGroup === 'property'"[^>]*>Карточка помещения<\/button>/)
+  assert.match(modal, /v-if="canOpenRepair"[^>]*:aria-pressed="activeGroup === 'repair'"[^>]*>Ремонт помещения<\/button>/)
   assert.match(modal, /<PropertyRepairStageTab[^>]*section="documents"/)
   assert.match(modal, /<PropertyRepairStageTab[^>]*section="repair"/)
   assert.match(modal, /<PropertyRepairStageTab[^>]*section="handover"/)
@@ -58,7 +60,7 @@ test('repair uses a gated second-level card navigation without changing the shar
   const context = read('frontend/app/composables/usePropertyModal.ts')
   const css = read('frontend/app/assets/css/main.css')
 
-  assert.match(modal, /activeGroup === 'repair' \? 'Ремонт помещения' : 'Карточка помещения'/)
+  assert.match(modal, /function selectGroup\(group: 'property' \| 'repair'\)/)
   assert.match(modal, /v-if="canOpenRepair"/)
   assert.match(modal, /api\(\)\?\.repair\?\.canOpenStage\?\.\(project\.value, 'documents'\)/)
   assert.match(modal, /api\(\)\?\.repair\?\.canOpenStage\?\.\(project\.value, 'repair'\)/)
@@ -66,7 +68,7 @@ test('repair uses a gated second-level card navigation without changing the shar
   for (const tab of ['Документы', 'Ремонт', 'Выход из ремонта']) assert.match(modal, new RegExp(`label: '${tab}'`))
   assert.match(context, /'repair-documents' \| 'repair-process' \| 'repair-handover'/)
   assert.match(modal, /navigateTo\('\/repair\.html\?section=documents'\)/)
-  assert.match(repair, /Формирование документов для ремонта/)
+  assert.match(repair, /Документы для ремонта/)
   assert.match(repair, /Процесс ремонта/)
   assert.match(repair, /Выход из ремонта/)
   assert.match(css, /\.property-tabs--repair/)
@@ -145,12 +147,32 @@ test('button variants keep readable colours on hover', () => {
 test('mobile layouts fit controls, keep compact cards and avoid oversized maps', () => {
   const css = read('frontend/app/assets/css/main.css')
   const mobile = css.slice(css.indexOf('@media (max-width: 620px)'), css.indexOf('@media (prefers-reduced-motion'))
-  assert.match(mobile, /\.map-stage \{ height: 270px; min-height: 270px/)
+  assert.match(css, /--workspace-map-height: clamp\(380px, calc\(100vh - 305px\), 560px\)/)
+  assert.match(mobile, /--workspace-map-height: 270px/)
+  assert.match(css, /\.map-stage \{[^}]*height: var\(--workspace-map-height\);[^}]*min-height: var\(--workspace-map-height\)/)
   assert.match(mobile, /\.property-tabs \{ display: grid; grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/)
   assert.match(mobile, /\.form-row, \.proposal-terms \.form-row \{ grid-template-columns: minmax\(104px/)
   assert.match(mobile, /\.document-buttons \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/)
   assert.match(mobile, /\.calendar-days\.is-month \{ grid-template-columns: repeat\(7, minmax\(0, 1fr\)\)/)
   assert.match(mobile, /\.premises-row__actions \{ position: static; display: grid; grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/)
+})
+
+test('every workspace map shares the repair documents height contract', () => {
+  const css = read('frontend/app/assets/css/main.css')
+  const pages = [
+    'frontend/app/pages/in-work.html.vue',
+    'frontend/app/pages/proposal.html.vue',
+    'frontend/app/pages/approvals.html.vue',
+    'frontend/app/pages/repair.html.vue',
+    'frontend/app/pages/slogi-objects.html.vue'
+  ]
+  for (const page of pages) {
+    const source = read(page)
+    assert.match(source, /class="map-panel"/)
+    assert.match(source, /<PremisesMap/)
+  }
+  assert.equal((css.match(/\.map-stage \{/g) || []).length, 2)
+  assert.doesNotMatch(css, /repair[^\n{]*\.map-stage/)
 })
 
 test('workspace headers share actions and calendar supports planning and external calendars', () => {

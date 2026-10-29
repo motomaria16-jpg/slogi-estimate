@@ -115,7 +115,7 @@ try {
   page.once('dialog', dialog => dialog.accept())
   await page.getByRole('button', { name: 'Согласовано', exact: true }).click()
   await page.waitForURL(url => url.pathname.endsWith('/repair.html') && url.searchParams.get('section') === 'documents')
-  await page.getByRole('heading', { name: 'Формирование документов для ремонта', exact: true }).waitFor()
+  await page.getByRole('heading', { name: 'Документы для ремонта', exact: true }).waitFor()
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('slogi_locations_v1') || '[]')[0])
   assert.equal(stored.phase0.spaceCard.work.pipeline.status, 'repair')
   assert.equal(stored.phase0.spaceCard.work.approval.status, 'agreed')
@@ -124,6 +124,19 @@ try {
   await page.getByRole('button', { name: 'Открыть документы', exact: true }).click()
   const repairCard = page.locator('.property-card')
   await repairCard.getByRole('heading', { name: 'Ремонт помещения', exact: true }).waitFor()
+  const sectionButtons = repairCard.locator('.property-section-switch button')
+  assert.equal(await sectionButtons.count(), 2)
+  const sectionStyles = await sectionButtons.evaluateAll(buttons => buttons.map(button => {
+    const style = getComputedStyle(button)
+    return { fontFamily: style.fontFamily, fontSize: style.fontSize, fontWeight: style.fontWeight, lineHeight: style.lineHeight, height: button.getBoundingClientRect().height, pressed: button.getAttribute('aria-pressed'), background: style.backgroundColor }
+  }))
+  assert.deepEqual(
+    [sectionStyles[0].fontFamily, sectionStyles[0].fontSize, sectionStyles[0].fontWeight, sectionStyles[0].lineHeight],
+    [sectionStyles[1].fontFamily, sectionStyles[1].fontSize, sectionStyles[1].fontWeight, sectionStyles[1].lineHeight]
+  )
+  assert.ok(Math.abs(sectionStyles[0].height - sectionStyles[1].height) <= 1)
+  assert.deepEqual(sectionStyles.map(style => style.pressed), ['false', 'true'])
+  assert.notEqual(sectionStyles[0].background, sectionStyles[1].background)
   const repairTabLabels = () => repairCard.locator('.property-tabs button').evaluateAll(buttons => buttons.map(button => (button.textContent || '').replace(/·/g, '').trim()))
   assert.deepEqual(await repairTabLabels(), ['Документы', 'Ремонт', 'Выход из ремонта'])
   assert.deepEqual(await repairCard.locator('.property-tabs button').evaluateAll(buttons => buttons.map(button => button.disabled)), [false, true, true])
@@ -135,8 +148,23 @@ try {
   assert.ok(repairLayout.bodyOverflow <= 1)
   await repairCard.getByRole('button', { name: 'Карточка помещения', exact: true }).click()
   assert.deepEqual(await repairCard.locator('.property-tabs button').allTextContents(), ['Объект', 'Сопровождение', 'КП', 'Согласование'])
+  assert.deepEqual(await sectionButtons.evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-pressed'))), ['true', 'false'])
   await repairCard.getByRole('button', { name: 'Ремонт помещения', exact: true }).click()
   assert.deepEqual(await repairTabLabels(), ['Документы', 'Ремонт', 'Выход из ремонта'])
+  await page.setViewportSize({ width: 375, height: 760 })
+  const mobileSectionSwitch = await repairCard.locator('.property-section-switch').evaluate(nav => ({
+    overflow: nav.scrollWidth - nav.clientWidth,
+    buttons: Array.from(nav.querySelectorAll('button')).map(button => {
+      const style = getComputedStyle(button)
+      return { fontSize: style.fontSize, fontWeight: style.fontWeight, height: button.getBoundingClientRect().height }
+    })
+  }))
+  assert.ok(mobileSectionSwitch.overflow <= 1)
+  assert.deepEqual(
+    [mobileSectionSwitch.buttons[0].fontSize, mobileSectionSwitch.buttons[0].fontWeight],
+    [mobileSectionSwitch.buttons[1].fontSize, mobileSectionSwitch.buttons[1].fontWeight]
+  )
+  assert.ok(Math.abs(mobileSectionSwitch.buttons[0].height - mobileSectionSwitch.buttons[1].height) <= 1)
   assert.deepEqual(issues, [])
   console.log('nuxt approval browser: PASS')
 } finally {

@@ -117,11 +117,32 @@ try {
   assert.equal(await page.locator('html').getAttribute('data-slogi-access'), 'granted')
   assert.equal(await page.evaluate(() => new Promise(resolveTimer => setTimeout(() => resolveTimer('responsive'), 30))), 'responsive')
 
+  const mapPages = [
+    '/in-work.html',
+    '/proposal.html',
+    '/approvals.html',
+    '/repair.html?section=documents',
+    '/slogi-objects.html'
+  ]
+  const mapHeights = new Map()
+  for (const path of mapPages) {
+    await page.goto(`${origin}${path}`, { waitUntil: 'domcontentloaded' })
+    await page.locator('.map-stage').waitFor()
+    mapHeights.set(path, await page.locator('.map-stage').evaluate(node => node.getBoundingClientRect().height))
+  }
+  const repairMapHeight = mapHeights.get('/repair.html?section=documents')
+  for (const [path, height] of mapHeights) assert.ok(Math.abs(height - repairMapHeight) <= 1, `${path} map height differs from repair documents`)
+  await page.goto(`${origin}/in-work.html`, { waitUntil: 'domcontentloaded' })
+  await page.getByRole('heading', { name: 'Помещения в работе' }).waitFor()
+
   await page.getByRole('button', { name: 'Добавить помещение', exact: true }).click()
   const draftDialog = page.locator('.property-dialog')
   await draftDialog.getByRole('heading', { name: 'Карточка помещения' }).waitFor()
+  await draftDialog.locator('.object-tab').waitFor()
   assert.equal(await draftDialog.getByRole('button', { name: 'Сопровождение', exact: true }).isDisabled(), true)
-  assert.equal(await draftDialog.locator('.object-tab').count(), 1)
+  const draftSectionSwitch = draftDialog.locator('.property-section-switch')
+  assert.equal(await draftSectionSwitch.getByRole('button').count(), 1)
+  assert.equal(await draftSectionSwitch.getByRole('button', { name: 'Карточка помещения', exact: true }).getAttribute('aria-pressed'), 'true')
   await draftDialog.getByRole('button', { name: 'Сохранить', exact: true }).click()
   const propertyAlert = draftDialog.getByRole('alert')
   await propertyAlert.getByText('Укажите адрес объекта.').waitFor()

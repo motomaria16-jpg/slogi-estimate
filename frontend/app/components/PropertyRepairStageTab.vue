@@ -19,7 +19,7 @@ const documentRows = computed(() => [
 
 const sectionMeta = computed(() => ({
   documents: {
-    title: 'Формирование документов для ремонта',
+    title: 'Документы для ремонта',
     badge: documents.value.length ? `${completedDocuments.value} из ${documents.value.length} готово` : 'Новый этап',
     note: 'Здесь будет собран комплект документов, необходимый для начала ремонтных работ.'
   },

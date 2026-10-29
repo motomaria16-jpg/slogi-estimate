@@ -223,7 +223,7 @@ test('left menu follows the two-stage product structure and links unfinished sec
     'КП',
     'Согласование',
     'РЕМОНТ',
-    'Формирование документов для ремонта',
+    'Документы для ремонта',
     'Процесс ремонта',
     'Выход из ремонта',
     'МОИ ОБЪЕКТЫ'

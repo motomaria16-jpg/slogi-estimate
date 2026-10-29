@@ -231,7 +231,7 @@ async function assertAvailableSpace(device,label){
       {label:'Согласование',href:'under-development.html?section=approval',disabled:null}
     ]},
     {title:'РЕМОНТ',items:[
-      {label:'Формирование документов для ремонта',href:'under-development.html?section=repair-documents',disabled:null},
+      {label:'Документы для ремонта',href:'under-development.html?section=repair-documents',disabled:null},
       {label:'Процесс ремонта',href:'under-development.html?section=repair-process',disabled:null},
       {label:'Выход из ремонта',href:'under-development.html?section=repair-exit',disabled:null}
     ]},

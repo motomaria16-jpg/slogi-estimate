@@ -18,7 +18,7 @@ const groups = [
   {
     label: 'Ремонт',
     links: [
-      { to: '/repair.html?section=documents', label: 'Формирование документов для ремонта', shortLabel: 'Документы', icon: '▤' },
+      { to: '/repair.html?section=documents', label: 'Документы для ремонта', shortLabel: 'Документы', icon: '▤' },
       { to: '/repair.html?section=repair', label: 'Процесс ремонта', shortLabel: 'Ремонт', icon: '⌁' },
       { to: '/repair.html?section=handover', label: 'Выход из ремонта', shortLabel: 'Выход', icon: '⌁' }
     ]

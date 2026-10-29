@@ -31,7 +31,7 @@ const groups=[
     {id:'approval',href:'under-development.html?section=approval',label:'Согласование',icon:'estimate'}
   ]},
   {title:'РЕМОНТ',items:[
-    {id:'repair-documents',href:'under-development.html?section=repair-documents',label:'Формирование документов для ремонта',icon:'estimate'},
+    {id:'repair-documents',href:'under-development.html?section=repair-documents',label:'Документы для ремонта',icon:'estimate'},
     {id:'repair-process',href:'under-development.html?section=repair-process',label:'Процесс ремонта',icon:'repair'},
     {id:'repair-exit',href:'under-development.html?section=repair-exit',label:'Выход из ремонта',icon:'repair'}
   ]},

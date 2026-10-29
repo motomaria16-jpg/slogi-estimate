@@ -149,8 +149,9 @@ function selectTab(key: PropertyTab) {
   if (tab?.enabled) activeTab.value = key
 }
 
-function switchGroup() {
-  activeTab.value = activeGroup.value === 'repair' ? 'object' : 'repair-documents'
+function selectGroup(group: 'property' | 'repair') {
+  if (group === 'repair' && !canOpenRepair.value) return
+  activeTab.value = group === 'repair' ? 'repair-documents' : 'object'
 }
 
 function handleClose() { if (state.value.open) close() }
@@ -253,7 +254,7 @@ function agreeApproval() { return approvalTab.value?.agree() }
 <template>
   <dialog ref="dialog" class="property-dialog" @close="handleClose" @cancel.prevent="close">
     <div v-if="state.open" class="property-card">
-      <header class="property-header"><div class="property-header__main"><div class="property-section-switch"><h2>{{ activeGroup === 'repair' ? 'Ремонт помещения' : 'Карточка помещения' }}</h2><button v-if="canOpenRepair" type="button" @click="switchGroup">{{ activeGroup === 'repair' ? 'Карточка помещения' : 'Ремонт помещения' }}</button></div><p>{{ titleAddress }}</p></div><div class="property-header__actions"><a v-if="listingUrl" :href="listingUrl" target="_blank" rel="noopener">Открыть объявление</a><button class="close-button" aria-label="Закрыть" @click="close">×</button></div></header>
+      <header class="property-header"><div class="property-header__main"><h2 class="visually-hidden">{{ activeGroup === 'repair' ? 'Ремонт помещения' : 'Карточка помещения' }}</h2><nav class="property-section-switch" :class="{ 'has-repair': canOpenRepair }" aria-label="Переключение раздела карточки"><button type="button" :class="{ active: activeGroup === 'property' }" :aria-pressed="activeGroup === 'property'" @click="selectGroup('property')">Карточка помещения</button><button v-if="canOpenRepair" type="button" :class="{ active: activeGroup === 'repair' }" :aria-pressed="activeGroup === 'repair'" @click="selectGroup('repair')">Ремонт помещения</button></nav><p>{{ titleAddress }}</p></div><div class="property-header__actions"><a v-if="listingUrl" :href="listingUrl" target="_blank" rel="noopener">Открыть объявление</a><button class="close-button" aria-label="Закрыть" @click="close">×</button></div></header>
       <nav class="property-tabs" :class="{ 'property-tabs--repair': activeGroup === 'repair' }" aria-label="Разделы карточки">
         <button
           v-for="tab in visibleTabs"

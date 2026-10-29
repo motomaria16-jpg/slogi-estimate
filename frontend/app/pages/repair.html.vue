@@ -12,7 +12,7 @@ const sectionMeta: Record<RepairSection, {
   modalTab: 'repair-documents' | 'repair-process' | 'repair-handover'
 }> = {
   documents: {
-    title: 'Формирование документов для ремонта',
+    title: 'Документы для ремонта',
     emptyTitle: 'Помещений для подготовки документов пока нет',
     emptyText: 'После нажатия «Согласовано» помещение автоматически появится в этом разделе.',
     mapTitle: 'Объекты на этапе подготовки документов',

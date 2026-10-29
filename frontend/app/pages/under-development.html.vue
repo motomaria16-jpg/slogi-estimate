@@ -1,7 +1,7 @@
 <script setup lang="ts">
 useHead({ title: 'Раздел в разработке' })
 const route = useRoute()
-const names: Record<string, string> = { approvals: 'Согласование', documents: 'Формирование документов для ремонта', repair: 'Процесс ремонта', handover: 'Выход из ремонта' }
+const names: Record<string, string> = { approvals: 'Согласование', documents: 'Документы для ремонта', repair: 'Процесс ремонта', handover: 'Выход из ремонта' }
 const name = computed(() => names[String(route.query.section || '')] || 'Раздел')
 const legacySection = String(route.query.section || '')
 const repairRedirects: Record<string, string> = {
