@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatArea, formatMoney, pipelineStatus, projectCard, statusLabel } from '~/utils/format'
+import { formatArea, formatMoney, pipelineStatus, projectCard, statusLabel, workflowTabReady } from '~/utils/format'
 
 const props = withDefaults(defineProps<{
   item: any
@@ -34,9 +34,13 @@ const rent = computed(() => card.value?.rentMonthly ?? props.item?.rentMonthly ?
 const area = computed(() => card.value?.area ?? props.item?.area)
 const floor = computed(() => props.item?.floor ?? props.item?.phase0?.floor)
 const ceiling = computed(() => card.value?.ceilingHeight ?? props.item?.ceilingHeight)
+const canOpenWorkflow = computed(() => workflowTabReady(props.item))
 const primaryLabel = computed(() => {
   if (props.context === 'search') return 'Взять в работу'
-  if (props.context === 'in-work') return pipelineStatus(props.item) === 'viewing_scheduled' ? 'Открыть просмотр' : 'Назначить просмотр'
+  if (props.context === 'in-work') {
+    if (!canOpenWorkflow.value) return 'Заполнить данные'
+    return pipelineStatus(props.item) === 'viewing_scheduled' ? 'Открыть просмотр' : 'Назначить просмотр'
+  }
   if (props.context === 'proposal') return 'Открыть КП'
   if (props.context === 'approval') return 'Открыть согласование'
   if (props.context === 'repair-documents') return 'Открыть документы'

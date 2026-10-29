@@ -8,12 +8,22 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8')
 
 test('the shared property card keeps the property tabs and exposes the gated repair group after agreement', () => {
   const modal = read('frontend/app/components/PropertyCardModal.vue')
+  const format = read('frontend/app/utils/format.ts')
   for (const tab of ['Объект', 'Сопровождение', 'КП', 'Согласование', 'Документы', 'Ремонт', 'Выход из ремонта']) {
     assert.match(modal, new RegExp(`label: '${tab}'`))
   }
   assert.doesNotMatch(modal, /\.filter\(item => item\.visible\)/)
   assert.match(modal, /:disabled="!tab\.enabled"/)
   assert.match(modal, /proposalTabReady\(project\.value\)/)
+  assert.match(modal, /workflowTabReady\(project\.value/)
+  assert.doesNotMatch(modal, /state\.value\.context !== 'search'/)
+  assert.match(modal, /Доступно после заполнения и сохранения всех данных об объекте/)
+  assert.match(format, /checks\.requiredComplete !== true/)
+  assert.match(format, /cluster_not_confirmed/)
+  assert.match(format, /cluster_occupancy_unknown/)
+  assert.match(format, /cluster_rank_unknown/)
+  assert.match(modal, /state\.value\.context === 'in-work' && !value\.phase0\.spaceLifecycle\.hasLeftSearch\(saved\)/)
+  assert.match(format, /WORKFLOW_STARTED_STATUSES/)
   assert.match(modal, /Доступно после завершения просмотра и добавления фото и видео/)
   assert.match(modal, /api\(\)\?\.repair\?\.canOpenStage\?\.\(project\.value, 'documents'\)/)
   assert.match(modal, /api\(\)\?\.repair\?\.canOpenStage\?\.\(project\.value, 'repair'\)/)
@@ -22,6 +32,24 @@ test('the shared property card keeps the property tabs and exposes the gated rep
   assert.match(modal, /<PropertyRepairStageTab[^>]*section="documents"/)
   assert.match(modal, /<PropertyRepairStageTab[^>]*section="repair"/)
   assert.match(modal, /<PropertyRepairStageTab[^>]*section="handover"/)
+})
+
+test('property errors stay visible inside the native dialog and expose useful details', () => {
+  const modal = read('frontend/app/components/PropertyCardModal.vue')
+  const toast = read('frontend/app/components/AppToast.vue')
+  const composable = read('frontend/app/composables/useToast.ts')
+  const css = read('frontend/app/assets/css/main.css')
+
+  assert.match(modal, /class="property-form-alert" role="alert" aria-live="assertive"/)
+  assert.match(modal, /error\?\.details\?\.errors/)
+  assert.match(modal, /error\?\.code === 'POTENTIAL_DUPLICATE'/)
+  assert.match(modal, /<AppToast scope="dialog"/)
+  assert.match(toast, /props\.scope === 'dialog' \? state\.value\.open : !state\.value\.open/)
+  assert.match(toast, /toast\.tone === 'error' \? 'alert' : 'status'/)
+  assert.match(composable, /tone === 'success'/)
+  assert.doesNotMatch(composable, /setTimeout\([^)]*3600\).*tone === 'error'/)
+  assert.match(css, /\.property-form-alert \{[^}]*position: absolute;[^}]*z-index: 6/)
+  assert.match(css, /\.app-toast--dialog \{[^}]*position: absolute;[^}]*z-index: 7/)
 })
 
 test('repair uses a gated second-level card navigation without changing the shared shell', () => {

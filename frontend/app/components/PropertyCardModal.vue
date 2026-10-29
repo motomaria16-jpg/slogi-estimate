@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { approvalTabReady, listingUrlOf, proposalTabReady, repairTabsReady } from '~/utils/format'
+import { approvalTabReady, listingUrlOf, proposalTabReady, repairTabsReady, workflowTabReady } from '~/utils/format'
 
 type PropertyTab = 'object' | 'workflow' | 'proposal' | 'approval' | 'repair-documents' | 'repair-process' | 'repair-handover'
 
@@ -12,19 +12,25 @@ const approvalTab = ref<{ agree: () => Promise<void> } | null>(null)
 const activeTab = ref<PropertyTab>('object')
 const form = reactive<any>({})
 const saving = ref(false)
+const modalError = ref('')
 const project = computed(() => state.value.projectId ? projects.value.find(item => String(item.id) === String(state.value.projectId)) || null : null)
-const isInWork = computed(() => Boolean(project.value && api()?.phase0?.spaceLifecycle?.hasLeftSearch?.(project.value)) || state.value.context !== 'search')
+const hasLeftSearch = computed(() => Boolean(project.value && api()?.phase0?.spaceLifecycle?.hasLeftSearch?.(project.value)))
 const canOpenProposal = computed(() => Boolean(project.value && proposalTabReady(project.value)))
 const canOpenApproval = computed(() => Boolean(project.value && approvalTabReady(project.value)))
 const canOpenRepairDocuments = computed(() => Boolean(project.value && (api()?.repair?.canOpenStage?.(project.value, 'documents') ?? repairTabsReady(project.value))))
 const canOpenRepairProcess = computed(() => Boolean(project.value && api()?.repair?.canOpenStage?.(project.value, 'repair')))
 const canOpenRepairHandover = computed(() => Boolean(project.value && api()?.repair?.canOpenStage?.(project.value, 'handover')))
 const canOpenRepair = computed(() => canOpenRepairDocuments.value)
+const canOpenWorkflow = computed(() => Boolean(
+  project.value
+    && hasLeftSearch.value
+    && workflowTabReady(project.value, import.meta.client ? window.SlogiSearchSpaceCard?.evaluate : undefined)
+))
 const canAgreeApproval = computed(() => Boolean(project.value && api()?.approval?.canAgree?.(project.value)))
 const listingUrl = computed(() => listingUrlOf(form.listingUrl, project.value, state.value.draft))
 const propertyTabs = computed(() => [
   { key: 'object', label: 'Объект', enabled: true, hint: '' },
-  { key: 'workflow', label: 'Сопровождение', enabled: isInWork.value, hint: 'Доступно после добавления помещения в работу' },
+  { key: 'workflow', label: 'Сопровождение', enabled: canOpenWorkflow.value, hint: 'Доступно после заполнения и сохранения всех данных об объекте' },
   { key: 'proposal', label: 'КП', enabled: canOpenProposal.value, hint: 'Доступно после завершения просмотра и добавления фото и видео' },
   { key: 'approval', label: 'Согласование', enabled: canOpenApproval.value, hint: 'Доступно после отправки КП' }
 ] as { key: PropertyTab; label: string; enabled: boolean; hint: string }[])
@@ -41,6 +47,22 @@ function runtime() {
   const value = api()
   if (!value) throw new Error('Приложение ещё загружается.')
   return value
+}
+
+function propertyErrorMessage(reason: unknown, fallback: string) {
+  const error = reason as any
+  const fieldErrors = error?.details?.errors
+  if (fieldErrors && typeof fieldErrors === 'object') {
+    const messages = [...new Set(Object.values(fieldErrors).map(value => String(value || '').trim()).filter(Boolean))]
+    if (messages.length) return messages.join(' ')
+  }
+  if (error?.code === 'POTENTIAL_DUPLICATE') {
+    const duplicate = Array.isArray(error?.details?.duplicates) ? error.details.duplicates[0] : null
+    const address = String(duplicate?.project?.address || '').trim()
+    const reasons = Array.isArray(duplicate?.reasons) ? duplicate.reasons.map(String).filter(Boolean).join(', ') : ''
+    return `Похожий объект уже существует${address ? `: ${address}` : ''}.${reasons ? ` Причина: ${reasons}.` : ''}`
+  }
+  return error instanceof Error && error.message ? error.message : fallback
 }
 
 function cardFrom(source: any) {
@@ -98,9 +120,10 @@ function resetForm() {
 watch(() => state.value.open, open => {
   if (!import.meta.client) return
   if (open) {
+    modalError.value = ''
     const requested = state.value.initialTab as PropertyTab
     const requestedTab = [...propertyTabs.value, ...repairTabs.value].find(tab => tab.key === requested)
-    const propertyFallback: PropertyTab = canOpenApproval.value ? 'approval' : canOpenProposal.value ? 'proposal' : isInWork.value ? 'workflow' : 'object'
+    const propertyFallback: PropertyTab = canOpenApproval.value ? 'approval' : canOpenProposal.value ? 'proposal' : canOpenWorkflow.value ? 'workflow' : 'object'
     activeTab.value = requestedTab?.enabled
       ? requested
       : requested.startsWith('repair-') && canOpenRepairDocuments.value ? 'repair-documents' : propertyFallback
@@ -109,10 +132,13 @@ watch(() => state.value.open, open => {
 })
 watch(project, () => { if (state.value.open) resetForm() }, { deep: true })
 watch(canOpenProposal, enabled => {
-  if (!enabled && activeTab.value === 'proposal') activeTab.value = isInWork.value ? 'workflow' : 'object'
+  if (!enabled && activeTab.value === 'proposal') activeTab.value = canOpenWorkflow.value ? 'workflow' : 'object'
 })
 watch(canOpenApproval, enabled => {
-  if (!enabled && activeTab.value === 'approval') activeTab.value = canOpenProposal.value ? 'proposal' : isInWork.value ? 'workflow' : 'object'
+  if (!enabled && activeTab.value === 'approval') activeTab.value = canOpenProposal.value ? 'proposal' : canOpenWorkflow.value ? 'workflow' : 'object'
+})
+watch(canOpenWorkflow, enabled => {
+  if (!enabled && activeTab.value === 'workflow') activeTab.value = 'object'
 })
 watch(canOpenRepair, enabled => {
   if (!enabled && activeTab.value.startsWith('repair-')) activeTab.value = canOpenApproval.value ? 'approval' : 'object'
@@ -129,6 +155,7 @@ function switchGroup() {
 
 function handleClose() { if (state.value.open) close() }
 async function resolveAddress() {
+  modalError.value = ''
   try {
     const result = await runtime().phase0.phase0Service.resolveSpaceAddress(form.address, project.value?.id || '')
     form.address = result.address || form.address
@@ -141,7 +168,7 @@ async function resolveAddress() {
     form.clusterRank = result.competitive?.rank ?? null
     form.averageRentPerSqm = result.competitive?.averageRentPerSqm ?? null
     show('Адрес и кластер определены.')
-  } catch (reason) { show(reason instanceof Error ? reason.message : 'Не удалось определить адрес.', 'error') }
+  } catch (reason) { modalError.value = propertyErrorMessage(reason, 'Не удалось определить адрес.') }
 }
 
 function saveDraft() {
@@ -193,17 +220,22 @@ function saveDraft() {
 
 async function save() {
   if (activeTab.value !== 'object') { close(); return }
+  modalError.value = ''
   saving.value = true
   try {
     const value = runtime()
     let saved = await value.phase0.phase0Service.save(saveDraft(), { projectId: project.value?.id || '', expectedRevision: project.value?.phase0?.revision ?? null })
-    if (!project.value && state.value.context === 'in-work') saved = value.phase0.phase0Service.takeSpaceIntoWork(saved.id)
+    if (state.value.context === 'in-work' && !value.phase0.spaceLifecycle.hasLeftSearch(saved)) {
+      state.value.projectId = saved.id
+      refresh()
+      saved = value.phase0.phase0Service.takeSpaceIntoWork(saved.id)
+    }
     state.value.projectId = saved.id
     state.value.draft = undefined
     refresh()
     show('Карточка помещения сохранена.')
     close()
-  } catch (reason) { show(reason instanceof Error ? reason.message : 'Не удалось сохранить карточку.', 'error') }
+  } catch (reason) { modalError.value = propertyErrorMessage(reason, 'Не удалось сохранить карточку.') }
   finally { saving.value = false }
 }
 
@@ -233,6 +265,7 @@ function agreeApproval() { return approvalTab.value?.agree() }
         >{{ tab.label }}<span v-if="!tab.enabled" class="tab-lock" aria-hidden="true">·</span></button>
       </nav>
       <div class="property-body">
+        <div v-if="modalError" class="property-form-alert" role="alert" aria-live="assertive"><span>{{ modalError }}</span><button type="button" aria-label="Закрыть сообщение об ошибке" @click="modalError = ''">×</button></div>
         <AppLoading v-if="!ready" />
         <PropertyObjectTab v-else-if="activeTab === 'object'" v-model="form" @resolve="resolveAddress" />
         <PropertyWorkflowTab v-else-if="activeTab === 'workflow' && project" :project="project" @changed="changed" @proposal="toProposal" />
@@ -243,6 +276,7 @@ function agreeApproval() { return approvalTab.value?.agree() }
         <PropertyRepairStageTab v-else-if="activeTab === 'repair-handover' && project" :project="project" section="handover" />
       </div>
       <footer class="property-footer"><button v-if="activeTab === 'approval'" class="button accent" :disabled="!canAgreeApproval" @click="agreeApproval">Согласовано</button><button class="button" @click="close">Отменить</button><button class="button primary" :disabled="saving" @click="save">Сохранить</button></footer>
+      <AppToast scope="dialog" />
     </div>
   </dialog>
 </template>

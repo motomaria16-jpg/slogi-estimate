@@ -51,6 +51,46 @@ export function pipelineStatus(project: any) {
   return work?.pipeline?.status || work.pipelineStatus || 'contact_pending'
 }
 
+const WORKFLOW_STARTED_STATUSES = new Set([
+  'contacted',
+  'viewing_scheduled',
+  'viewing_completed',
+  'proposal_started',
+  'approval_pending',
+  'repair',
+  'archived',
+  'rejected'
+])
+
+export function workflowTabReady(project: any, evaluate?: (card: any) => any) {
+  const card = projectCard(project)
+  const work = projectWork(project)
+  const contact = work?.landlordContact && typeof work.landlordContact === 'object'
+    ? Object.values(work.landlordContact).some(value => Boolean(String(value || '').trim()))
+    : false
+  const workflowStarted = WORKFLOW_STARTED_STATUSES.has(String(pipelineStatus(project) || ''))
+    || contact
+    || (Array.isArray(work?.viewings) && work.viewings.length > 0)
+    || (Array.isArray(work?.operations) && work.operations.length > 0)
+    || Boolean(work?.proposal || work?.approval || work?.rejection || work?.repair)
+  if (workflowStarted) return true
+
+  let eligibility = card?.eligibility
+  if (typeof evaluate === 'function') {
+    try { eligibility = evaluate(card) }
+    catch { /* fall back to the persisted canonical eligibility */ }
+  }
+  const checks = eligibility?.checks || {}
+  if (checks.requiredComplete !== true) return false
+
+  // «Сопровождение» зависит от полноты карточки, а не от результата
+  // бизнес-оценки. Объект вне кластера, занятый кластер или место ниже
+  // ТОП-35 — это заполненные отрицательные значения, а не пропуски.
+  const unresolved = new Set(Array.isArray(eligibility?.reasons) ? eligibility.reasons : [])
+  return !['cluster_not_confirmed', 'cluster_occupancy_unknown', 'cluster_rank_unknown']
+    .some(reason => unresolved.has(reason))
+}
+
 export function proposalTabReady(project: any) {
   const work = projectWork(project)
   const completedViewing = [...(Array.isArray(work.viewings) ? work.viewings : [])]

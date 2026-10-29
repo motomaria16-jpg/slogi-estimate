@@ -117,6 +117,80 @@ try {
   assert.equal(await page.locator('html').getAttribute('data-slogi-access'), 'granted')
   assert.equal(await page.evaluate(() => new Promise(resolveTimer => setTimeout(() => resolveTimer('responsive'), 30))), 'responsive')
 
+  await page.getByRole('button', { name: 'Добавить помещение', exact: true }).click()
+  const draftDialog = page.locator('.property-dialog')
+  await draftDialog.getByRole('heading', { name: 'Карточка помещения' }).waitFor()
+  assert.equal(await draftDialog.getByRole('button', { name: 'Сопровождение', exact: true }).isDisabled(), true)
+  assert.equal(await draftDialog.locator('.object-tab').count(), 1)
+  await draftDialog.getByRole('button', { name: 'Сохранить', exact: true }).click()
+  const propertyAlert = draftDialog.getByRole('alert')
+  await propertyAlert.getByText('Укажите адрес объекта.').waitFor()
+  const alertGeometry = await draftDialog.evaluate(dialog => {
+    const alert = dialog.querySelector('.property-form-alert').getBoundingClientRect()
+    const bounds = dialog.getBoundingClientRect()
+    return {
+      visible: getComputedStyle(dialog.querySelector('.property-form-alert')).visibility === 'visible',
+      inside: alert.left >= bounds.left && alert.right <= bounds.right && alert.top >= bounds.top && alert.bottom <= bounds.bottom
+    }
+  })
+  assert.equal(alertGeometry.visible, true)
+  assert.equal(alertGeometry.inside, true)
+  await draftDialog.locator('.property-header .close-button').click()
+  await draftDialog.waitFor({ state: 'hidden' })
+
+  await page.evaluate(() => {
+    const project = {
+      id: 'incomplete-object-fixture',
+      address: 'Москва, незаполненное помещение',
+      phase0: {
+        revision: 1,
+        source: 'manual',
+        spaceCard: {
+          id: 'incomplete-object-fixture',
+          source: 'manual',
+          address: 'Москва, незаполненное помещение',
+          work: { status: 'in_work', takenAt: new Date().toISOString(), pipeline: { status: 'contact_pending' }, viewings: [] }
+        }
+      }
+    }
+    localStorage.setItem('slogi_locations_v1', JSON.stringify([project]))
+    window.dispatchEvent(new CustomEvent('slogi:locations-updated'))
+  })
+  await page.getByText('Москва, незаполненное помещение', { exact: true }).click()
+  await page.getByRole('heading', { name: 'Карточка помещения' }).waitFor()
+  assert.equal(await page.getByRole('button', { name: 'Сопровождение', exact: true }).isDisabled(), true)
+  await page.locator('.property-header .close-button').click()
+  await page.locator('.property-dialog').waitFor({ state: 'hidden' })
+
+  await page.evaluate(() => {
+    const [project] = JSON.parse(localStorage.getItem('slogi_locations_v1') || '[]')
+    project.clusterId = 'test-cluster'
+    project.clusterName = 'Тестовый кластер'
+    project.area = 100
+    project.ceilingHeight = 3
+    project.phase0.rent = { amount: 200000, period: 'month', currency: 'RUB' }
+    Object.assign(project.phase0.spaceCard, {
+      cluster: { id: 'test-cluster', name: 'Тестовый кластер', status: 'outside', matched: false, hasSlogiCenter: true },
+      competitive: { rank: 44, rating: 44, isTop35: false, averageRentPerSqm: 1300 },
+      rentMonthly: 200000,
+      area: 100,
+      areaConfirmed: 'yes',
+      separateEntrance: 'yes',
+      hasWindows: 'yes',
+      windowsOpen: 'yes',
+      ceilingHeight: 3,
+      ceilingHeightConfirmed: 'yes',
+      repair: 'finished'
+    })
+    localStorage.setItem('slogi_locations_v1', JSON.stringify([project]))
+    window.dispatchEvent(new CustomEvent('slogi:locations-updated'))
+  })
+  await page.getByText('Москва, незаполненное помещение', { exact: true }).click()
+  await page.getByRole('heading', { name: 'Карточка помещения' }).waitFor()
+  assert.equal(await page.getByRole('button', { name: 'Сопровождение', exact: true }).isEnabled(), true)
+  await page.locator('.property-header .close-button').click()
+  await page.locator('.property-dialog').waitFor({ state: 'hidden' })
+
   await page.evaluate(() => {
     const project = {
       id: 'navigation-card-fixture',
