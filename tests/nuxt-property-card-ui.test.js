@@ -6,15 +6,44 @@ const path = require('node:path')
 const root = path.resolve(__dirname, '..')
 const read = file => fs.readFileSync(path.join(root, file), 'utf8')
 
-test('the shared property card always exposes all four tabs and gates their actions', () => {
+test('the shared property card keeps the property tabs and exposes the gated repair group after agreement', () => {
   const modal = read('frontend/app/components/PropertyCardModal.vue')
-  for (const tab of ['Объект', 'Сопровождение', 'КП', 'Согласование']) {
+  for (const tab of ['Объект', 'Сопровождение', 'КП', 'Согласование', 'Документы', 'Ремонт', 'Выход из ремонта']) {
     assert.match(modal, new RegExp(`label: '${tab}'`))
   }
   assert.doesNotMatch(modal, /\.filter\(item => item\.visible\)/)
   assert.match(modal, /:disabled="!tab\.enabled"/)
   assert.match(modal, /proposalTabReady\(project\.value\)/)
   assert.match(modal, /Доступно после завершения просмотра и добавления фото и видео/)
+  assert.match(modal, /api\(\)\?\.repair\?\.canOpenStage\?\.\(project\.value, 'documents'\)/)
+  assert.match(modal, /api\(\)\?\.repair\?\.canOpenStage\?\.\(project\.value, 'repair'\)/)
+  assert.match(modal, /api\(\)\?\.repair\?\.canOpenStage\?\.\(project\.value, 'handover'\)/)
+  assert.match(modal, /v-if="canOpenRepair"[^>]*>\{\{ activeGroup === 'repair' \? 'Карточка помещения' : 'Ремонт помещения' \}\}/)
+  assert.match(modal, /<PropertyRepairStageTab[^>]*section="documents"/)
+  assert.match(modal, /<PropertyRepairStageTab[^>]*section="repair"/)
+  assert.match(modal, /<PropertyRepairStageTab[^>]*section="handover"/)
+})
+
+test('repair uses a gated second-level card navigation without changing the shared shell', () => {
+  const modal = read('frontend/app/components/PropertyCardModal.vue')
+  const repair = read('frontend/app/components/PropertyRepairStageTab.vue')
+  const context = read('frontend/app/composables/usePropertyModal.ts')
+  const css = read('frontend/app/assets/css/main.css')
+
+  assert.match(modal, /activeGroup === 'repair' \? 'Ремонт помещения' : 'Карточка помещения'/)
+  assert.match(modal, /v-if="canOpenRepair"/)
+  assert.match(modal, /api\(\)\?\.repair\?\.canOpenStage\?\.\(project\.value, 'documents'\)/)
+  assert.match(modal, /api\(\)\?\.repair\?\.canOpenStage\?\.\(project\.value, 'repair'\)/)
+  assert.match(modal, /api\(\)\?\.repair\?\.canOpenStage\?\.\(project\.value, 'handover'\)/)
+  for (const tab of ['Документы', 'Ремонт', 'Выход из ремонта']) assert.match(modal, new RegExp(`label: '${tab}'`))
+  assert.match(context, /'repair-documents' \| 'repair-process' \| 'repair-handover'/)
+  assert.match(modal, /navigateTo\('\/repair\.html\?section=documents'\)/)
+  assert.match(repair, /Формирование документов для ремонта/)
+  assert.match(repair, /Процесс ремонта/)
+  assert.match(repair, /Выход из ремонта/)
+  assert.match(css, /\.property-tabs--repair/)
+  assert.match(css, /\.repair-stage-tab/)
+  assert.match(modal, /<footer class="property-footer">/)
 })
 
 test('proposal availability requires a completed viewing with uploaded photo and video', () => {

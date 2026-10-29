@@ -17,6 +17,7 @@ export function useProjects() {
   }))
   const proposalProjects = computed(() => projects.value.filter(project => api()?.proposal?.isProposalProject?.(project)))
   const approvalProjects = computed(() => projects.value.filter(project => api()?.approval?.isApprovalProject?.(project)))
+  const repairProjects = computed(() => projects.value.filter(project => api()?.repair?.isRepairProject?.(project)))
 
   if (import.meta.client) {
     const events = ['slogi:runtime-ready', 'slogi:locations-updated', 'slogi:workspace-updated', 'slogi:shared-workspace-ready']
@@ -28,5 +29,5 @@ export function useProjects() {
     onBeforeUnmount(() => events.forEach(name => window.removeEventListener(name, refresh)))
   }
 
-  return { projects: readonly(projects), searchProjects, inWorkProjects, proposalProjects, approvalProjects, refresh }
+  return { projects: readonly(projects), searchProjects, inWorkProjects, proposalProjects, approvalProjects, repairProjects, refresh }
 }

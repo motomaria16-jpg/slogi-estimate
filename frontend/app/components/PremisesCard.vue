@@ -3,7 +3,7 @@ import { formatArea, formatMoney, pipelineStatus, projectCard, statusLabel } fro
 
 const props = withDefaults(defineProps<{
   item: any
-  context: 'search' | 'in-work' | 'proposal' | 'approval'
+  context: 'search' | 'in-work' | 'proposal' | 'approval' | 'repair-documents' | 'repair-process' | 'repair-handover'
   selected?: boolean
 }>(), { selected: false })
 
@@ -22,7 +22,13 @@ const address = computed(() => {
 })
 const cluster = computed(() => String(props.item?.clusterName || card.value?.cluster?.name || '').trim())
 const rank = computed(() => card.value?.competitive?.rank ?? props.item?.clusterRank ?? null)
-const status = computed(() => props.context === 'search' ? 'Новое' : statusLabel(props.item))
+const status = computed(() => {
+  if (props.context === 'search') return 'Новое'
+  if (props.context === 'repair-documents') return 'Документы'
+  if (props.context === 'repair-process') return 'Ремонт'
+  if (props.context === 'repair-handover') return 'Выход из ремонта'
+  return statusLabel(props.item)
+})
 const pricePerSqm = computed(() => Number(card.value?.pricePerSqm ?? props.item?.pricePerSquareMeter))
 const rent = computed(() => card.value?.rentMonthly ?? props.item?.rentMonthly ?? props.item?.phase0?.rent?.amount)
 const area = computed(() => card.value?.area ?? props.item?.area)
@@ -32,7 +38,10 @@ const primaryLabel = computed(() => {
   if (props.context === 'search') return 'Взять в работу'
   if (props.context === 'in-work') return pipelineStatus(props.item) === 'viewing_scheduled' ? 'Открыть просмотр' : 'Назначить просмотр'
   if (props.context === 'proposal') return 'Открыть КП'
-  return 'Открыть согласование'
+  if (props.context === 'approval') return 'Открыть согласование'
+  if (props.context === 'repair-documents') return 'Открыть документы'
+  if (props.context === 'repair-process') return 'Открыть ремонт'
+  return 'Открыть выход'
 })
 </script>
 

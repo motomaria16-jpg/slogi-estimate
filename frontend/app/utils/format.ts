@@ -69,6 +69,16 @@ export function approvalTabReady(project: any) {
   return work?.proposal?.status === 'sent' || Boolean(work?.approval)
 }
 
+export function repairTabsReady(project: any) {
+  const work = projectWork(project)
+  const pipeline = String(work?.pipeline?.status || work?.pipelineStatus || '')
+  const stage = String(work?.stage || '')
+  return work?.approval?.status === 'agreed'
+    || Boolean(work?.repair)
+    || ['repair', 'repair_documents', 'repair_process', 'repair_handover', 'handover'].includes(pipeline)
+    || ['repair', 'repair_documents', 'repair_process', 'repair_handover', 'handover'].includes(stage)
+}
+
 export function statusLabel(project: any) {
   const labels: Record<string, string> = {
     contact_pending: 'Новое',

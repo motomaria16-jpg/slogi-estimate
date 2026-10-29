@@ -18,6 +18,7 @@ const legacyScripts = [
   'proposal-assets.js',
   'proposal-stage.js',
   'approval-stage.js',
+  'repair-stage.js',
   'proposal-document.js'
 ]
 

@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { approvalTabReady, listingUrlOf, proposalTabReady } from '~/utils/format'
+import { approvalTabReady, listingUrlOf, proposalTabReady, repairTabsReady } from '~/utils/format'
+
+type PropertyTab = 'object' | 'workflow' | 'proposal' | 'approval' | 'repair-documents' | 'repair-process' | 'repair-handover'
 
 const { state, close } = usePropertyModal()
 const { projects, refresh } = useProjects()
@@ -7,21 +9,32 @@ const { ready, api } = useSlogiRuntime()
 const { show } = useToast()
 const dialog = ref<HTMLDialogElement | null>(null)
 const approvalTab = ref<{ agree: () => Promise<void> } | null>(null)
-const activeTab = ref<'object' | 'workflow' | 'proposal' | 'approval'>('object')
+const activeTab = ref<PropertyTab>('object')
 const form = reactive<any>({})
 const saving = ref(false)
 const project = computed(() => state.value.projectId ? projects.value.find(item => String(item.id) === String(state.value.projectId)) || null : null)
 const isInWork = computed(() => Boolean(project.value && api()?.phase0?.spaceLifecycle?.hasLeftSearch?.(project.value)) || state.value.context !== 'search')
 const canOpenProposal = computed(() => Boolean(project.value && proposalTabReady(project.value)))
 const canOpenApproval = computed(() => Boolean(project.value && approvalTabReady(project.value)))
+const canOpenRepairDocuments = computed(() => Boolean(project.value && (api()?.repair?.canOpenStage?.(project.value, 'documents') ?? repairTabsReady(project.value))))
+const canOpenRepairProcess = computed(() => Boolean(project.value && api()?.repair?.canOpenStage?.(project.value, 'repair')))
+const canOpenRepairHandover = computed(() => Boolean(project.value && api()?.repair?.canOpenStage?.(project.value, 'handover')))
+const canOpenRepair = computed(() => canOpenRepairDocuments.value)
 const canAgreeApproval = computed(() => Boolean(project.value && api()?.approval?.canAgree?.(project.value)))
 const listingUrl = computed(() => listingUrlOf(form.listingUrl, project.value, state.value.draft))
-const tabs = computed(() => [
+const propertyTabs = computed(() => [
   { key: 'object', label: 'Объект', enabled: true, hint: '' },
   { key: 'workflow', label: 'Сопровождение', enabled: isInWork.value, hint: 'Доступно после добавления помещения в работу' },
   { key: 'proposal', label: 'КП', enabled: canOpenProposal.value, hint: 'Доступно после завершения просмотра и добавления фото и видео' },
   { key: 'approval', label: 'Согласование', enabled: canOpenApproval.value, hint: 'Доступно после отправки КП' }
-] as { key: 'object' | 'workflow' | 'proposal' | 'approval'; label: string; enabled: boolean; hint: string }[])
+] as { key: PropertyTab; label: string; enabled: boolean; hint: string }[])
+const repairTabs = computed(() => [
+  { key: 'repair-documents', label: 'Документы', enabled: canOpenRepairDocuments.value, hint: 'Доступно после согласования помещения' },
+  { key: 'repair-process', label: 'Ремонт', enabled: canOpenRepairProcess.value, hint: 'Доступно после завершения подготовки документов' },
+  { key: 'repair-handover', label: 'Выход из ремонта', enabled: canOpenRepairHandover.value, hint: 'Доступно после завершения ремонта' }
+] as { key: PropertyTab; label: string; enabled: boolean; hint: string }[])
+const activeGroup = computed(() => activeTab.value.startsWith('repair-') ? 'repair' : 'property')
+const visibleTabs = computed(() => activeGroup.value === 'repair' ? repairTabs.value : propertyTabs.value)
 const titleAddress = computed(() => form.address || project.value?.address || 'Новое помещение')
 
 function runtime() {
@@ -85,11 +98,12 @@ function resetForm() {
 watch(() => state.value.open, open => {
   if (!import.meta.client) return
   if (open) {
-    activeTab.value = state.value.initialTab === 'approval' && !canOpenApproval.value
-      ? (canOpenProposal.value ? 'proposal' : isInWork.value ? 'workflow' : 'object')
-      : state.value.initialTab === 'proposal' && !canOpenProposal.value
-        ? (isInWork.value ? 'workflow' : 'object')
-        : state.value.initialTab === 'workflow' && !isInWork.value ? 'object' : state.value.initialTab
+    const requested = state.value.initialTab as PropertyTab
+    const requestedTab = [...propertyTabs.value, ...repairTabs.value].find(tab => tab.key === requested)
+    const propertyFallback: PropertyTab = canOpenApproval.value ? 'approval' : canOpenProposal.value ? 'proposal' : isInWork.value ? 'workflow' : 'object'
+    activeTab.value = requestedTab?.enabled
+      ? requested
+      : requested.startsWith('repair-') && canOpenRepairDocuments.value ? 'repair-documents' : propertyFallback
     nextTick(() => { resetForm(); dialog.value?.showModal() })
   } else if (dialog.value?.open) dialog.value.close()
 })
@@ -100,10 +114,17 @@ watch(canOpenProposal, enabled => {
 watch(canOpenApproval, enabled => {
   if (!enabled && activeTab.value === 'approval') activeTab.value = canOpenProposal.value ? 'proposal' : isInWork.value ? 'workflow' : 'object'
 })
+watch(canOpenRepair, enabled => {
+  if (!enabled && activeTab.value.startsWith('repair-')) activeTab.value = canOpenApproval.value ? 'approval' : 'object'
+})
 
-function selectTab(key: 'object' | 'workflow' | 'proposal' | 'approval') {
-  const tab = tabs.value.find(item => item.key === key)
+function selectTab(key: PropertyTab) {
+  const tab = [...propertyTabs.value, ...repairTabs.value].find(item => item.key === key)
   if (tab?.enabled) activeTab.value = key
+}
+
+function switchGroup() {
+  activeTab.value = activeGroup.value === 'repair' ? 'object' : 'repair-documents'
 }
 
 function handleClose() { if (state.value.open) close() }
@@ -192,7 +213,7 @@ function toApproval(saved: any) { changed(saved); activeTab.value = 'approval'; 
 function approvalDecision(saved: any, status: 'agreed' | 'rejected') {
   changed(saved)
   close()
-  if (status === 'agreed') navigateTo('/under-development.html?section=repair')
+  if (status === 'agreed') navigateTo('/repair.html?section=documents')
 }
 function agreeApproval() { return approvalTab.value?.agree() }
 </script>
@@ -200,10 +221,10 @@ function agreeApproval() { return approvalTab.value?.agree() }
 <template>
   <dialog ref="dialog" class="property-dialog" @close="handleClose" @cancel.prevent="close">
     <div v-if="state.open" class="property-card">
-      <header class="property-header"><div class="property-header__main"><h2>Карточка помещения</h2><p>{{ titleAddress }}</p></div><div class="property-header__actions"><a v-if="listingUrl" :href="listingUrl" target="_blank" rel="noopener">Открыть объявление</a><button class="close-button" aria-label="Закрыть" @click="close">×</button></div></header>
-      <nav class="property-tabs" aria-label="Разделы карточки">
+      <header class="property-header"><div class="property-header__main"><div class="property-section-switch"><h2>{{ activeGroup === 'repair' ? 'Ремонт помещения' : 'Карточка помещения' }}</h2><button v-if="canOpenRepair" type="button" @click="switchGroup">{{ activeGroup === 'repair' ? 'Карточка помещения' : 'Ремонт помещения' }}</button></div><p>{{ titleAddress }}</p></div><div class="property-header__actions"><a v-if="listingUrl" :href="listingUrl" target="_blank" rel="noopener">Открыть объявление</a><button class="close-button" aria-label="Закрыть" @click="close">×</button></div></header>
+      <nav class="property-tabs" :class="{ 'property-tabs--repair': activeGroup === 'repair' }" aria-label="Разделы карточки">
         <button
-          v-for="tab in tabs"
+          v-for="tab in visibleTabs"
           :key="tab.key"
           :class="{ active: activeTab === tab.key, locked: !tab.enabled }"
           :disabled="!tab.enabled"
@@ -217,6 +238,9 @@ function agreeApproval() { return approvalTab.value?.agree() }
         <PropertyWorkflowTab v-else-if="activeTab === 'workflow' && project" :project="project" @changed="changed" @proposal="toProposal" />
         <PropertyProposalTab v-else-if="activeTab === 'proposal' && project" :project="project" @changed="changed" @approval="toApproval" />
         <PropertyApprovalTab v-else-if="activeTab === 'approval' && project" ref="approvalTab" :project="project" @changed="changed" @decision="approvalDecision" />
+        <PropertyRepairStageTab v-else-if="activeTab === 'repair-documents' && project" :project="project" section="documents" />
+        <PropertyRepairStageTab v-else-if="activeTab === 'repair-process' && project" :project="project" section="repair" />
+        <PropertyRepairStageTab v-else-if="activeTab === 'repair-handover' && project" :project="project" section="handover" />
       </div>
       <footer class="property-footer"><button v-if="activeTab === 'approval'" class="button accent" :disabled="!canAgreeApproval" @click="agreeApproval">Согласовано</button><button class="button" @click="close">Отменить</button><button class="button primary" :disabled="saving" @click="save">Сохранить</button></footer>
     </div>

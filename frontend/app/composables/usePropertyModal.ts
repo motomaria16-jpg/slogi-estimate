@@ -1,10 +1,11 @@
-export type PropertyModalContext = 'search' | 'in-work' | 'proposal' | 'approval'
+export type PropertyModalContext = 'search' | 'in-work' | 'proposal' | 'approval' | 'repair'
+export type PropertyModalTab = 'object' | 'workflow' | 'proposal' | 'approval' | 'repair-documents' | 'repair-process' | 'repair-handover'
 
 interface PropertyModalState {
   open: boolean
   projectId: string
   context: PropertyModalContext
-  initialTab: 'object' | 'workflow' | 'proposal' | 'approval'
+  initialTab: PropertyModalTab
   draft?: any
 }
 
@@ -21,7 +22,7 @@ export function usePropertyModal() {
       open: true,
       projectId,
       context,
-      initialTab: initialTab || (context === 'approval' ? 'approval' : context === 'proposal' ? 'proposal' : 'object')
+      initialTab: initialTab || (context === 'repair' ? 'repair-documents' : context === 'approval' ? 'approval' : context === 'proposal' ? 'proposal' : 'object')
     }
   }
 

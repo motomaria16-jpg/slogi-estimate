@@ -35,6 +35,8 @@ test('agreement requires signed lease and ownership proof and then enters repair
   const agreed = approval.agree(entered, { actorId: 'user-1' }, { now: '2026-10-28T11:00:00.000Z' })
   assert.equal(approval.approvalOf(agreed).status, 'agreed')
   assert.equal(agreed.phase0.spaceCard.work.pipeline.status, 'repair')
+  assert.equal(agreed.phase0.spaceCard.work.repair.stage, 'documents')
+  assert.equal(agreed.phase0.spaceCard.work.repair.enteredById, 'user-1')
   assert.equal(approval.isApprovalProject(agreed), false)
 })
 

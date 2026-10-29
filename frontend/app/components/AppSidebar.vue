@@ -18,9 +18,9 @@ const groups = [
   {
     label: 'Ремонт',
     links: [
-      { to: '/under-development.html?section=documents', label: 'Формирование документов для ремонта', shortLabel: 'Документы', icon: '▤' },
-      { to: '/under-development.html?section=repair', label: 'Процесс ремонта', shortLabel: 'Ремонт', icon: '⌁' },
-      { to: '/under-development.html?section=handover', label: 'Выход из ремонта', shortLabel: 'Выход', icon: '⌁' }
+      { to: '/repair.html?section=documents', label: 'Формирование документов для ремонта', shortLabel: 'Документы', icon: '▤' },
+      { to: '/repair.html?section=repair', label: 'Процесс ремонта', shortLabel: 'Ремонт', icon: '⌁' },
+      { to: '/repair.html?section=handover', label: 'Выход из ремонта', shortLabel: 'Выход', icon: '⌁' }
     ]
   },
   {
@@ -33,7 +33,8 @@ function active(path: string) {
   const [pathname, query = ''] = path.split('?')
   if (route.path !== pathname) return false
   const section = new URLSearchParams(query).get('section')
-  return !section || route.query.section === section
+  const currentSection = String(route.query.section || (pathname === '/repair.html' ? 'documents' : ''))
+  return !section || currentSection === section
 }
 
 function versionedTarget(destination: string) {

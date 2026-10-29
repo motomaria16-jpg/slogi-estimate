@@ -149,8 +149,17 @@
     if(approval.status!=='pending')throw new Error('Согласование уже завершено.');
     if(!required.signedLease)throw new Error('Прикрепите подписанный договор аренды.');
     if(!required.ownershipProof)throw new Error('Прикрепите документ о собственности или праве сдачи помещения в аренду.');
-    work.approval=normalize(Object.assign({},approval,{status:'agreed',decidedAt:at,decidedById:text(command.actorId),updatedAt:at}));
-    setPipeline(work,'repair','repair',at,{approvalDecision:'agreed',approvalDecidedAt:at,approvalDecidedById:text(command.actorId)});
+    const actorId=text(command.actorId);
+    work.approval=normalize(Object.assign({},approval,{status:'agreed',decidedAt:at,decidedById:actorId,updatedAt:at}));
+    work.repair={
+      schemaVersion:1,
+      stage:'documents',
+      enteredAt:at,
+      enteredById:actorId||null,
+      updatedAt:at,
+      transitions:[]
+    };
+    setPipeline(work,'repair','repair',at,{approvalDecision:'agreed',approvalDecidedAt:at,approvalDecidedById:actorId});
     return next;
   }
   function reject(project,command={},context={}){

@@ -12,6 +12,7 @@ export function useSlogiRuntime() {
       calendar: window.SlogiWorkCalendar,
       proposal: window.SlogiProposalStage,
       approval: window.SlogiApprovalStage,
+      repair: window.SlogiRepairStage,
       proposalDocument: window.SlogiProposalDocument,
       feed: window.SlogiCianFeed,
       mapData: window.SlogiCianMapData

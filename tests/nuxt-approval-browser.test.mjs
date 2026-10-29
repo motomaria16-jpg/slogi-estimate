@@ -64,6 +64,7 @@ try {
   await page.getByRole('link', { name: 'Открыть объявление' }).waitFor()
   assert.equal(await page.getByRole('link', { name: 'Открыть объявление' }).getAttribute('href'), 'https://example.test/listing/approval-browser-fixture')
   assert.deepEqual(await page.locator('.property-tabs button').allTextContents(), ['Объект', 'Сопровождение', 'КП', 'Согласование'])
+  assert.equal(await page.getByRole('button', { name: 'Ремонт помещения', exact: true }).count(), 0)
   assert.equal(await page.getByRole('button', { name: 'Согласовано', exact: true }).isDisabled(), true)
   const desktop = await page.locator('.property-card').evaluate(card => ({
     overflow: card.scrollWidth - card.clientWidth,
@@ -83,6 +84,7 @@ try {
   ])
   await page.getByText('Доверенность.pdf').waitFor()
   assert.equal(await page.getByRole('button', { name: 'Согласовано', exact: true }).isEnabled(), true)
+  await page.getByRole('button', { name: 'Удалить', exact: true }).nth(2).waitFor()
   assert.equal(await page.getByRole('button', { name: 'Удалить', exact: true }).count(), 3)
 
   const leaseRow = page.locator('.approval-document-row').filter({ hasText: 'Подписанный договор аренды' })
@@ -112,10 +114,29 @@ try {
 
   page.once('dialog', dialog => dialog.accept())
   await page.getByRole('button', { name: 'Согласовано', exact: true }).click()
-  await page.waitForURL(/under-development\.html/)
+  await page.waitForURL(url => url.pathname.endsWith('/repair.html') && url.searchParams.get('section') === 'documents')
+  await page.getByRole('heading', { name: 'Формирование документов для ремонта', exact: true }).waitFor()
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('slogi_locations_v1') || '[]')[0])
   assert.equal(stored.phase0.spaceCard.work.pipeline.status, 'repair')
   assert.equal(stored.phase0.spaceCard.work.approval.status, 'agreed')
+  assert.equal(stored.phase0.spaceCard.work.repair.stage, 'documents')
+
+  await page.getByRole('button', { name: 'Открыть документы', exact: true }).click()
+  const repairCard = page.locator('.property-card')
+  await repairCard.getByRole('heading', { name: 'Ремонт помещения', exact: true }).waitFor()
+  const repairTabLabels = () => repairCard.locator('.property-tabs button').evaluateAll(buttons => buttons.map(button => (button.textContent || '').replace(/·/g, '').trim()))
+  assert.deepEqual(await repairTabLabels(), ['Документы', 'Ремонт', 'Выход из ремонта'])
+  assert.deepEqual(await repairCard.locator('.property-tabs button').evaluateAll(buttons => buttons.map(button => button.disabled)), [false, true, true])
+  const repairLayout = await repairCard.evaluate(card => ({
+    overflow: card.scrollWidth - card.clientWidth,
+    bodyOverflow: card.querySelector('.property-body').scrollHeight - card.querySelector('.property-body').clientHeight
+  }))
+  assert.ok(repairLayout.overflow <= 1)
+  assert.ok(repairLayout.bodyOverflow <= 1)
+  await repairCard.getByRole('button', { name: 'Карточка помещения', exact: true }).click()
+  assert.deepEqual(await repairCard.locator('.property-tabs button').allTextContents(), ['Объект', 'Сопровождение', 'КП', 'Согласование'])
+  await repairCard.getByRole('button', { name: 'Ремонт помещения', exact: true }).click()
+  assert.deepEqual(await repairTabLabels(), ['Документы', 'Ремонт', 'Выход из ремонта'])
   assert.deepEqual(issues, [])
   console.log('nuxt approval browser: PASS')
 } finally {
