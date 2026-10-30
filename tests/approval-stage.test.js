@@ -30,6 +30,8 @@ test('agreement requires signed lease and ownership proof and then enters repair
   let entered = approval.start(project(), {}, { now: '2026-10-28T10:00:00.000Z' })
   assert.throws(() => approval.agree(entered), /подписанный договор/)
   entered = approval.attachDocument(entered, { kind: 'signedLease', name: 'ДА.pdf', attachmentType: 'lease' })
+  assert.throws(() => approval.agree(entered), /дату подписания/)
+  entered = approval.setSignedLeaseDate(entered, { signedAt: '2026-10-27' })
   assert.throws(() => approval.agree(entered), /собственности/)
   entered = approval.attachDocument(entered, { kind: 'ownershipProof', name: 'Выписка.pdf', attachmentType: 'ownership-1' })
   const agreed = approval.agree(entered, { actorId: 'user-1' }, { now: '2026-10-28T11:00:00.000Z' })
@@ -50,7 +52,7 @@ test('ownership documents can contain several files', () => {
 test('documents can be removed by exact attachment type and agreement readiness is recalculated', () => {
   let entered = approval.start(project())
   entered = approval.attachDocument(entered, { kind: 'protocol', name: 'Протокол.pdf', attachmentType: 'protocol-1' })
-  entered = approval.attachDocument(entered, { kind: 'signedLease', name: 'ДА.pdf', attachmentType: 'lease-1' })
+  entered = approval.attachDocument(entered, { kind: 'signedLease', name: 'ДА.pdf', attachmentType: 'lease-1', signedAt: '2026-10-27' })
   entered = approval.attachDocument(entered, { kind: 'ownershipProof', name: 'Выписка.pdf', attachmentType: 'ownership-1' })
   entered = approval.attachDocument(entered, { kind: 'ownershipProof', name: 'Доверенность.pdf', attachmentType: 'ownership-2' })
   assert.equal(approval.canAgree(entered), true)
@@ -75,7 +77,7 @@ test('document removal validates the document kind and pending approval state', 
   assert.throws(() => approval.removeDocument(entered, { kind: 'unknown', attachmentType: 'file-1' }), /тип документа/)
   assert.throws(() => approval.removeDocument(entered, { kind: 'ownershipProof' }), /Не указан документ/)
 
-  let ready = approval.attachDocument(entered, { kind: 'signedLease', name: 'ДА.pdf', attachmentType: 'lease-1' })
+  let ready = approval.attachDocument(entered, { kind: 'signedLease', name: 'ДА.pdf', attachmentType: 'lease-1', signedAt: '2026-10-27' })
   ready = approval.attachDocument(ready, { kind: 'ownershipProof', name: 'Выписка.pdf', attachmentType: 'ownership-1' })
   const agreed = approval.agree(ready)
   assert.throws(() => approval.removeDocument(agreed, { kind: 'signedLease', attachmentType: 'lease-1' }), /уже завершено/)

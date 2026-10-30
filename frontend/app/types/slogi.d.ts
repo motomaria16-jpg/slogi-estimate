@@ -17,6 +17,8 @@ declare global {
     SlogiProposalStage: any
     SlogiApprovalStage: any
     SlogiRepairStage: any
+    SlogiRepairEstimate: any
+    SlogiRepairDocumentsXlsx?: any
     SlogiProposalDocument: any
     SLOGI_CLUSTERS_GEOJSON: any
     OfficeZip: any

@@ -2,7 +2,7 @@
 import { formatDate, projectWork } from '~/utils/format'
 
 type CalendarView = 'day' | 'week' | 'month'
-type EventSource = 'viewing' | 'follow-up' | 'manual'
+type EventSource = 'viewing' | 'follow-up' | 'manual' | 'repair-control-point'
 interface CalendarEvent {
   id: string
   projectId?: string
@@ -57,6 +57,16 @@ const events = computed<CalendarEvent[]>(() => {
       id: String(proposal.followUpTaskId || `${project.id}-follow-up`), projectId: String(project.id), source: 'follow-up',
       type: 'Связаться с арендодателем', title: project.address, at: proposal.followUpDueAt, responsible: 'Ответственный по объекту', reminderMinutesBefore: 30
     })
+    const repair = work.repair || {}
+    ;(repair.calendarEvents || [])
+      .filter((item: any) => item?.source === 'repair-control-point' && item.status !== 'deleted' && !item.calendarDeletedAt)
+      .forEach((item: any) => result.push({
+        id: String(item.id), projectId: String(item.projectId || project.id), source: 'repair-control-point',
+        type: item.type || 'Контроль ремонта', title: item.title || project.address,
+        at: item.startsAt || item.at, endsAt: item.endsAt,
+        responsible: item.responsible || 'Ответственный по ремонту', description: item.description || project.address || '',
+        reminderMinutesBefore: Number(item.reminderMinutesBefore ?? 1440)
+      }))
   })
   manualTasks.value.forEach(task => result.push({
     id: String(task.id), source: 'manual', type: 'Задача', title: task.title || task.name, at: task.startsAt || task.dueDate,
@@ -199,6 +209,34 @@ function removeFollowUpEvent(event: CalendarEvent) {
   runtime.pro.remove('tasks', taskId)
 }
 
+function removeRepairControlEvent(event: CalendarEvent) {
+  const runtime = api()
+  const project = eventProject(event)
+  if (!runtime?.phase0?.projectRepository || !project) throw new Error('Помещение для контрольной точки не найдено.')
+  const repository = runtime.phase0.projectRepository
+  const current = repository.get(project.id)
+  const currentRepair = projectWork(current).repair || {}
+  const controlPoint = (currentRepair.calendarEvents || []).find((item: any) => String(item.id) === event.id)
+  if (!controlPoint || controlPoint.status === 'deleted' || controlPoint.calendarDeletedAt) {
+    throw new Error('Контрольная точка уже удалена из календаря.')
+  }
+
+  const at = new Date().toISOString()
+  const actorId = runtime.pro?.actor?.()?.id || null
+  repository.mutate(project.id, (draft: any) => {
+    const draftRepair = projectWork(draft).repair || {}
+    const target = (draftRepair.calendarEvents || []).find((item: any) => String(item.id) === event.id)
+    if (!target || target.status === 'deleted' || target.calendarDeletedAt) {
+      throw new Error('Контрольная точка уже удалена из календаря.')
+    }
+    target.status = 'deleted'
+    target.calendarDeletedAt = at
+    target.calendarDeletedById = actorId
+    target.updatedAt = at
+    return draft
+  }, current.phase0.revision, 'calendar-repair-control-hide')
+}
+
 function removeManualEvent(event: CalendarEvent) {
   const runtime = api()
   if (!runtime?.pro) throw new Error('Календарь ещё загружается.')
@@ -210,6 +248,7 @@ function removalConfirmation(event: CalendarEvent) {
   const when = formatDate(event.at, true)
   if (event.source === 'viewing') return `Удалить просмотр «${event.title}» на ${when} из календаря? Назначенный просмотр будет отменён; завершённый останется в истории помещения.`
   if (event.source === 'follow-up') return `Удалить контрольную связь «${event.title}» на ${when}? Задача будет снята с помещения.`
+  if (event.source === 'repair-control-point') return `Удалить контрольную точку ремонта «${event.title}» на ${when} из календаря?`
   return `Удалить задачу «${event.title}» на ${when} из календаря?`
 }
 
@@ -220,6 +259,7 @@ async function removeSelectedEvent() {
   try {
     if (event.source === 'viewing') removeViewingEvent(event)
     else if (event.source === 'follow-up') removeFollowUpEvent(event)
+    else if (event.source === 'repair-control-point') removeRepairControlEvent(event)
     else removeManualEvent(event)
     selectedEvent.value = null
     show('Событие удалено из календаря.')

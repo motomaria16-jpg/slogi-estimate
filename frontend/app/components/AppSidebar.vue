@@ -25,7 +25,10 @@ const groups = [
   },
   {
     label: '',
-    links: [{ to: '/slogi-objects.html', label: 'Текущие объекты СЛОГИ', shortLabel: 'Объекты СЛОГИ', icon: '▥' }]
+    links: [
+      { to: '/slogi-objects.html', label: 'Текущие объекты СЛОГИ', shortLabel: 'Объекты СЛОГИ', icon: '▥' },
+      { to: '/settings.html', label: 'Настройки', shortLabel: 'Настройки', icon: '⚙' }
+    ]
   }
 ]
 

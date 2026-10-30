@@ -12,6 +12,7 @@ const busy = ref(false)
 const rejection = reactive({ reason: '', comment: '' })
 const progress = reactive({ active: false, fileName: '', percent: 0, fileIndex: 0, fileCount: 0 })
 const selectedOwnershipType = ref('')
+const signedLeaseDate = ref('')
 
 const approval = computed(() => api()?.approval?.approvalOf(props.project) || { status: 'pending', documents: { protocol: {}, signedLease: {}, ownershipProofs: [] } })
 const documents = computed(() => approval.value.documents || { protocol: {}, signedLease: {}, ownershipProofs: [] })
@@ -33,6 +34,9 @@ watch(ownershipProofs, proofs => {
     selectedOwnershipType.value = proofs.at(-1)?.attachmentType || ''
   }
 }, { immediate: true, deep: true })
+watch(() => documents.value.signedLease?.signedAt, value => {
+  signedLeaseDate.value = String(value || '')
+}, { immediate: true })
 
 function runtime() {
   const value = api()
@@ -71,6 +75,7 @@ async function upload(kind: 'protocol' | 'signedLease' | 'ownershipProof', event
         attachmentType,
         mimeType: file.type,
         size: file.size,
+        signedAt: kind === 'signedLease' ? (signedLeaseDate.value || undefined) : undefined,
         actorId: actor.value.id
       }), current.phase0.revision, `approval-${kind}-upload`)
       if (kind === 'ownershipProof') selectedOwnershipType.value = attachmentType
@@ -83,6 +88,22 @@ async function upload(kind: 'protocol' | 'signedLease' | 'ownershipProof', event
     progress.active = false
     input.value = ''
   }
+}
+
+function saveSignedLeaseDate() {
+  if (!isPending.value || busy.value || !documents.value.signedLease?.name) return
+  busy.value = true
+  try {
+    const value = runtime()
+    const current = value.phase0.projectRepository.get(props.project.id)
+    const saved = value.phase0.projectRepository.mutate(props.project.id, (project: any) => value.approval.setSignedLeaseDate(project, {
+      signedAt: signedLeaseDate.value,
+      actorId: actor.value.id
+    }), current.phase0.revision, 'approval-signed-lease-date')
+    emit('changed', saved)
+    show('Дата подписания договора сохранена.')
+  } catch (reason) { fail(reason) }
+  finally { busy.value = false }
 }
 
 async function download(document: any) {
@@ -163,7 +184,7 @@ defineExpose({ agree })
         </div>
       </div>
       <div class="approval-document-row required">
-        <div><h4>Подписанный договор аренды</h4><p>Обязательный документ.</p></div>
+        <div><h4>Подписанный договор аренды</h4><p>Обязательный документ.</p><label class="approval-lease-date"><span>Дата подписания ДА</span><input v-model="signedLeaseDate" type="date" :disabled="busy || !isPending || !documents.signedLease?.name" @change="saveSignedLeaseDate" /></label></div>
         <div class="approval-document-slot"><button v-if="documents.signedLease?.name" class="approval-file" type="button" @click="download(documents.signedLease)"><span>Файл</span><strong>{{ documents.signedLease.name }}</strong></button><div v-else class="approval-file-placeholder">Файл не добавлен</div></div>
         <div class="approval-document-actions">
           <button class="button compact" type="button" :disabled="busy || !isPending" @click="trigger('signedLease')">Добавить</button>

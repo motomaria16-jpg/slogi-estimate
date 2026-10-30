@@ -73,7 +73,7 @@ test('repair uses a gated second-level card navigation without changing the shar
   assert.match(repair, /Выход из ремонта/)
   assert.match(css, /\.property-tabs--repair/)
   assert.match(css, /\.repair-stage-tab/)
-  assert.match(modal, /<footer class="property-footer">/)
+  assert.match(modal, /<footer class="property-footer"[^>]*>/)
 })
 
 test('proposal availability requires a completed viewing with uploaded photo and video', () => {
@@ -231,7 +231,9 @@ test('approval keeps agreement in the shared footer and the card header is stabl
   assert.doesNotMatch(approval, /Для варианта «Иная причина» комментарий обязателен/)
   assert.match(approval, /<h3>Решение об отказе<\/h3>/)
   assert.doesNotMatch(approval, />Согласовано<\/button>/)
-  assert.match(modal, /<footer class="property-footer"><button v-if="activeTab === 'approval'"[^>]*>Согласовано<\/button><button class="button"[^>]*>Отменить<\/button><button class="button primary"/)
+  assert.match(modal, /<footer class="property-footer"[^>]*><button v-if="activeTab === 'approval'"[^>]*>Согласовано<\/button>/)
+  assert.match(modal, /v-if="activeTab === 'repair-documents'"[^>]*>Документы согласованы<\/button>/)
+  assert.match(modal, /<button class="button"[^>]*>Отменить<\/button><button class="button primary"/)
   assert.match(modal, /class="property-header__actions"/)
   assert.match(modal, /<a v-if="listingUrl" class="property-listing-link" :href="listingUrl"[^>]*>Открыть объявление<\/a>/)
   assert.match(modal, /<button v-else class="property-listing-link" type="button" disabled[^>]*>Открыть объявление<\/button>/)

@@ -9,6 +9,8 @@ const { ready, api } = useSlogiRuntime()
 const { show } = useToast()
 const dialog = ref<HTMLDialogElement | null>(null)
 const approvalTab = ref<{ agree: () => Promise<void> } | null>(null)
+const repairDocumentsTab = ref<{ agreeDocuments: () => Promise<void>; saveDocuments: () => Promise<any> | any } | null>(null)
+const repairDocumentsReady = ref(false)
 const activeTab = ref<PropertyTab>('object')
 const form = reactive<any>({})
 const saving = ref(false)
@@ -27,6 +29,7 @@ const canOpenWorkflow = computed(() => Boolean(
     && workflowTabReady(project.value, import.meta.client ? window.SlogiSearchSpaceCard?.evaluate : undefined)
 ))
 const canAgreeApproval = computed(() => Boolean(project.value && api()?.approval?.canAgree?.(project.value)))
+const canAgreeRepairDocuments = computed(() => activeTab.value === 'repair-documents' && repairDocumentsReady.value)
 const listingUrl = computed(() => listingUrlOf(form.listingUrl, project.value, state.value.draft))
 const propertyTabs = computed(() => [
   { key: 'object', label: 'Объект', enabled: true, hint: '' },
@@ -121,6 +124,7 @@ watch(() => state.value.open, open => {
   if (!import.meta.client) return
   if (open) {
     modalError.value = ''
+    repairDocumentsReady.value = false
     const requested = state.value.initialTab as PropertyTab
     const requestedTab = [...propertyTabs.value, ...repairTabs.value].find(tab => tab.key === requested)
     const propertyFallback: PropertyTab = canOpenApproval.value ? 'approval' : canOpenProposal.value ? 'proposal' : canOpenWorkflow.value ? 'workflow' : 'object'
@@ -142,6 +146,9 @@ watch(canOpenWorkflow, enabled => {
 })
 watch(canOpenRepair, enabled => {
   if (!enabled && activeTab.value.startsWith('repair-')) activeTab.value = canOpenApproval.value ? 'approval' : 'object'
+})
+watch(activeTab, tab => {
+  if (tab !== 'repair-documents') repairDocumentsReady.value = false
 })
 
 function selectTab(key: PropertyTab) {
@@ -220,6 +227,19 @@ function saveDraft() {
 }
 
 async function save() {
+  if (activeTab.value === 'repair-documents') {
+    modalError.value = ''
+    saving.value = true
+    try {
+      if (!repairDocumentsTab.value) throw new Error('Форма документов ремонта ещё загружается.')
+      const saved = await repairDocumentsTab.value.saveDocuments()
+      if (!saved) throw new Error('Не удалось сохранить документы ремонта.')
+      close()
+    } catch (reason) {
+      modalError.value = propertyErrorMessage(reason, 'Не удалось сохранить документы ремонта.')
+    } finally { saving.value = false }
+    return
+  }
   if (activeTab.value !== 'object') { close(); return }
   modalError.value = ''
   saving.value = true
@@ -249,6 +269,12 @@ function approvalDecision(saved: any, status: 'agreed' | 'rejected') {
   if (status === 'agreed') navigateTo('/repair.html?section=documents')
 }
 function agreeApproval() { return approvalTab.value?.agree() }
+function repairDocumentsDecision(saved: any) {
+  changed(saved)
+  close()
+  navigateTo('/repair.html?section=repair')
+}
+function agreeRepairDocuments() { return repairDocumentsTab.value?.agreeDocuments() }
 </script>
 
 <template>
@@ -272,11 +298,11 @@ function agreeApproval() { return approvalTab.value?.agree() }
         <PropertyWorkflowTab v-else-if="activeTab === 'workflow' && project" :project="project" @changed="changed" @proposal="toProposal" />
         <PropertyProposalTab v-else-if="activeTab === 'proposal' && project" :project="project" @changed="changed" @approval="toApproval" />
         <PropertyApprovalTab v-else-if="activeTab === 'approval' && project" ref="approvalTab" :project="project" @changed="changed" @decision="approvalDecision" />
-        <PropertyRepairStageTab v-else-if="activeTab === 'repair-documents' && project" :project="project" section="documents" @changed="changed" />
+        <PropertyRepairStageTab v-else-if="activeTab === 'repair-documents' && project" ref="repairDocumentsTab" :project="project" section="documents" @changed="changed" @ready="repairDocumentsReady = $event" @agreed="repairDocumentsDecision" />
         <PropertyRepairStageTab v-else-if="activeTab === 'repair-process' && project" :project="project" section="repair" @changed="changed" />
         <PropertyRepairStageTab v-else-if="activeTab === 'repair-handover' && project" :project="project" section="handover" @changed="changed" />
       </div>
-      <footer class="property-footer"><button v-if="activeTab === 'approval'" class="button accent" :disabled="!canAgreeApproval" @click="agreeApproval">Согласовано</button><button class="button" @click="close">Отменить</button><button class="button primary" :disabled="saving" @click="save">Сохранить</button></footer>
+      <footer class="property-footer" :class="{ 'property-footer--repair-documents': activeTab === 'repair-documents' }"><button v-if="activeTab === 'approval'" class="button accent" :disabled="!canAgreeApproval" @click="agreeApproval">Согласовано</button><button v-if="activeTab === 'repair-documents'" class="button accent" :disabled="!canAgreeRepairDocuments" @click="agreeRepairDocuments">Документы согласованы</button><button class="button" @click="close">Отменить</button><button class="button primary" :disabled="saving" @click="save">Сохранить</button></footer>
       <AppToast scope="dialog" />
     </div>
   </dialog>

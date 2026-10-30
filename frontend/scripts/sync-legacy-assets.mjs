@@ -34,6 +34,8 @@ const files = [
   'proposal-stage.js',
   'approval-stage.js',
   'repair-stage.js',
+  'repair-estimate.js',
+  'repair-documents-xlsx.js',
   'proposal-document.js',
   'proposal-logo.png',
   'KP_Slogi_template.docx',

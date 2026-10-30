@@ -13,6 +13,8 @@ export function useSlogiRuntime() {
       proposal: window.SlogiProposalStage,
       approval: window.SlogiApprovalStage,
       repair: window.SlogiRepairStage,
+      repairEstimate: window.SlogiRepairEstimate,
+      repairDocumentsXlsx: window.SlogiRepairDocumentsXlsx,
       proposalDocument: window.SlogiProposalDocument,
       feed: window.SlogiCianFeed,
       mapData: window.SlogiCianMapData

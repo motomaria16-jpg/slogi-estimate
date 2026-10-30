@@ -51,22 +51,28 @@ test('repair list cards have stage-specific status and action labels', () => {
   assert.match(card, /return 'Открыть выход'/)
 })
 
-test('repair document rows keep fixed add, download and delete controls', () => {
+test('repair documents are generated, editable, exportable and responsive', () => {
   const tab = read('frontend/app/components/PropertyRepairStageTab.vue')
   const css = read('frontend/app/assets/css/main.css')
 
-  assert.match(tab, /class="[^"]*repair-document-row[^"]*"/)
-  assert.match(tab, /class="approval-document-slot"/)
-  assert.match(tab, /class="[^"]*repair-document-actions[^"]*"/)
-  for (const label of ['Добавить', 'Скачать', 'Удалить']) {
-    assert.match(tab, new RegExp(`>${label}<\\/button>`))
+  for (const kind of ['customOrders', 'repairRoadmap', 'purchaseSpecification', 'paymentSchedule', 'fullEstimate']) {
+    assert.match(tab, new RegExp(`kind: '${kind}'`))
   }
-  assert.match(tab, /workflow\.saveAttachment\(/)
-  assert.match(tab, /workflow\.getAttachment\(/)
-  assert.match(tab, /workflow\.deleteAttachment\(/)
+  assert.match(tab, /repairEstimate\.generateDocuments/)
+  assert.match(tab, /repairEstimate\.addEstimateRow/)
+  assert.match(tab, /repairEstimate\.updateEstimateRow/)
+  assert.match(tab, /repairEstimate\.removeEstimateRow/)
+  assert.match(tab, /exportDocument/)
+  assert.match(tab, /exportFullEstimate/)
+  assert.match(tab, /exportCustomFurniture/)
   assert.match(tab, /workflow\.download\(/)
-  assert.match(tab, /:disabled="[^"]*!row\.ready[^"]*"[^>]*>Скачать<\/button>/)
-  assert.match(tab, /:disabled="[^"]*!row\.ready[^"]*"[^>]*>Удалить<\/button>/)
-  assert.match(css, /\.repair-document-row \{[^}]*min-height:/)
-  assert.match(css, /\.approval-document-actions \{[^}]*display: grid;[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/)
+  assert.match(tab, /rebaseRepairEstimate\(generatedEstimate, currentEstimate\)/)
+  assert.match(tab, /defineExpose\(\{ agreeDocuments, saveDocuments, canAgree \}\)/)
+  const modal = read('frontend/app/components/PropertyCardModal.vue')
+  assert.match(modal, /activeTab\.value === 'repair-documents'/)
+  assert.match(modal, /await repairDocumentsTab\.value\.saveDocuments\(\)/)
+  assert.match(modal, /modalError\.value = propertyErrorMessage\(reason, 'Не удалось сохранить документы ремонта\.'\)/)
+  assert.match(css, /\.repair-document-workspace \{[^}]*overflow: hidden/)
+  assert.match(css, /@media \(max-width: 620px\)[\s\S]*\.repair-document-setup \{ grid-template-columns: 1fr 1fr/)
+  assert.match(css, /\.repair-estimate-row, \.repair-estimate-new-row \{ grid-template-columns: 1fr;/)
 })

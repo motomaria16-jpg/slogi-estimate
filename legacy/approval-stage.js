@@ -35,6 +35,7 @@
       attachmentType:text(input.attachmentType)||`approval-${kind}`,
       mimeType:text(input.mimeType),
       size:Number.isFinite(Number(input.size))?Number(input.size):null,
+      signedAt:text(input.signedAt)||null,
       uploadedAt:text(input.uploadedAt)||null,
       uploadedById:text(input.uploadedById)||null
     };
@@ -103,6 +104,7 @@
       attachmentType:text(command.attachmentType)||`approval-${kind}`,
       mimeType:text(command.mimeType),
       size:command.size,
+      signedAt:kind==='signedLease'?(text(command.signedAt)||null):null,
       uploadedAt:at,
       uploadedById:text(command.actorId)
     },kind);
@@ -133,10 +135,19 @@
     work.approval=approval;
     return next;
   }
+  function setSignedLeaseDate(project,command={},context={}){
+    const {next,work}=assertCard(project),approval=normalize(work.approval),at=text(context.now)||new Date().toISOString();
+    if(approval.status!=='pending')throw new Error('Согласование уже завершено.');
+    if(!approval.documents.signedLease.name)throw new Error('Сначала прикрепите подписанный договор аренды.');
+    const signedAt=text(command.signedAt);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(signedAt))throw new Error('Укажите дату подписания договора аренды.');
+    approval.documents.signedLease.signedAt=signedAt;approval.updatedAt=at;work.approval=approval;
+    return next;
+  }
   function requiredDocuments(approval){
     const normalized=normalize(approval);
     return{
-      signedLease:Boolean(normalized.documents.signedLease.name),
+      signedLease:Boolean(normalized.documents.signedLease.name&&normalized.documents.signedLease.signedAt),
       ownershipProof:normalized.documents.ownershipProofs.some(document=>Boolean(document.name))
     };
   }
@@ -147,7 +158,8 @@
   function agree(project,command={},context={}){
     const {next,work}=assertCard(project),approval=normalize(work.approval),required=requiredDocuments(approval),at=text(context.now)||new Date().toISOString();
     if(approval.status!=='pending')throw new Error('Согласование уже завершено.');
-    if(!required.signedLease)throw new Error('Прикрепите подписанный договор аренды.');
+    if(!approval.documents.signedLease.name)throw new Error('Прикрепите подписанный договор аренды.');
+    if(!approval.documents.signedLease.signedAt)throw new Error('Укажите дату подписания договора аренды.');
     if(!required.ownershipProof)throw new Error('Прикрепите документ о собственности или праве сдачи помещения в аренду.');
     const actorId=text(command.actorId);
     work.approval=normalize(Object.assign({},approval,{status:'agreed',decidedAt:at,decidedById:actorId,updatedAt:at}));
@@ -174,6 +186,6 @@
 
   return Object.freeze({
     STATUSES,DOCUMENT_KINDS,REJECTION_REASONS,REJECTION_LABELS,
-    normalize,approvalOf,hasApproval,isApprovalProject,start,attachDocument,removeDocument,requiredDocuments,canAgree,agree,reject
+    normalize,approvalOf,hasApproval,isApprovalProject,start,attachDocument,removeDocument,setSignedLeaseDate,requiredDocuments,canAgree,agree,reject
   });
 });
