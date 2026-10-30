@@ -76,3 +76,24 @@ test('repair documents are generated, editable, exportable and responsive', () =
   assert.match(css, /@media \(max-width: 620px\)[\s\S]*\.repair-document-setup \{ grid-template-columns: 1fr 1fr/)
   assert.match(css, /\.repair-estimate-row, \.repair-estimate-new-row \{ grid-template-columns: 1fr;/)
 })
+
+test('repair documents use the full card width without the current stage sidebar', () => {
+  const tab = read('frontend/app/components/PropertyRepairStageTab.vue')
+  const css = read('frontend/app/assets/css/main.css')
+
+  assert.doesNotMatch(tab, /<aside class="form-card repair-stage-next">/)
+  assert.doesNotMatch(tab, /<h3>Текущий этап<\/h3>/)
+  assert.doesNotMatch(css, /repair-stage-next|repair-stage-summary/)
+  assert.match(css, /\.repair-stage-tab \{[^}]*grid-template-columns: minmax\(0, 1fr\)/)
+  assert.doesNotMatch(css, /\.repair-stage-tab--documents \{ grid-template-columns: minmax\(0, 1fr\) 220px;/)
+})
+
+test('repair document typography matches the rest of the property card', () => {
+  const css = read('frontend/app/assets/css/main.css')
+
+  assert.match(css, /\.repair-document-setup label > span,[^}]*font-size: 12px/)
+  assert.match(css, /\.repair-document-setup input,[^}]*font-size: 13px/)
+  assert.match(css, /\.repair-document-tab span \{ font-size: 13px;/)
+  assert.match(css, /\.repair-document-tab small \{ font-size: 11px;/)
+  assert.match(css, /\.repair-document-empty \{[^}]*font-size: 14px/)
+})

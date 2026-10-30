@@ -49,20 +49,15 @@ const estimateSummary = computed(() => estimate.value && repairEstimateApi.value
 const sectionMeta = computed(() => ({
   documents: {
     title: 'Документы для ремонта',
-    badge: completedDocuments.value ? `${completedDocuments.value} из ${documentDefinitions.length} сформировано` : 'Формирование',
-    note: documentsAgreed.value
-      ? 'Комплект согласован. Контрольные точки добавлены в календарь.'
-      : 'Комплект формируется автоматически из шаблона сметы и данных помещения.'
+    badge: completedDocuments.value ? `${completedDocuments.value} из ${documentDefinitions.length} сформировано` : 'Формирование'
   },
   repair: {
     title: 'Процесс ремонта',
-    badge: repair.value.status === 'in_progress' ? 'В работе' : 'Не начат',
-    note: 'Здесь отображаются сроки, ответственные и текущий статус ремонтных работ.'
+    badge: repair.value.status === 'in_progress' ? 'В работе' : 'Не начат'
   },
   handover: {
     title: 'Выход из ремонта',
-    badge: repair.value.handover?.status === 'completed' ? 'Завершён' : 'Ожидает ремонта',
-    note: 'Раздел предназначен для приёмки помещения и фиксации завершения ремонта.'
+    badge: repair.value.handover?.status === 'completed' ? 'Завершён' : 'Ожидает ремонта'
   }
 }[props.section]))
 
@@ -511,15 +506,5 @@ defineExpose({ agreeDocuments, saveDocuments, canAgree })
       </div>
     </section>
 
-    <aside class="form-card repair-stage-next">
-      <div class="card-heading"><h3>Текущий этап</h3></div>
-      <p>{{ sectionMeta.note }}</p>
-      <div v-if="section === 'documents' && documentPack" class="repair-stage-summary">
-        <div><span>Смета</span><strong>{{ money(estimateSummary.total) }}</strong></div>
-        <div><span>Начало</span><strong>{{ dateValue(documentPack.startDate) || 'Не указано' }}</strong></div>
-        <div><span>Статус</span><strong>{{ documentsAgreed ? 'Согласовано' : 'Черновик' }}</strong></div>
-      </div>
-      <div class="repair-stage-next__status"><span>Помещение</span><strong>{{ repair.stage === 'documents' ? 'Подготовка документов' : 'Передано в ремонт' }}</strong></div>
-    </aside>
   </div>
 </template>
