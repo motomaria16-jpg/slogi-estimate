@@ -95,3 +95,14 @@ test('settings editor collapses to one column without horizontal overflow', () =
   assert.match(editor, /\.estimate-item-grid, \.estimate-new-item \{ grid-template-columns: 1fr; \}/)
   assert.match(editor, /\.settings-save-bar \{ right: 8px; bottom: 8px; left: 8px;/)
 })
+
+test('settings editor uses compact spacing and a clear section hierarchy', () => {
+  const editor = read('frontend/app/components/SettingsEstimateEditor.vue')
+
+  assert.match(editor, /\.estimate-settings \{[^}]*gap: 8px/)
+  assert.match(editor, /input, select \{[^}]*min-height: 38px/)
+  assert.match(editor, /\.estimate-section \{[^}]*border-top: 3px solid #4e8079/)
+  assert.match(editor, /\.estimate-section-header \{[^}]*linear-gradient/)
+  assert.match(editor, /\.estimate-section-name input \{[^}]*font-size: 17px/)
+  assert.match(editor, /\.estimate-subsection > header \{[^}]*background: #f0f5f3/)
+})
