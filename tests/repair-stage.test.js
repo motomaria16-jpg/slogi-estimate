@@ -46,3 +46,41 @@ test('later stages unlock only their completed predecessors', () => {
 test('repair cannot start before agreement', () => {
   assert.throws(() => repair.startDocuments(project({ approval: { status: 'pending' } })), /согласуйте/)
 })
+
+test('repair documents are attached and replaced immutably', () => {
+  const source = project({ repair: { stage: 'documents', documents: [{ kind: 'technicalTask' }] } })
+  const attached = repair.attachDocument(source, {
+    kind: 'technicalTask',
+    name: 'Техническое задание.docx',
+    attachmentType: 'repair-technical-1',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    size: 123,
+    actorId: 'user-1'
+  }, { now: '2026-10-30T08:00:00.000Z' })
+  assert.equal(repair.documentOf(attached, 'technicalTask').name, 'Техническое задание.docx')
+  assert.equal(repair.documentOf(attached, 'technicalTask').uploadedById, 'user-1')
+  assert.equal(repair.documentOf(source, 'technicalTask').name, '')
+
+  const replaced = repair.attachDocument(attached, {
+    kind: 'technicalTask',
+    name: 'Техническое задание v2.pdf',
+    attachmentType: 'repair-technical-2'
+  }, { now: '2026-10-30T09:00:00.000Z' })
+  assert.equal(replaced.phase0.spaceCard.work.repair.documents.length, 1)
+  assert.equal(repair.documentOf(replaced, 'technicalTask').attachmentType, 'repair-technical-2')
+  assert.equal(repair.documentOf(attached, 'technicalTask').attachmentType, 'repair-technical-1')
+})
+
+test('repair document removal targets the exact kind and attachment', () => {
+  let source = project({ repair: { stage: 'documents', documents: [] } })
+  source = repair.attachDocument(source, { kind: 'technicalTask', name: 'ТЗ.docx', attachmentType: 'repair-technical-1' })
+  source = repair.attachDocument(source, { kind: 'estimate', name: 'Смета.xlsx', attachmentType: 'repair-estimate-1' })
+
+  const unchanged = repair.removeDocument(source, { kind: 'technicalTask', attachmentType: 'another-file' })
+  assert.equal(unchanged.phase0.spaceCard.work.repair.documents.length, 2)
+
+  const removed = repair.removeDocument(source, { kind: 'technicalTask', attachmentType: 'repair-technical-1' })
+  assert.equal(repair.documentOf(removed, 'technicalTask'), null)
+  assert.equal(repair.documentOf(removed, 'estimate').name, 'Смета.xlsx')
+  assert.equal(repair.documentOf(source, 'technicalTask').name, 'ТЗ.docx')
+})

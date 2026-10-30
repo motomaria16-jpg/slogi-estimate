@@ -50,3 +50,23 @@ test('repair list cards have stage-specific status and action labels', () => {
   assert.match(card, /return 'Открыть ремонт'/)
   assert.match(card, /return 'Открыть выход'/)
 })
+
+test('repair document rows keep fixed add, download and delete controls', () => {
+  const tab = read('frontend/app/components/PropertyRepairStageTab.vue')
+  const css = read('frontend/app/assets/css/main.css')
+
+  assert.match(tab, /class="[^"]*repair-document-row[^"]*"/)
+  assert.match(tab, /class="approval-document-slot"/)
+  assert.match(tab, /class="[^"]*repair-document-actions[^"]*"/)
+  for (const label of ['Добавить', 'Скачать', 'Удалить']) {
+    assert.match(tab, new RegExp(`>${label}<\\/button>`))
+  }
+  assert.match(tab, /workflow\.saveAttachment\(/)
+  assert.match(tab, /workflow\.getAttachment\(/)
+  assert.match(tab, /workflow\.deleteAttachment\(/)
+  assert.match(tab, /workflow\.download\(/)
+  assert.match(tab, /:disabled="[^"]*!row\.ready[^"]*"[^>]*>Скачать<\/button>/)
+  assert.match(tab, /:disabled="[^"]*!row\.ready[^"]*"[^>]*>Удалить<\/button>/)
+  assert.match(css, /\.repair-document-row \{[^}]*min-height:/)
+  assert.match(css, /\.approval-document-actions \{[^}]*display: grid;[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/)
+})

@@ -111,7 +111,7 @@ try {
     { name: 'Выписка.pdf', mimeType: 'application/pdf', buffer: Buffer.from('ownership') },
     { name: 'Доверенность.pdf', mimeType: 'application/pdf', buffer: Buffer.from('authority') }
   ])
-  await page.getByText('Доверенность.pdf').waitFor()
+  await page.waitForFunction(() => Array.from(document.querySelectorAll('.approval-file-select option')).some(option => option.textContent === 'Доверенность.pdf'))
   assert.equal(await page.getByRole('button', { name: 'Согласовано', exact: true }).isEnabled(), true)
   assert.equal(await page.getByRole('button', { name: 'Удалить', exact: true }).count(), 3)
   const actionsAfterUpload = await actionGeometry()
@@ -187,6 +187,46 @@ try {
   const repairTabLabels = () => repairCard.locator('.property-tabs button').evaluateAll(buttons => buttons.map(button => (button.textContent || '').replace(/·/g, '').trim()))
   assert.deepEqual(await repairTabLabels(), ['Документы', 'Ремонт', 'Выход из ремонта'])
   assert.deepEqual(await repairCard.locator('.property-tabs button').evaluateAll(buttons => buttons.map(button => button.disabled)), [false, true, true])
+  const repairActionGeometry = () => repairCard.locator('.repair-document-actions').evaluateAll(groups => groups.map(group => ({
+    x: group.getBoundingClientRect().x,
+    y: group.getBoundingClientRect().y,
+    width: group.getBoundingClientRect().width,
+    labels: Array.from(group.querySelectorAll('button')).map(button => button.textContent?.trim()),
+    disabled: Array.from(group.querySelectorAll('button')).map(button => button.disabled)
+  })))
+  const repairActionsBeforeUpload = await repairActionGeometry()
+  assert.equal(repairActionsBeforeUpload.length, 3)
+  for (const group of repairActionsBeforeUpload) {
+    assert.deepEqual(group.labels, ['Добавить', 'Скачать', 'Удалить'])
+    assert.deepEqual(group.disabled, [false, true, true])
+  }
+  const technicalTaskRow = repairCard.locator('.repair-document-row').filter({ hasText: 'Техническое задание' })
+  await technicalTaskRow.locator('input[type="file"]').setInputFiles({ name: 'Техническое задание.pdf', mimeType: 'application/pdf', buffer: Buffer.from('technical task') })
+  await technicalTaskRow.getByText('Техническое задание.pdf', { exact: true }).waitFor()
+  assert.equal(await technicalTaskRow.getByRole('button', { name: 'Скачать', exact: true }).isEnabled(), true)
+  assert.equal(await technicalTaskRow.getByRole('button', { name: 'Удалить', exact: true }).isEnabled(), true)
+  const repairActionsAfterUpload = await repairActionGeometry()
+  repairActionsAfterUpload.forEach((group, index) => {
+    assert.deepEqual(group.labels, repairActionsBeforeUpload[index].labels)
+    assert.ok(Math.abs(group.x - repairActionsBeforeUpload[index].x) <= 1)
+    assert.ok(Math.abs(group.y - repairActionsBeforeUpload[index].y) <= 1)
+    assert.ok(Math.abs(group.width - repairActionsBeforeUpload[index].width) <= 1)
+  })
+  const repairDownloadPromise = page.waitForEvent('download')
+  await technicalTaskRow.getByRole('button', { name: 'Скачать', exact: true }).click()
+  assert.equal((await repairDownloadPromise).suggestedFilename(), 'Техническое задание.pdf')
+  page.once('dialog', dialog => dialog.accept())
+  await technicalTaskRow.getByRole('button', { name: 'Удалить', exact: true }).click()
+  await technicalTaskRow.getByText('Техническое задание.pdf', { exact: true }).waitFor({ state: 'detached' })
+  assert.equal(await technicalTaskRow.getByRole('button', { name: 'Скачать', exact: true }).isDisabled(), true)
+  assert.equal(await technicalTaskRow.getByRole('button', { name: 'Удалить', exact: true }).isDisabled(), true)
+  const repairActionsAfterDelete = await repairActionGeometry()
+  repairActionsAfterDelete.forEach((group, index) => {
+    assert.deepEqual(group.labels, repairActionsBeforeUpload[index].labels)
+    assert.ok(Math.abs(group.x - repairActionsBeforeUpload[index].x) <= 1)
+    assert.ok(Math.abs(group.y - repairActionsBeforeUpload[index].y) <= 1)
+    assert.ok(Math.abs(group.width - repairActionsBeforeUpload[index].width) <= 1)
+  })
   const repairLayout = await repairCard.evaluate(card => ({
     overflow: card.scrollWidth - card.clientWidth,
     bodyOverflow: card.querySelector('.property-body').scrollHeight - card.querySelector('.property-body').clientHeight

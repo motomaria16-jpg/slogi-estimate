@@ -272,9 +272,9 @@ function agreeApproval() { return approvalTab.value?.agree() }
         <PropertyWorkflowTab v-else-if="activeTab === 'workflow' && project" :project="project" @changed="changed" @proposal="toProposal" />
         <PropertyProposalTab v-else-if="activeTab === 'proposal' && project" :project="project" @changed="changed" @approval="toApproval" />
         <PropertyApprovalTab v-else-if="activeTab === 'approval' && project" ref="approvalTab" :project="project" @changed="changed" @decision="approvalDecision" />
-        <PropertyRepairStageTab v-else-if="activeTab === 'repair-documents' && project" :project="project" section="documents" />
-        <PropertyRepairStageTab v-else-if="activeTab === 'repair-process' && project" :project="project" section="repair" />
-        <PropertyRepairStageTab v-else-if="activeTab === 'repair-handover' && project" :project="project" section="handover" />
+        <PropertyRepairStageTab v-else-if="activeTab === 'repair-documents' && project" :project="project" section="documents" @changed="changed" />
+        <PropertyRepairStageTab v-else-if="activeTab === 'repair-process' && project" :project="project" section="repair" @changed="changed" />
+        <PropertyRepairStageTab v-else-if="activeTab === 'repair-handover' && project" :project="project" section="handover" @changed="changed" />
       </div>
       <footer class="property-footer"><button v-if="activeTab === 'approval'" class="button accent" :disabled="!canAgreeApproval" @click="agreeApproval">Согласовано</button><button class="button" @click="close">Отменить</button><button class="button primary" :disabled="saving" @click="save">Сохранить</button></footer>
       <AppToast scope="dialog" />
