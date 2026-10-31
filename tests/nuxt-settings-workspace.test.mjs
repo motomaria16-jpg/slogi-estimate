@@ -106,3 +106,17 @@ test('settings editor uses compact spacing and a clear section hierarchy', () =>
   assert.match(editor, /\.estimate-section-name input \{[^}]*font-size: 17px/)
   assert.match(editor, /\.estimate-subsection > header \{[^}]*background: #f0f5f3/)
 })
+
+test('settings editor keeps only essential guidance and save is always available', () => {
+  const editor = read('frontend/app/components/SettingsEstimateEditor.vue')
+  const composable = read('frontend/app/composables/useRepairEstimateSettings.ts')
+
+  assert.doesNotMatch(editor, /Этот шаблон используется для автоматического формирования документов ремонта/)
+  assert.doesNotMatch(editor, /Раздел будет повторён|Раздел будет добавлен в смету один раз/)
+  assert.doesNotMatch(editor, /В подразделе пока нет трат/)
+  assert.doesNotMatch(editor, /Все изменения сохранены|Есть несохранённые изменения/)
+  assert.match(editor, /<button class="button primary" type="button" :disabled="saving" @click="save">/)
+  assert.doesNotMatch(editor, /class="button primary"[^>]*:disabled="!dirty \|\| saving"/)
+  assert.doesNotMatch(editor, /:disabled="!exporterAvailable \|\| dirty \|\| Boolean\(exporting\)"/)
+  assert.match(composable, /show\(exportHint\.value \|\| 'Сначала сохраните изменения шаблона\.', 'error'\)/)
+})

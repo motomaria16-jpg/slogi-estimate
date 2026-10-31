@@ -19,27 +19,59 @@ function matchingIndex(items, generated, matchers) {
   return items.findIndex(current => matchers.some(matcher => matcher(current, generated)))
 }
 
-function mergeItems(generatedItems, currentItems) {
-  const remaining = [...list(currentItems)]
-  const items = list(generatedItems).map(generated => {
-    const index = matchingIndex(remaining, generated, [
-      (current, next) => Boolean(current?.id && next?.id && current.id === next.id),
-      (current, next) => Boolean(current?.templateItemId && next?.templateItemId && current.templateItemId === next.templateItemId)
-    ])
-    if (index < 0) return { ...generated }
-    const [current] = remaining.splice(index, 1)
+const templateFields = ['name', 'price', 'quantity', 'unit', 'link', 'customMade']
+
+function sameValue(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right)
+}
+
+function mergeMatchedItem(generated, current) {
+  const previousTemplate = current?.templateSnapshot
+  if (!previousTemplate || typeof previousTemplate !== 'object') {
+    // Legacy estimates have no baseline that lets us distinguish a historical
+    // template value from a manual project override. The deterministic safe
+    // migration policy treats existing legacy values as project overrides:
+    // additions from Settings still arrive, while no stored value is lost.
+    // The new snapshot makes all newly generated rows field-reconcilable.
     return {
       ...generated,
       ...current,
       id: generated.id,
-      ...(generated.templateItemId ? { templateItemId: generated.templateItemId } : {})
+      ...(generated.templateItemId ? { templateItemId: generated.templateItemId } : {}),
+      ...(generated.templateSnapshot ? { templateSnapshot: { ...generated.templateSnapshot } } : {})
     }
+  }
+
+  const merged = { ...current, ...generated }
+  for (const field of templateFields) {
+    if (!sameValue(current?.[field], previousTemplate[field])) merged[field] = current[field]
+  }
+  merged.id = generated.id
+  if (generated.templateItemId) merged.templateItemId = generated.templateItemId
+  if (generated.templateSnapshot) merged.templateSnapshot = { ...generated.templateSnapshot }
+  return merged
+}
+
+function mergeItems(generatedItems, currentItems, archivedItems, removedTemplateItemIds) {
+  const remaining = [...list(currentItems), ...list(archivedItems)]
+  const removed = new Set(list(removedTemplateItemIds).map(value => String(value)))
+  const items = list(generatedItems).filter(generated => !removed.has(String(generated?.templateItemId || ''))).map(generated => {
+    const index = matchingIndex(remaining, generated, [
+      (current, next) => Boolean(current?.templateItemId && next?.templateItemId && current.templateItemId === next.templateItemId),
+      (current, next) => Boolean(current?.id && next?.id && current.id === next.id && Boolean(current?.templateItemId) === Boolean(next?.templateItemId))
+    ])
+    if (index < 0) return { ...generated }
+    const [current] = remaining.splice(index, 1)
+    return mergeMatchedItem(generated, current)
   })
 
-  // Rows without a templateItemId were added manually. Template rows can also
-  // remain unmatched after settings changed; keeping them makes regeneration
-  // lossless and lets the user remove them explicitly from this estimate.
-  return [...items, ...remaining.map(item => ({ ...item }))]
+  // Manually added rows remain active. Template rows removed in Settings are
+  // archived, so they neither disappear irreversibly nor duplicate documents.
+  const manualItems = remaining.filter(item => !item?.templateItemId).map(item => ({ ...item }))
+  const nextArchivedItems = remaining.filter(item => item?.templateItemId).map(item => ({ ...item }))
+  return nextArchivedItems.length
+    ? { items: [...items, ...manualItems], archivedItems: nextArchivedItems }
+    : { items: [...items, ...manualItems] }
 }
 
 function mergeSubsections(generatedSection, currentSection) {
@@ -56,11 +88,14 @@ function mergeSubsections(generatedSection, currentSection) {
     ])
     const current = index >= 0 ? candidates[index] : null
     if (index >= 0) used.add(index)
-    return {
+    const mergedItems = mergeItems(generated.items, current?.items, current?.archivedItems, current?.removedTemplateItemIds)
+    const merged = {
       ...(current || {}),
       ...generated,
-      items: mergeItems(generated.items, current?.items)
+      ...mergedItems
     }
+    if (!Object.prototype.hasOwnProperty.call(mergedItems, 'archivedItems')) delete merged.archivedItems
+    return merged
   })
 
   const archivedSubsections = candidates

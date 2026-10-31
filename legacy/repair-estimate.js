@@ -59,6 +59,21 @@
     while(used.has(id)){index+=1;id=`${prefix}-${index}`;}
     return id;
   }
+  function persistentId(items,prefix){
+    const used=new Set((Array.isArray(items)?items:[]).map(item=>text(item&&item.id)));
+    const cryptoApi=typeof globalThis==='object'&&globalThis.crypto?globalThis.crypto:null;
+    let id='';
+    do{
+      let token='';
+      if(cryptoApi&&typeof cryptoApi.randomUUID==='function')token=cryptoApi.randomUUID();
+      else if(cryptoApi&&typeof cryptoApi.getRandomValues==='function'){
+        const values=new Uint32Array(4);cryptoApi.getRandomValues(values);
+        token=Array.from(values,value=>value.toString(36)).join('-');
+      }else token=`${Date.now().toString(36)}-${Math.random().toString(36).slice(2,12)}`;
+      id=`${prefix}-${token}`;
+    }while(used.has(id));
+    return id;
+  }
   function dateOnly(value){
     const raw=text(value);
     if(!raw)return'';
@@ -142,6 +157,10 @@
       updatedById:text(input.updatedById)||null
     });
   }
+  function settingsSignature(source){
+    const settings=normalizeSettings(source);
+    return JSON.stringify({schemaVersion:settings.schemaVersion,sections:settings.sections});
+  }
   function stampSettings(settings,command,context){
     settings.updatedAt=text(context&&context.now)||new Date().toISOString();
     settings.updatedById=text(command&&command.actorId)||settings.updatedById||null;
@@ -162,7 +181,7 @@
     const settings=normalizeSettings(source),name=text(command.name);
     if(!name)throw new Error('Укажите название раздела.');
     const scope=SECTION_SCOPES.includes(text(command.scope))?text(command.scope):'fixed';
-    const id=text(command.id)||nextId(settings.sections,'section');
+    const id=text(command.id)||persistentId(settings.sections,'section');
     if(settings.sections.some(item=>item.id===id))throw new Error('Раздел с таким идентификатором уже существует.');
     const subsections=Array.isArray(command.subsections)?command.subsections:defaultSubsections(id);
     settings.sections.push(normalizeSection({id,name,scope,subsections},settings.sections.length));
@@ -188,7 +207,7 @@
     const settings=normalizeSettings(source),section=findSection(settings,command.sectionId),kind=subsectionKind(command.kind||command.name);
     if(!kind)throw new Error('Выберите подраздел: мебель, оснащение, отделка или работа.');
     if(section.subsections.some(item=>item.kind===kind))throw new Error('Такой подраздел уже добавлен.');
-    section.subsections.push(normalizeSubsection({id:text(command.id)||`${section.id}-${kind}`,kind,name:text(command.name)||SUBSECTION_LABELS[kind],items:command.items},section.id,kind));
+    section.subsections.push(normalizeSubsection({id:text(command.id)||persistentId(section.subsections,`${section.id}-${kind}`),kind,name:text(command.name)||SUBSECTION_LABELS[kind],items:command.items},section.id,kind));
     section.subsections.sort((a,b)=>SUBSECTION_KINDS.indexOf(a.kind)-SUBSECTION_KINDS.indexOf(b.kind));
     return stampSettings(settings,command,context);
   }
@@ -201,7 +220,7 @@
     const settings=normalizeSettings(source),section=findSection(settings,command.sectionId),subsection=findSubsection(section,command.subsectionId||command.kind);
     const row=command.item&&typeof command.item==='object'?command.item:command;
     if(!text(row.name))throw new Error('Укажите название траты.');
-    const id=text(row.id)||nextId(subsection.items,`${subsection.id}-item`);
+    const id=text(row.id)||persistentId(subsection.items,`${subsection.id}-item`);
     if(subsection.items.some(item=>item.id===id))throw new Error('Строка с таким идентификатором уже существует.');
     subsection.items.push(normalizeTemplateItem(Object.assign({},row,{id}),subsection.kind,id));
     return stampSettings(settings,command,context);
@@ -252,6 +271,9 @@
     if(section.scope==='fixed')return section.name;
     return section.name.includes('{n}')?section.name.replace(/\{n\}/g,String(index)):`${section.name} ${index}`;
   }
+  function templateItemSnapshot(item){
+    return{name:item.name,price:item.price,quantity:item.quantity,unit:item.unit,link:item.link,customMade:Boolean(item.customMade)};
+  }
   function estimateSections(settings,cabinetsCount,restroomsCount){
     const result=[];
     settings.sections.forEach(section=>{
@@ -269,10 +291,14 @@
             templateSubsectionId:subsection.id,
             kind:subsection.kind,
             name:subsection.name,
-            items:subsection.items.map((item,itemIndex)=>normalizeTemplateItem(Object.assign({},item,{
-              id:`${instanceId}-${subsection.kind}-${item.id||itemIndex+1}`,
-              templateItemId:item.id
-            }),subsection.kind,`${instanceId}-${subsection.kind}-item-${itemIndex+1}`))
+            items:subsection.items.map((item,itemIndex)=>{
+              const materialized=normalizeTemplateItem(Object.assign({},item,{
+                id:`${instanceId}-${subsection.kind}-${item.id||itemIndex+1}`,
+                templateItemId:item.id
+              }),subsection.kind,`${instanceId}-${subsection.kind}-item-${itemIndex+1}`);
+              materialized.templateSnapshot=templateItemSnapshot(materialized);
+              return materialized;
+            })
           }))
         });
       }
@@ -354,6 +380,7 @@
       status:'draft',cabinetsCount,restroomsCount,
       area:metrics.area,ceilingHeight:metrics.ceilingHeight,
       sections:estimateSections(settings,cabinetsCount,restroomsCount),
+      templateSignature:settingsSignature(settings),templateUpdatedAt:settings.updatedAt,
       generatedAt:at,generatedById:text(command.actorId)||null,updatedAt:at,updatedById:text(command.actorId)||null
     });
     markDocumentsOutdated(state.repair,at);
@@ -398,21 +425,35 @@
   }
   function removeEstimateRow(project,command={},context={}){
     const state=estimateLocation(project,command),id=text(command.itemId||command.id);
-    if(!state.subsection.items.some(item=>item.id===id))throw new Error('Строка сметы не найдена.');
+    const removed=state.subsection.items.find(item=>item.id===id);
+    if(!removed)throw new Error('Строка сметы не найдена.');
+    if(text(removed.templateItemId))state.subsection.removedTemplateItemIds=Array.from(new Set((Array.isArray(state.subsection.removedTemplateItemIds)?state.subsection.removedTemplateItemIds:[]).concat([text(removed.templateItemId)])));
     state.subsection.items=state.subsection.items.filter(item=>item.id!==id);
     return saveEstimateMutation(state,command,context);
   }
   function flatEstimateRows(estimate){
     return calculateEstimate(estimate).sections.flatMap(section=>section.subsections.flatMap(subsection=>subsection.items.map(item=>({
       id:item.id,sectionId:section.id,sectionName:section.name,subsectionId:subsection.id,subsectionKind:subsection.kind,subsectionName:subsection.name,
+      sourceKey:documentSourceKey(section,subsection,item),
       name:item.name,price:item.price,quantity:item.quantity,unit:item.unit,amount:item.amount,link:item.link,customMade:Boolean(item.customMade)
     }))));
+  }
+  function keyPart(value){return encodeURIComponent(text(value));}
+  function documentSourceKey(section={},subsection={},item={}){
+    const templateSectionId=text(section.templateSectionId),templateSubsectionId=text(subsection.templateSubsectionId)||text(subsection.kind),templateItemId=text(item.templateItemId);
+    if(templateSectionId&&templateSubsectionId&&templateItemId)return`template:${keyPart(templateSectionId)}:${keyPart(templateSubsectionId)}:${keyPart(templateItemId)}`;
+    return`estimate:${keyPart(section.id)}:${keyPart(subsection.id)}:${keyPart(item.id)}`;
+  }
+  function stableRowId(sourceKey){
+    const source=text(sourceKey);let hash=2166136261;
+    for(let index=0;index<source.length;index+=1){hash^=source.charCodeAt(index);hash=Math.imul(hash,16777619);}
+    return`spec-${(hash>>>0).toString(36)}`;
   }
   function aggregateRows(rows){
     const grouped=new Map();
     rows.forEach(row=>{
-      const key=[row.name,row.link,row.price,row.unit,row.subsectionKind,Boolean(row.customMade)].join('|');
-      if(!grouped.has(key))grouped.set(key,Object.assign({},clone(row),{id:`spec-${grouped.size+1}`,sections:[row.sectionName]}));
+      const key=text(row.sourceKey)||documentSourceKey({id:row.sectionId},{id:row.subsectionId,kind:row.subsectionKind},{id:row.id});
+      if(!grouped.has(key))grouped.set(key,Object.assign({},clone(row),{id:stableRowId(key),sourceKey:key,sections:[row.sectionName]}));
       else{
         const target=grouped.get(key);target.quantity=Number((nonNegative(target.quantity)+nonNegative(row.quantity)).toFixed(2));target.amount=Number((nonNegative(target.amount)+nonNegative(row.amount)).toFixed(2));
         if(!target.sections.includes(row.sectionName))target.sections.push(row.sectionName);
@@ -446,7 +487,19 @@
     if(Object.prototype.hasOwnProperty.call(row,'amount'))row.amount=nonNegative(row.amount);
     if(Object.prototype.hasOwnProperty.call(row,'percent'))row.percent=nonNegative(row.percent);
     if(Object.prototype.hasOwnProperty.call(row,'date'))row.date=dateOnly(row.date);
+    if(Object.prototype.hasOwnProperty.call(row,'sourceKey'))row.sourceKey=text(row.sourceKey);
     return row;
+  }
+  function documentRowSnapshot(source={}){
+    const row=normalizeDocumentRow(source);
+    const snapshot={};
+    ['name','price','quantity','unit','amount','link','customMade','sectionId','sectionName','subsectionId','subsectionKind','subsectionName','sections'].forEach(key=>{
+      if(Object.prototype.hasOwnProperty.call(row,key))snapshot[key]=clone(row[key]);
+    });
+    return snapshot;
+  }
+  function stampGeneratedRows(rows){
+    return(Array.isArray(rows)?rows:[]).map(row=>Object.assign({},row,{sourceSnapshot:documentRowSnapshot(row)}));
   }
   function normalizeGeneratedDocument(source={},kind=''){
     const input=source&&typeof source==='object'?source:{},resolvedKind=DOCUMENT_KINDS.includes(text(kind||input.kind))?text(kind||input.kind):'';
@@ -542,11 +595,11 @@
     });
     const commonMeta={area:estimate.area,ceilingHeight:estimate.ceilingHeight,cabinetsCount:estimate.cabinetsCount,restroomsCount:estimate.restroomsCount,total:summary.total};
     const documents={
-      customOrders:{kind:'customOrders',title:DOCUMENT_TITLES.customOrders,rows:ordered,meta:Object.assign({},commonMeta,{total:Number(ordered.reduce((sum,item)=>sum+item.amount,0).toFixed(2))})},
+      customOrders:{kind:'customOrders',title:DOCUMENT_TITLES.customOrders,rows:stampGeneratedRows(ordered),meta:Object.assign({},commonMeta,{total:Number(ordered.reduce((sum,item)=>sum+item.amount,0).toFixed(2))})},
       repairRoadmap:{kind:'repairRoadmap',title:DOCUMENT_TITLES.repairRoadmap,rows:milestones,meta:Object.assign({},commonMeta,{startDate,endDate:milestones.length?milestones[milestones.length-1].date:startDate,durationDays:count(command.repairDurationDays,60)})},
-      purchaseSpecification:{kind:'purchaseSpecification',title:DOCUMENT_TITLES.purchaseSpecification,rows:specification,meta:commonMeta},
+      purchaseSpecification:{kind:'purchaseSpecification',title:DOCUMENT_TITLES.purchaseSpecification,rows:stampGeneratedRows(specification),meta:commonMeta},
       paymentSchedule:{kind:'paymentSchedule',title:DOCUMENT_TITLES.paymentSchedule,rows:payments,meta:Object.assign({},commonMeta,{paymentForm:text(command.paymentForm)||'Безналичный расчёт'})},
-      fullEstimate:{kind:'fullEstimate',title:DOCUMENT_TITLES.fullEstimate,rows,meta:Object.assign({},commonMeta,{sectionTotals:summary.sections.map(section=>({id:section.id,name:section.name,total:section.total})),subsectionTotals:summary.subsections})}
+      fullEstimate:{kind:'fullEstimate',title:DOCUMENT_TITLES.fullEstimate,rows:stampGeneratedRows(rows),meta:Object.assign({},commonMeta,{sectionTotals:summary.sections.map(section=>({id:section.id,name:section.name,total:section.total})),subsectionTotals:summary.subsections})}
     };
     DOCUMENT_KINDS.forEach(kind=>{documents[kind]=normalizeGeneratedDocument(Object.assign({},documents[kind],{updatedAt:at,updatedById:actorId}),kind);});
     state.repair.documentPack=reconcileRoadmapPack({status:'draft',startDate,documents,generatedAt:at,generatedById:actorId,updatedAt:at,updatedById:actorId},{actorId},{now:at});
@@ -593,6 +646,12 @@
     if(state.kind==='repairRoadmap'&&Object.prototype.hasOwnProperty.call(nextPatch,'offsetDays')&&!Object.prototype.hasOwnProperty.call(nextPatch,'date'))nextPatch.date=addDays(state.pack.startDate,nextPatch.offsetDays);
     if(state.kind==='repairRoadmap'&&Object.prototype.hasOwnProperty.call(nextPatch,'date')&&!Object.prototype.hasOwnProperty.call(nextPatch,'offsetDays'))nextPatch.offsetDays=daysBetween(state.pack.startDate,nextPatch.date);
     state.document.rows[index]=normalizeDocumentRow(Object.assign({},currentRow,nextPatch,{id:currentRow.id}),currentRow.id);
+    if(currentRow.sourceSnapshot&&typeof currentRow.sourceSnapshot==='object'){
+      const ignored=new Set(['id','kind','actorId','rowId','sourceSnapshot','manualOverrides']);
+      const overrides=new Set(Array.isArray(currentRow.manualOverrides)?currentRow.manualOverrides:[]);
+      Object.keys(nextPatch).filter(key=>!ignored.has(key)).forEach(key=>overrides.add(key));
+      state.document.rows[index].manualOverrides=Array.from(overrides);
+    }
     if(['customOrders','purchaseSpecification','fullEstimate'].includes(state.kind)&&(Object.prototype.hasOwnProperty.call(nextPatch,'price')||Object.prototype.hasOwnProperty.call(nextPatch,'quantity'))&&!Object.prototype.hasOwnProperty.call(nextPatch,'amount'))state.document.rows[index].amount=Number((nonNegative(state.document.rows[index].price)*nonNegative(state.document.rows[index].quantity,1)).toFixed(2));
     if(state.kind==='paymentSchedule'&&Object.prototype.hasOwnProperty.call(nextPatch,'paymentForm'))state.document.meta=Object.assign({},state.document.meta,{paymentForm:text(nextPatch.paymentForm)});
     if(state.kind==='paymentSchedule'&&Object.prototype.hasOwnProperty.call(nextPatch,'date')&&!Object.prototype.hasOwnProperty.call(nextPatch,'milestoneId')&&text(currentRow.milestoneId)){
@@ -607,7 +666,14 @@
   }
   function removeDocumentRow(project,command={},context={}){
     const state=documentState(project,command),id=text(command.rowId||command.id);
-    if(!state.document.rows.some(row=>row.id===id))throw new Error('Строка документа не найдена.');
+    const removed=state.document.rows.find(row=>row.id===id);
+    if(!removed)throw new Error('Строка документа не найдена.');
+    if(removed.sourceSnapshot&&typeof removed.sourceSnapshot==='object'){
+      const meta=state.document.meta&&typeof state.document.meta==='object'?state.document.meta:{};
+      const patch={removedGeneratedRowIds:Array.from(new Set((Array.isArray(meta.removedGeneratedRowIds)?meta.removedGeneratedRowIds:[]).concat([id])))};
+      if(text(removed.sourceKey))patch.removedGeneratedRowKeys=Array.from(new Set((Array.isArray(meta.removedGeneratedRowKeys)?meta.removedGeneratedRowKeys:[]).concat([text(removed.sourceKey)])));
+      state.document.meta=Object.assign({},meta,patch);
+    }
     state.document.rows=state.document.rows.filter(row=>row.id!==id);
     if(state.kind==='repairRoadmap'){
       state.pack.documents.repairRoadmap=state.document;
@@ -657,7 +723,7 @@
 
   return Object.freeze({
     SCHEMA_VERSION,SUBSECTION_KINDS,SUBSECTION_LABELS,SECTION_SCOPES,DOCUMENT_KINDS,DOCUMENT_TITLES,
-    defaultSettings,normalizeSettings,normalizeSection,normalizeSubsection,normalizeTemplateItem,
+    defaultSettings,normalizeSettings,settingsSignature,normalizeSection,normalizeSubsection,normalizeTemplateItem,
     addSection,updateSection,removeSection,addSubsection,removeSubsection,addTemplateItem,updateTemplateItem,removeTemplateItem,
     normalizeEstimate,estimateOf,generateEstimate,generateAll,updateEstimate,addEstimateRow,updateEstimateRow,removeEstimateRow,calculateEstimate,customFurniture,
     deriveLeaseStartDate,normalizeGeneratedDocument,normalizeDocumentPack,documentsOf,generateDocuments,updateDocument,addDocumentRow,updateDocumentRow,removeDocumentRow,

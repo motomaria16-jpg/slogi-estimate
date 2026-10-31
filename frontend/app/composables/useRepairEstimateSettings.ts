@@ -206,7 +206,11 @@ export function useRepairEstimateSettings() {
   }
 
   async function exportExcel(kind: RepairEstimateExportKind) {
-    if (exporting.value || dirty.value || !exporterAvailable.value) return
+    if (exporting.value) return
+    if (!exporterAvailable.value || dirty.value) {
+      show(exportHint.value || 'Сначала сохраните изменения шаблона.', 'error')
+      return
+    }
     exporting.value = kind
     try {
       const value = runtime()

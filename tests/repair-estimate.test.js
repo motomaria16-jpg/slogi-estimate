@@ -65,6 +65,17 @@ test('default settings describe repeatable rooms and the four supported subsecti
   assert.equal(settings.sections[1].name, 'Санузел {n}')
 })
 
+test('settings signature tracks template content without depending on save metadata', () => {
+  const source = configuredSettings()
+  const sameContent = { ...structuredClone(source), updatedAt: '2026-10-31T08:00:00.000Z', updatedById: 'another-user' }
+  const changed = estimate.addTemplateItem(source, {
+    sectionId: 'reception', kind: 'equipment', item: { id: 'terminal', name: 'Терминал', price: 45000 }
+  })
+
+  assert.equal(estimate.settingsSignature(source), estimate.settingsSignature(sameContent))
+  assert.notEqual(estimate.settingsSignature(source), estimate.settingsSignature(changed))
+})
+
 test('settings operations are immutable and normalize prices, links and made-to-order furniture', () => {
   const source = estimate.normalizeSettings({ sections: [] })
   const withSection = estimate.addSection(source, { id: 'studio', name: 'Кабинет звукозаписи', actorId: 'admin' }, { now: '2026-10-30T10:00:00.000Z' })
@@ -90,6 +101,35 @@ test('settings operations are immutable and normalize prices, links and made-to-
   assert.equal(withEquipment.sections[0].subsections[0].items[0].price, 12500.5)
 })
 
+test('generated settings identifiers are not reused after entries are removed', () => {
+  let sections = estimate.normalizeSettings({ sections: [] })
+  sections = estimate.addSection(sections, { name: 'Первый раздел', subsections: [] })
+  const removedSectionId = sections.sections[0].id
+  sections = estimate.removeSection(sections, { sectionId: removedSectionId })
+  sections = estimate.addSection(sections, { name: 'Новый раздел', subsections: [] })
+  assert.notEqual(sections.sections[0].id, removedSectionId)
+
+  let settings = estimate.defaultSettings()
+  const originalSubsectionId = settings.sections[0].subsections[0].id
+  settings = estimate.removeSubsection(settings, { sectionId: 'cabinet', subsectionId: originalSubsectionId })
+  settings = estimate.addSubsection(settings, { sectionId: 'cabinet', kind: 'furniture' })
+  const replacementSubsection = settings.sections[0].subsections.find(item => item.kind === 'furniture')
+  assert.notEqual(replacementSubsection.id, originalSubsectionId)
+
+  settings = estimate.addTemplateItem(settings, {
+    sectionId: 'cabinet', subsectionId: replacementSubsection.id, item: { name: 'Старая позиция', price: 100 }
+  })
+  const removedItemId = settings.sections[0].subsections.find(item => item.kind === 'furniture').items[0].id
+  settings = estimate.removeTemplateItem(settings, {
+    sectionId: 'cabinet', subsectionId: replacementSubsection.id, itemId: removedItemId
+  })
+  settings = estimate.addTemplateItem(settings, {
+    sectionId: 'cabinet', subsectionId: replacementSubsection.id, item: { name: 'Новая позиция', price: 200 }
+  })
+  const newItemId = settings.sections[0].subsections.find(item => item.kind === 'furniture').items[0].id
+  assert.notEqual(newItemId, removedItemId)
+})
+
 test('estimate generation expands cabinet and restroom templates and takes property metrics automatically', () => {
   const source = project()
   const generated = estimate.generateEstimate(source, configuredSettings(), { cabinetsCount: 2, restroomsCount: 1, actorId: 'estimator' }, { now: '2026-10-30T11:00:00.000Z' })
@@ -101,6 +141,10 @@ test('estimate generation expands cabinet and restroom templates and takes prope
   assert.equal(value.ceilingHeight, 3.4)
   assert.equal(value.cabinetsCount, 2)
   assert.equal(value.restroomsCount, 1)
+  assert.equal(value.templateSignature, estimate.settingsSignature(configuredSettings()))
+  assert.deepEqual(value.sections[0].subsections[0].items[0].templateSnapshot, {
+    name: 'Стол администратора', price: 100000, quantity: 1, unit: 'шт.', link: 'https://vendor.test/desk', customMade: true
+  })
   assert.equal(totals.subsections.furniture, 200000)
   assert.equal(totals.subsections.equipment, 50000)
   assert.equal(totals.subsections.finishing, 50000)
@@ -132,6 +176,18 @@ test('every estimate metric and row can be changed without mutating the previous
   assert.equal(estimate.estimateOf(generated).sections[0].subsections[0].items.some(item => item.id === 'chair'), false)
 })
 
+test('removing a template estimate row records a project-level tombstone', () => {
+  const generated = estimate.generateEstimate(project(), configuredSettings(), { cabinetsCount: 1, restroomsCount: 0 })
+  const cabinet = estimate.estimateOf(generated).sections[0]
+  const furniture = cabinet.subsections.find(item => item.kind === 'furniture')
+  const removed = estimate.removeEstimateRow(generated, {
+    sectionId: cabinet.id, subsectionId: furniture.id, itemId: furniture.items[0].id
+  })
+  const removedFurniture = estimate.estimateOf(removed).sections[0].subsections.find(item => item.kind === 'furniture')
+
+  assert.deepEqual(removedFurniture.removedTemplateItemIds, ['desk'])
+})
+
 test('all five documents are generated from the estimate and lease signing date', () => {
   const generated = estimate.generateAll(project(), configuredSettings(), {
     cabinetsCount: 2,
@@ -148,6 +204,7 @@ test('all five documents are generated from the estimate and lease signing date'
   assert.equal(pack.documents.customOrders.rows[0].name, 'Стол администратора')
   assert.equal(pack.documents.customOrders.rows[0].quantity, 2)
   assert.equal(pack.documents.customOrders.rows[0].amount, 200000)
+  assert.match(pack.documents.customOrders.rows[0].sourceKey, /^template:/)
   assert.equal(pack.documents.purchaseSpecification.rows.find(row => row.name === 'Экран').quantity, 2)
   assert.equal(pack.documents.fullEstimate.meta.area, 180)
   assert.equal(pack.documents.fullEstimate.meta.ceilingHeight, 3.4)
@@ -175,6 +232,47 @@ test('generated documents remain fully editable row by row', () => {
   assert.equal(estimate.documentsOf(titled).documents.repairRoadmap.title, 'Дорожная карта ремонта')
   assert.equal(estimate.documentsOf(removed).documents.repairRoadmap.rows.some(row => row.id === 'inspection'), false)
   assert.equal(estimate.documentsOf(generated).documents.repairRoadmap.rows.some(row => row.id === 'inspection'), false)
+})
+
+test('generated procurement rows track manual overrides and deletion tombstones', () => {
+  const generated = estimate.generateAll(project(), configuredSettings(), { cabinetsCount: 1, restroomsCount: 0 })
+  const specification = estimate.documentsOf(generated).documents.purchaseSpecification
+  const sourceRow = specification.rows[0]
+  assert.ok(sourceRow.sourceSnapshot)
+
+  const updated = estimate.updateDocumentRow(generated, {
+    kind: 'purchaseSpecification', rowId: sourceRow.id, patch: { name: 'Согласованная позиция' }
+  })
+  const updatedRow = estimate.documentsOf(updated).documents.purchaseSpecification.rows.find(row => row.id === sourceRow.id)
+  assert.deepEqual(updatedRow.manualOverrides, ['name'])
+
+  const removed = estimate.removeDocumentRow(updated, { kind: 'purchaseSpecification', rowId: sourceRow.id })
+  assert.deepEqual(estimate.documentsOf(removed).documents.purchaseSpecification.meta.removedGeneratedRowIds, [sourceRow.id])
+  assert.deepEqual(estimate.documentsOf(removed).documents.purchaseSpecification.meta.removedGeneratedRowKeys, [sourceRow.sourceKey])
+})
+
+test('generated procurement ids stay attached to template identity when settings order changes', () => {
+  const settings = configuredSettings()
+  const first = estimate.generateAll(project(), settings, { cabinetsCount: 2, restroomsCount: 1 })
+  const firstRows = estimate.documentsOf(first).documents.purchaseSpecification.rows
+  const desk = firstRows.find(row => row.name === 'Стол администратора')
+  const screen = firstRows.find(row => row.name === 'Экран')
+
+  const reordered = structuredClone(settings)
+  const cabinet = reordered.sections.find(section => section.id === 'cabinet')
+  const equipment = cabinet.subsections.find(subsection => subsection.kind === 'equipment')
+  equipment.items.unshift({ id: 'lamp', name: 'Светильник', price: 5000, quantity: 1, unit: 'шт.' })
+  const second = estimate.generateAll(project(), reordered, { cabinetsCount: 2, restroomsCount: 1 })
+  const secondRows = estimate.documentsOf(second).documents.purchaseSpecification.rows
+  const nextDesk = secondRows.find(row => row.name === 'Стол администратора')
+  const nextScreen = secondRows.find(row => row.name === 'Экран')
+
+  assert.equal(nextDesk.id, desk.id)
+  assert.equal(nextDesk.sourceKey, desk.sourceKey)
+  assert.equal(nextDesk.quantity, 2)
+  assert.equal(nextScreen.id, screen.id)
+  assert.equal(nextScreen.sourceKey, screen.sourceKey)
+  assert.equal(nextScreen.quantity, 2)
 })
 
 test('estimate changes mark generated documents outdated until automatic regeneration', () => {

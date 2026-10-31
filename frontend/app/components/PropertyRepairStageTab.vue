@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { formatDate, projectCard, projectWork } from '~/utils/format'
 import { rebaseRepairEstimate } from '~/utils/rebaseRepairEstimate.js'
+import { reconcileRepairDocumentPack } from '~/utils/reconcileRepairDocuments.js'
 
 const props = defineProps<{ project: any; section: 'documents' | 'repair' | 'handover' }>()
 const emit = defineEmits<{ changed: [project: any]; ready: [ready: boolean]; agreed: [project: any] }>()
@@ -116,6 +117,18 @@ function sourceSettings(value = runtime()) {
   return state?.settings?.repairEstimateTemplate ?? value.repairEstimate.defaultSettings()
 }
 
+function sourceSettingsSignature(value = runtime()) {
+  const settings = sourceSettings(value)
+  if (typeof value.repairEstimate.settingsSignature === 'function') return value.repairEstimate.settingsSignature(settings)
+  const normalized = value.repairEstimate.normalizeSettings(settings)
+  return JSON.stringify({ schemaVersion: normalized.schemaVersion, sections: normalized.sections })
+}
+
+function estimateUsesCurrentSettings(project: any, value = runtime()) {
+  const currentEstimate = value.repairEstimate.estimateOf(project)
+  return Boolean(currentEstimate?.templateSignature && currentEstimate.templateSignature === sourceSettingsSignature(value))
+}
+
 function mutateProject(reason: string, transform: (project: any, value: any) => any) {
   const value = runtime()
   const latest = value.phase0.projectRepository.get(props.project.id)
@@ -159,11 +172,11 @@ function regenerateDocuments(silent = false, bubbleError = false) {
     const command = generationCommand()
     const saved = mutateProject('repair-documents-generate', (project, value) => {
       const currentEstimate = value.repairEstimate.estimateOf(project)
-      const countsChanged = !currentEstimate
+      const structureChanged = !currentEstimate
         || Number(currentEstimate.cabinetsCount) !== command.cabinetsCount
         || Number(currentEstimate.restroomsCount) !== command.restroomsCount
       let next = project
-      if (countsChanged) {
+      if (structureChanged || !estimateUsesCurrentSettings(project, value)) {
         next = value.repairEstimate.generateEstimate(project, sourceSettings(value), command)
         const generatedEstimate = value.repairEstimate.estimateOf(next)
         const rebasedEstimate = rebaseRepairEstimate(generatedEstimate, currentEstimate)
@@ -183,7 +196,7 @@ function regenerateDocuments(silent = false, bubbleError = false) {
           }
         })
       }
-      return value.repairEstimate.generateDocuments(next, command)
+      return refreshDocumentsAfterEstimate(next, value)
     })
     syncSetup(saved)
     if (!silent) show('Комплект документов обновлён.')
@@ -209,10 +222,23 @@ function ensureDocuments() {
   syncSetup(currentProject.value)
   const existingEstimate = value.repairEstimate.estimateOf(currentProject.value)
   const pack = value.repairEstimate.documentsOf(currentProject.value)
-  if (existingEstimate && documentDefinitions.every(item => pack?.documents?.[item.kind])) return
+  if (pack?.status === 'agreed' || projectWork(currentProject.value)?.repair?.stage !== 'documents') return
+  const documentsComplete = documentDefinitions.every(item => pack?.documents?.[item.kind])
+  if (existingEstimate && documentsComplete && estimateUsesCurrentSettings(currentProject.value, value)) return
   if (autoGeneratingFor.value === props.project.id) return
   autoGeneratingFor.value = props.project.id
   regenerateDocuments(true)
+}
+
+function handleWorkspaceStorageChange() {
+  autoGeneratingFor.value = ''
+  ensureDocuments()
+}
+
+function handleProfessionalStateChange(event: Event) {
+  const reason = String((event as CustomEvent)?.detail?.reason || '')
+  if (reason && reason !== 'repair-estimate-template-update') return
+  handleWorkspaceStorageChange()
 }
 
 function refreshDocumentsAfterEstimate(next: any, value: any) {
@@ -225,10 +251,11 @@ function refreshDocumentsAfterEstimate(next: any, value: any) {
     milestones: pack?.documents?.repairRoadmap?.rows || undefined,
     paymentTerms: pack?.documents?.paymentSchedule?.rows || undefined
   })
-  for (const item of documentDefinitions) {
-    const title = String(pack?.documents?.[item.kind]?.title || '').trim()
-    if (title && title !== refreshed?.phase0?.spaceCard?.work?.repair?.documentPack?.documents?.[item.kind]?.title) {
-      refreshed = value.repairEstimate.updateDocument(refreshed, { actorId: actor.value.id, kind: item.kind, patch: { title } })
+  if (pack) {
+    const generatedPack = value.repairEstimate.documentsOf(refreshed)
+    const repairState = refreshed?.phase0?.spaceCard?.work?.repair
+    if (generatedPack && repairState) {
+      repairState.documentPack = value.repairEstimate.normalizeDocumentPack(reconcileRepairDocumentPack(generatedPack, pack))
     }
   }
   return refreshed
@@ -375,6 +402,15 @@ watch(estimate, value => {
   }
 }, { immediate: true })
 watch(canAgree, value => emit('ready', value), { immediate: true })
+
+onMounted(() => {
+  window.addEventListener('storage', handleWorkspaceStorageChange)
+  window.addEventListener('slogi:professional-state', handleProfessionalStateChange)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('storage', handleWorkspaceStorageChange)
+  window.removeEventListener('slogi:professional-state', handleProfessionalStateChange)
+})
 
 defineExpose({ agreeDocuments, saveDocuments, canAgree })
 </script>
